@@ -23,33 +23,39 @@ import {
 import { calculateMinutesBetween } from '../../lib/storage';
 
 interface ProgressAnalyticsProps {
-  stream: StreamType;
-  syllabusTopics: SyllabusTopic[];
-  timetableEntries: TimetableEntry[];
-  dailyTasks: DailyTask[];
-  settings: UserSettings;
-  /** Separate additive habit stat (completing revisions never moves syllabus %). */
+  stream?: StreamType;
+  syllabusTopics?: SyllabusTopic[];
+  timetableEntries?: TimetableEntry[];
+  timetable?: TimetableEntry[];
+  dailyTasks?: DailyTask[];
+  settings?: UserSettings;
+  userSettings?: UserSettings;
   revisionCount?: number;
-  /** Signed-in student's id — highlights their row on the leaderboard. */
   currentUserId?: string | null;
 }
 
 export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   stream,
-  syllabusTopics,
+  syllabusTopics = [],
   timetableEntries,
-  dailyTasks,
+  timetable,
+  dailyTasks = [],
   settings,
+  userSettings,
   revisionCount = 0,
   currentUserId = null,
 }) => {
-  // Daily study hour goal drives the weekly target (weekly = daily x 7)
-  const dailyGoal = settings.dailyHoursGoal ?? Math.round((settings.weeklyHoursGoal / 7) * 10) / 10;
+  const effectiveStream = stream || userSettings?.stream || settings?.stream || 'Physical Science';
+  const effectiveSettings = settings || userSettings || { dailyHoursGoal: 4, weeklyHoursGoal: 28, physicalScienceElective: 'Chemistry' };
+  const safeTopics = syllabusTopics || [];
+  const safeTimetable = timetableEntries || timetable || [];
+  const safeDailyTasks = dailyTasks || [];
+
+  const dailyGoal = effectiveSettings.dailyHoursGoal ?? 4;
   const weeklyGoal = Math.round(dailyGoal * 7 * 10) / 10;
 
-  // Get subjects for this student's stream (Physical Science: Combined Maths, Physics, Chem/ICT; Biological Science: Biology, Chem, Physics)
-  const streamSubjects = getSubjectsForStream(stream, settings.physicalScienceElective);
-  const streamProgression = calculateOverallStreamProgression(streamSubjects, syllabusTopics);
+  const streamSubjects = getSubjectsForStream(effectiveStream, effectiveSettings.physicalScienceElective);
+  const streamProgression = calculateOverallStreamProgression(streamSubjects, safeTopics);
 
   const totalTopics = streamProgression.totalTopics;
   const completedTopics = streamProgression.completedTopics;
@@ -61,7 +67,8 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
 
   // Calculate total weekly timetable hours
   let totalWeeklyMinutes = 0;
-  timetableEntries.forEach((entry) => {
+  safeTimetable.forEach((entry) => {
+    if (!entry.startTime || !entry.endTime) return;
     const [sh, sm] = entry.startTime.split(':').map(Number);
     const [eh, em] = entry.endTime.split(':').map(Number);
     const diff = eh * 60 + em - (sh * 60 + sm);
@@ -71,8 +78,8 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const weeklyGoalPercent = Math.min(100, Math.round((weeklyHours / weeklyGoal) * 100));
 
   // Daily task completion stats
-  const totalTasksAllTime = dailyTasks.length;
-  const completedTasksAllTime = dailyTasks.filter((t) => t.isCompleted).length;
+  const totalTasksAllTime = safeDailyTasks.length;
+  const completedTasksAllTime = safeDailyTasks.filter((t) => t && t.isCompleted).length;
 
   // Weekday names for week calculations (Mon-Sun)
   const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;

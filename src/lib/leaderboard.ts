@@ -53,8 +53,12 @@ export async function fetchLeaderboard(
       };
     });
 
-    // Rank primarily by Syllabus Completed %
-    entries.sort((a, b) => b.syllabusCompletedPercent - a.syllabusCompletedPercent);
+    // Rank by completed study hours, then lessons completed, then streak
+    entries.sort((a, b) => {
+      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
+      if (b.completedTasks !== a.completedTasks) return b.completedTasks - a.completedTasks;
+      return b.currentStreak - a.currentStreak;
+    });
 
     return {
       entries: entries.slice(0, limit),

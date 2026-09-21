@@ -46,22 +46,26 @@ import {
 } from '../../lib/storage';
 
 interface StudyPlannerProps {
-  entries: TimetableEntry[];
-  tasks: DailyTask[];
+  entries?: TimetableEntry[];
+  timetable?: TimetableEntry[];
+  tasks?: DailyTask[];
+  dailyTasks?: DailyTask[];
   syllabusTopics?: SyllabusTopic[];
-  stream: StreamType;
+  stream?: StreamType;
+  userSettings?: UserSettings;
   physicalScienceElective?: 'Chemistry' | 'ICT';
-  onAddEntry: (entry: Omit<TimetableEntry, 'id'> & { syncToDailyPlanner?: boolean }) => void;
-  onUpdateEntry: (entry: TimetableEntry) => void;
-  onDeleteEntry: (id: string) => void;
-  onResetTimetable: () => void;
+  onAddEntry?: (entry: Omit<TimetableEntry, 'id'> & { syncToDailyPlanner?: boolean }) => void;
+  onUpdateEntry?: (entry: TimetableEntry) => void;
+  onDeleteEntry?: (id: string) => void;
+  onResetTimetable?: () => void;
   onToggleEntryCompletion?: (id: string) => void;
-  onToggleTask: (taskId: string) => void;
-  onAddTask: (
+  onToggleTask?: (taskId: string) => void;
+  onAddTask?: (
     task: Omit<DailyTask, 'id'> & { syncToTimetable?: boolean; startTime?: string; endTime?: string }
   ) => void;
-  onDeleteTask: (taskId: string) => void;
-  onSyncFromTimetable: (dateStr: string) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onSyncFromTimetable?: (dateStr: string) => void;
+  onSaveTimetable?: (slots: TimetableEntry[]) => void;
 }
 
 const DAYS_OF_WEEK: DayOfWeek[] = [
@@ -113,11 +117,14 @@ function suggestSlot(dayBlocks: TimetableEntry[], viewingToday: boolean): { star
 }
 
 export const StudyPlanner: React.FC<StudyPlannerProps> = ({
-  entries,
-  tasks,
+  entries: propEntries = [],
+  timetable = [],
+  tasks: propTasks = [],
+  dailyTasks = [],
   syllabusTopics = [],
   stream,
-  physicalScienceElective = 'Chemistry',
+  userSettings,
+  physicalScienceElective,
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
@@ -127,7 +134,19 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   onAddTask,
   onDeleteTask,
   onSyncFromTimetable,
+  onSaveTimetable,
 }) => {
+  const [internalEntries, setInternalEntries] = useState<TimetableEntry[]>(() =>
+    propEntries.length > 0 ? propEntries : timetable
+  );
+  const [internalTasks, setInternalTasks] = useState<DailyTask[]>(() =>
+    propTasks.length > 0 ? propTasks : dailyTasks
+  );
+
+  const entries = internalEntries.length > 0 ? internalEntries : (propEntries.length > 0 ? propEntries : timetable);
+  const tasks = internalTasks.length > 0 ? internalTasks : (propTasks.length > 0 ? propTasks : dailyTasks);
+  const activeStream = stream || userSettings?.stream || 'Physical Science';
+  const activeElective = physicalScienceElective || userSettings?.physicalScienceElective || 'Chemistry';
   const todayStr = getTodayDateString();
   const todayName = getDayOfWeekFromDate(todayStr);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -150,7 +169,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     }
   };
 
-  const availableSubjects = getSubjectsForStream(stream, physicalScienceElective);
+  const availableSubjects = getSubjectsForStream(activeStream, activeElective);
 
   // ---- Single Add / Edit modal state ----
   const [isModalOpen, setIsModalOpen] = useState(false);
