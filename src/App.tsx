@@ -54,9 +54,9 @@ export function App() {
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
 
   // Syllabus & Planner State
-  const [userSettings, setUserSettingsState] = useState<UserSettings>(getUserSettings());
-  const [syllabusTopics, setSyllabusTopics] = useState<SyllabusTopic[]>(getStoredSyllabusTopics());
-  const [timetable, setTimetable] = useState<TimetableEntry[]>(getStoredTimetable());
+  const [userSettings, setUserSettingsState] = useState<UserSettings>(() => getUserSettings() || DEFAULT_SETTINGS);
+  const [syllabusTopics, setSyllabusTopics] = useState<SyllabusTopic[]>(() => getStoredSyllabusTopics() || INITIAL_SYLLABUS_TOPICS);
+  const [timetable, setTimetable] = useState<TimetableEntry[]>(() => getStoredTimetable() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
@@ -211,11 +211,12 @@ export function App() {
 
                 <div className="lg:col-span-2">
                   <DashboardOverview
-                    userProfile={userProfile}
-                    userSettings={userSettings}
-                    timetable={timetable}
-                    syllabusTopics={syllabusTopics}
-                    streak={{ currentStreak: userProfile.streakDays, bestStreak: userProfile.streakDays, isCompletedToday: false, completedDates: [] }}
+                    stream={userSettings?.stream || 'Physical Science'}
+                    physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
+                    timetableEntries={timetable || []}
+                    dailyTasks={[]}
+                    syllabusTopics={syllabusTopics || INITIAL_SYLLABUS_TOPICS}
+                    streakData={{ currentStreak: userProfile?.streakDays || 1, bestStreak: userProfile?.streakDays || 1, isCompletedToday: false, completedDates: [] }}
                     onNavigate={setCurrentScreen}
                     onOpenProfileEdit={() => setIsProfileEditOpen(true)}
                   />

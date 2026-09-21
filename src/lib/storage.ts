@@ -160,7 +160,9 @@ export function getUserSettings(): UserSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) {
-      saveUserSettings(DEFAULT_SETTINGS);
+      try {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
+      } catch (err) {}
       return DEFAULT_SETTINGS;
     }
     const parsed = JSON.parse(raw);
@@ -196,7 +198,13 @@ export function getUserSettings(): UserSettings {
 
 export function saveUserSettings(settings: Partial<UserSettings>): UserSettings {
   try {
-    const current = getUserSettings();
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    let current = DEFAULT_SETTINGS;
+    if (raw) {
+      try {
+        current = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      } catch (err) {}
+    }
     const updated = { ...current, ...settings };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
     return updated;
