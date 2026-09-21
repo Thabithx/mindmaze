@@ -40,46 +40,49 @@ import {
 } from '../../lib/syllabusProgression';
 
 interface DashboardOverviewProps {
-  stream: StreamType;
-  /** Read-only elective (no picker here; change in Settings → Study Programme). */
+  stream?: StreamType;
   physicalScienceElective?: 'Chemistry' | 'ICT';
-  timetableEntries: TimetableEntry[];
-  dailyTasks: DailyTask[];
-  syllabusTopics: SyllabusTopic[];
+  timetableEntries?: TimetableEntry[];
+  timetable?: TimetableEntry[];
+  dailyTasks?: DailyTask[];
+  syllabusTopics?: SyllabusTopic[];
   streakData?: StreakData;
-  /** Separate additive habit stat: completed revision sessions (never affects syllabus %). */
+  streak?: any;
+  userProfile?: any;
+  userSettings?: any;
   revisionCount?: number;
-  /** Expected A/L date "YYYY-MM-DD"; countdown hides when unset. */
   examDate?: string | null;
-  /** Optional Z-score goal + motivation note for the goals strip. */
   targetZScore?: string | null;
   motivationNote?: string | null;
-  notificationPermission: NotificationPermission | 'unsupported';
-  onRequestNotificationPermission: () => void;
+  notificationPermission?: NotificationPermission | 'unsupported';
+  onRequestNotificationPermission?: () => void;
   onTestSmartReminder?: () => void;
   onTestNudge?: () => void;
   onNavigate: (screen: ScreenId) => void;
-  onToggleTask: (taskId: string) => void;
+  onToggleTask?: (taskId: string) => void;
   username?: string | null;
   onNavigateToSettings?: () => void;
-  /** Student's personal daily-hours goal (used until the admin target syncs). */
   dailyHoursGoal?: number;
-  /** Signed-in student's id — highlights their row on the leaderboard. */
   currentUserId?: string | null;
+  onOpenProfileEdit?: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   stream,
-  physicalScienceElective = 'Chemistry',
+  physicalScienceElective,
   timetableEntries,
-  dailyTasks,
-  syllabusTopics,
-  streakData = { currentStreak: 0, bestStreak: 0, completedDates: [], isCompletedToday: false },
+  timetable,
+  dailyTasks = [],
+  syllabusTopics = [],
+  streakData,
+  streak,
+  userProfile,
+  userSettings,
   revisionCount = 0,
-  notificationPermission,
-  onRequestNotificationPermission,
+  notificationPermission = 'default',
+  onRequestNotificationPermission = () => {},
   onNavigate,
-  onToggleTask,
+  onToggleTask = () => {},
   username,
   examDate = null,
   targetZScore = null,
@@ -87,14 +90,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigateToSettings,
   dailyHoursGoal = 2,
   currentUserId = null,
+  onOpenProfileEdit,
 }) => {
+  const effectiveStream = stream || userSettings?.stream || 'Physical Science';
+  const effectiveElective = physicalScienceElective || userSettings?.physicalScienceElective || 'Chemistry';
+  const effectiveTimetable = timetableEntries || timetable || [];
+  const effectiveDailyTasks = dailyTasks || [];
+  const effectiveTopics = syllabusTopics || [];
+
   const todayStr = getTodayDateString();
   const todayDayOfWeek = getTodayDayOfWeek();
 
-  // Dismissible notification prompts: "Later"/X snoozes for 7 days via the
-  // key shared with the floating banner, so dismissed students are never
-  // nagged on every app open. The snooze event keeps this in sync when the
-  // floating banner is dismissed in the same tab.
+  // Dismissible notification prompts
   const [promptSnoozed, setPromptSnoozed] = useState<boolean>(() => isPushPromptSnoozed());
   const [blockedSnoozed, setBlockedSnoozed] = useState<boolean>(() => isBlockedPromptSnoozed());
   useEffect(() => {
@@ -111,24 +118,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     };
   }, []);
 
-  // Selected stream subjects:
-  // Physical Science: Combined Mathematics, Physics, and either Chemistry OR ICT
-  // Biological Science: Biology, Chemistry, Physics (Combined Maths replaced with Biology)
-  const streamSubjectMetas = getSubjectsForStream(stream, physicalScienceElective);
+  const streamSubjectMetas = getSubjectsForStream(effectiveStream, effectiveElective);
 
   // Today's timetable entries
-  const todayBlocks = timetableEntries
-    .filter((e) => e.dayOfWeek === todayDayOfWeek)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const todayBlocks = (effectiveTimetable || [])
+    .filter((e) => e && e.dayOfWeek === todayDayOfWeek)
+    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
   // Today's tasks
-  const todayTasksList = dailyTasks.filter((t) => t.date === todayStr);
+  const todayTasksList = (effectiveDailyTasks || []).filter((t) => t && t.date === todayStr);
   const completedTodayTasks = todayTasksList.filter((t) => t.isCompleted).length;
   const totalTodayTasks = todayTasksList.length;
   const todayTaskPercent = totalTodayTasks === 0 ? 0 : Math.round((completedTodayTasks / totalTodayTasks) * 100);
 
   // Overall syllabus completion across the stream's 3 exact subjects
-  const streamProgression = calculateOverallStreamProgression(streamSubjectMetas, syllabusTopics);
+  const streamProgression = calculateOverallStreamProgression(streamSubjectMetas, effectiveTopics);
   const totalTopicsCount = streamProgression.totalTopics;
   const completedTopicsCount = streamProgression.completedTopics;
   const overallSyllabusPercent = streamProgression.totalPercentage;
