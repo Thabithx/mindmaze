@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
 import { connectDB } from './config/db.js';
+import { seedAdminUser } from './config/seedAdmin.js';
 
 import authRoutes from './routes/authRoutes.js';
 import courseRoutes from './routes/courseRoutes.js';
@@ -20,8 +21,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB Atlas
-connectDB();
+// Connect to MongoDB Atlas and ensure Admin
+connectDB().then(() => {
+  seedAdminUser();
+});
 
 // Middleware
 app.use(cors());

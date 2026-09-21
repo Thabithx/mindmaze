@@ -42,55 +42,82 @@ const FALLBACK_LEADERBOARD_USERS = [
   { _id: 'u8', name: 'Oshada De Silva', stream: 'Physical Science', streakDays: 10, hours: 35.0, lessons: 42 },
 ];
 
+const formatUsersToEntries = (users: any[]): LeaderboardEntry[] => {
+  const entries: LeaderboardEntry[] = users.map((u) => {
+    const streak = u.streakDays || 1;
+    const syllabusPercent = Math.min(100, Math.round(streak * 3.2 + 20));
+    const hours = typeof u.completedHours === 'number' ? u.completedHours : typeof u.hours === 'number' ? u.hours : Math.round(streak * 2.5 * 10) / 10;
+    const tasks = typeof u.completedTasks === 'number' ? u.completedTasks : typeof u.lessons === 'number' ? u.lessons : streak * 3;
+    return {
+      userId: u.userId || u._id || 'u',
+      username: u.username || u.name || 'A/L Scholar',
+      stream: u.stream || 'Physical Science',
+      completedHours: hours,
+      completedTasks: tasks,
+      currentStreak: streak,
+      syllabusCompletedPercent: u.syllabusCompletedPercent || syllabusPercent,
+    };
+  });
+
+  entries.sort((a, b) => {
+    if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
+    if (b.completedTasks !== a.completedTasks) return b.completedTasks - a.completedTasks;
+    return b.currentStreak - a.currentStreak;
+  });
+
+  return entries;
+};
+
+const CACHE_PREFIX = 'mind_maze_leaderboard_cache_';
+
+export function getCachedLeaderboard(period: LeaderboardPeriod, limit = 50): LeaderboardEntry[] {
+  try {
+    const cached = localStorage.getItem(`${CACHE_PREFIX}${period}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, limit);
+      }
+    }
+  } catch {
+    // Ignore localStorage parse errors
+  }
+  return formatUsersToEntries(FALLBACK_LEADERBOARD_USERS).slice(0, limit);
+}
+
 export async function fetchLeaderboard(
   period: LeaderboardPeriod,
   limit = 50
 ): Promise<{ entries: LeaderboardEntry[]; needsSetup: boolean }> {
   try {
-    let users: any[] = [];
+    // Try fast public endpoint first
     try {
-      const res = await api.getAdminUsers();
-      if (res && Array.isArray(res.users) && res.users.length > 0) {
-        users = res.users;
+      const res = await api.getLeaderboard(period, limit);
+      if (res && Array.isArray(res.entries) && res.entries.length > 0) {
+        try {
+          localStorage.setItem(`${CACHE_PREFIX}${period}`, JSON.stringify(res.entries));
+        } catch {
+          // Ignore cache write errors
+        }
+        return {
+          entries: res.entries.slice(0, limit),
+          needsSetup: false,
+        };
       }
     } catch {
-      // Non-admin or 401: gracefully fall back to active student cohort
-      users = FALLBACK_LEADERBOARD_USERS;
+      // Endpoint error or timeout: fall back gracefully to cache / fallback
     }
 
-    if (!users || users.length === 0) {
-      users = FALLBACK_LEADERBOARD_USERS;
-    }
-
-    const entries: LeaderboardEntry[] = users.map((u) => {
-      const streak = u.streakDays || 1;
-      const syllabusPercent = Math.min(100, Math.round(streak * 3.2 + 20));
-      const hours = typeof u.hours === 'number' ? u.hours : Math.round(streak * 2.5 * 10) / 10;
-      const tasks = typeof u.lessons === 'number' ? u.lessons : streak * 3;
-      return {
-        userId: u._id,
-        username: u.name || 'A/L Scholar',
-        stream: u.stream || 'Physical Science',
-        completedHours: hours,
-        completedTasks: tasks,
-        currentStreak: streak,
-        syllabusCompletedPercent: syllabusPercent,
-      };
-    });
-
-    // Rank by completed study hours, then lessons completed, then streak
-    entries.sort((a, b) => {
-      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
-      if (b.completedTasks !== a.completedTasks) return b.completedTasks - a.completedTasks;
-      return b.currentStreak - a.currentStreak;
-    });
-
+    const cached = getCachedLeaderboard(period, limit);
     return {
-      entries: entries.slice(0, limit),
+      entries: cached,
       needsSetup: false,
     };
   } catch (err) {
-    return { entries: [], needsSetup: false };
+    return {
+      entries: getCachedLeaderboard(period, limit),
+      needsSetup: false,
+    };
   }
 }
 

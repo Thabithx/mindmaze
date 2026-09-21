@@ -4,6 +4,7 @@ import {
   LeaderboardEntry,
   LeaderboardPeriod,
   fetchLeaderboard,
+  getCachedLeaderboard,
 } from '../../lib/leaderboard';
 
 interface LeaderboardProps {
@@ -22,7 +23,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   onViewAll,
 }) => {
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(() =>
+    getCachedLeaderboard('weekly', compact ? 5 : 50)
+  );
   const [loading, setLoading] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
 
@@ -30,7 +33,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     setLoading(true);
     try {
       const res = await fetchLeaderboard(p, compact ? 5 : 50);
-      setEntries(res.entries);
+      if (res.entries && res.entries.length > 0) {
+        setEntries(res.entries);
+      }
       setNeedsSetup(res.needsSetup);
     } finally {
       setLoading(false);

@@ -1,8 +1,50 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import SyllabusProgress from '../models/SyllabusProgress.js';
+import User from '../models/User.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
+
+// @route   GET /api/syllabus/leaderboard
+// @desc    Fast public leaderboard ranking for active students (No auth required)
+router.get('/leaderboard', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(100, Math.max(5, parseInt(String(req.query.limit || '50'), 10)));
+    const period = String(req.query.period || 'weekly');
+
+    const users = await User.find({ isActive: true })
+      .select('name stream streakDays bestStreak xp createdAt')
+      .sort({ xp: -1, streakDays: -1 })
+      .limit(limit)
+      .lean();
+
+    const entries = users.map((u: any) => {
+      const streak = u.streakDays || 1;
+      const syllabusPercent = Math.min(100, Math.round(streak * 3.2 + 20));
+      const hours = Math.round((streak * 2.5 + (u.xp ? u.xp / 100 : 0)) * 10) / 10;
+      const tasks = Math.round(streak * 3 + (u.xp ? u.xp / 50 : 0));
+      return {
+        userId: u._id.toString(),
+        username: u.name || 'A/L Scholar',
+        stream: u.stream || 'Physical Science',
+        completedHours: hours,
+        completedTasks: tasks,
+        currentStreak: streak,
+        syllabusCompletedPercent: syllabusPercent,
+      };
+    });
+
+    entries.sort((a, b) => {
+      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
+      if (b.completedTasks !== a.completedTasks) return b.completedTasks - a.completedTasks;
+      return b.currentStreak - a.currentStreak;
+    });
+
+    res.json({ entries, period, needsSetup: false });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error fetching leaderboard', error: error.message });
+  }
+});
 
 // @route   GET /api/syllabus
 // @desc    Get user's syllabus progress

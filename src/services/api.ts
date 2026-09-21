@@ -27,22 +27,31 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // Use AbortController with 8s timeout to prevent hanging on cold starts
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-  const data = await response.json().catch(() => ({}));
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      // Invalid/expired token
-      removeAuthToken();
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Invalid/expired token
+        removeAuthToken();
+      }
+      throw new Error(data.message || `Request failed with status ${response.status}`);
     }
-    throw new Error(data.message || `Request failed with status ${response.status}`);
-  }
 
-  return data;
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 // API Methods
@@ -73,6 +82,7 @@ export const api = {
 
   // Syllabus
   getSyllabusProgress: () => apiFetch('/syllabus'),
+  getLeaderboard: (period = 'weekly', limit = 50) => apiFetch(`/syllabus/leaderboard?period=${period}&limit=${limit}`),
   updateSubtopicProgress: (body: any) => apiFetch('/syllabus/update-subtopic', { method: 'POST', body: JSON.stringify(body) }),
   saveCompletedTopicsPicker: (topics: any[]) => apiFetch('/syllabus/completed-picker', { method: 'POST', body: JSON.stringify({ topics }) }),
 
