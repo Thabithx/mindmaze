@@ -29,11 +29,13 @@ import { ComingSoonModal } from '../ComingSoonModal';
 interface PastPaperLibraryScreenProps {
   onNavigate: (screen: ScreenId) => void;
   onLaunchPaperQuiz?: (paperId: string) => void;
+  pastPapers?: PastPaper[];
 }
 
 export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   onNavigate,
   onLaunchPaperQuiz,
+  pastPapers,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
@@ -49,8 +51,10 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   const mediums = ['All', 'English', 'Sinhala', 'Tamil'];
   const yearRanges = ['All', '2026 (Model Papers)', '2020-2026', '2015-2019', '2010-2014', '2000-2009'];
 
+  const paperList = pastPapers && pastPapers.length > 0 ? pastPapers : MOCK_PAST_PAPERS;
+
   const filteredPapers = useMemo(() => {
-    return MOCK_PAST_PAPERS.filter((paper) => {
+    return paperList.filter((paper) => {
       // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -94,7 +98,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
       return true;
     });
-  }, [searchQuery, selectedSubject, currentOnly, selectedType, selectedMedium, selectedYearRange]);
+  }, [paperList, searchQuery, selectedSubject, currentOnly, selectedType, selectedMedium, selectedYearRange]);
 
   return (
     <div id="mind-maze-past-paper-library" className="space-y-6 sm:space-y-8 pb-12 px-1 sm:px-0">

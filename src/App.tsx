@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile } from './types';
+import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken } from './services/api';
 import {
   getStoredTimetable,
@@ -12,6 +12,8 @@ import {
   saveStoredDailyTasks,
   getStoredMistakes,
   saveStoredMistakes,
+  getStoredPastPapers,
+  saveStoredPastPapers,
   getDayOfWeekFromDate,
   calculateMinutesBetween,
 } from './lib/storage';
@@ -75,7 +77,20 @@ export function App() {
   const [timetable, setTimetable] = useState<TimetableEntry[]>(() => getStoredTimetable() || []);
   const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>(() => getStoredMistakes());
+  const [pastPapers, setPastPapers] = useState<PastPaper[]>(() => getStoredPastPapers());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+
+  const handleAddPastPaper = (newPaper: PastPaper) => {
+    const updated = [newPaper, ...pastPapers];
+    setPastPapers(updated);
+    saveStoredPastPapers(updated);
+  };
+
+  const handleDeletePastPaper = (paperId: string) => {
+    const updated = pastPapers.filter((p) => p.id !== paperId);
+    setPastPapers(updated);
+    saveStoredPastPapers(updated);
+  };
 
   // Check auth on mount
   useEffect(() => {
@@ -91,7 +106,10 @@ export function App() {
     try {
       const res = await api.getProfile();
       setUser(res.user);
-      if (res.user.stream) {
+      if (res.user?.role === 'admin') {
+        setCurrentScreen('admin');
+      }
+      if (res.user?.stream) {
         setUserSettingsState((prev) => ({
           ...prev,
           stream: res.user.stream,
@@ -119,6 +137,9 @@ export function App() {
       setAuthToken(res.token);
       setUser(res.user);
       setAuthModalMode(null);
+      if (res.user?.role === 'admin') {
+        setCurrentScreen('admin');
+      }
     } catch (err: any) {
       setAuthError(err.message || 'Login failed. Check your email and password.');
     } finally {
@@ -142,6 +163,9 @@ export function App() {
       setAuthToken(res.token);
       setUser(res.user);
       setAuthModalMode(null);
+      if (res.user?.role === 'admin') {
+        setCurrentScreen('admin');
+      }
     } catch (err: any) {
       setAuthError(err.message || 'Registration failed.');
     } finally {
@@ -684,8 +708,8 @@ export function App() {
           {/* Past Papers */}
           {currentScreen === 'pastpapers' && (
             <PastPaperLibraryScreen
-              userStream={userSettings.stream}
               onNavigate={setCurrentScreen}
+              pastPapers={pastPapers}
             />
           )}
 
@@ -744,6 +768,9 @@ export function App() {
                   userRole={user?.role || 'admin'}
                   profileLoaded={true}
                   onNavigateHome={() => setCurrentScreen('dashboard')}
+                  pastPapers={pastPapers}
+                  onAddPastPaper={handleAddPastPaper}
+                  onDeletePastPaper={handleDeletePastPaper}
                 />
                 <AdminCourseManager />
               </div>

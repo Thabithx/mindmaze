@@ -1,6 +1,7 @@
-import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem } from '../types';
+import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem, PastPaper } from '../types';
 import { INITIAL_SYLLABUS_TOPICS } from '../data/alSyllabusData';
 import { PHYSICS_QUESTIONS } from '../data/physicsQuestions';
+import { MOCK_PAST_PAPERS } from '../data/mockData';
 
 const TIMETABLE_STORAGE_KEY = 'mindmaze_timetable_v2';
 const DAILY_TASKS_STORAGE_KEY = 'mindmaze_daily_tasks_v2';
@@ -426,4 +427,33 @@ export function getSubjectColorKey(subjectName: string): string {
   if (lower.includes('ict') || lower.includes('info')) return 'pink';
   if (lower.includes('english') || lower.includes('git')) return 'blue';
   return 'amber';
+}
+
+// ================= PAST PAPERS STORAGE =================
+const PAST_PAPERS_STORAGE_KEY = 'mm_stored_past_papers';
+
+export function getStoredPastPapers(): PastPaper[] {
+  try {
+    const raw = localStorage.getItem(PAST_PAPERS_STORAGE_KEY);
+    if (!raw) {
+      saveStoredPastPapers(MOCK_PAST_PAPERS);
+      return MOCK_PAST_PAPERS;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      saveStoredPastPapers(MOCK_PAST_PAPERS);
+      return MOCK_PAST_PAPERS;
+    }
+    return parsed;
+  } catch (e) {
+    return MOCK_PAST_PAPERS;
+  }
+}
+
+export function saveStoredPastPapers(papers: PastPaper[]): void {
+  try {
+    localStorage.setItem(PAST_PAPERS_STORAGE_KEY, JSON.stringify(papers));
+  } catch (e) {
+    console.error('Failed to save past papers to localStorage', e);
+  }
 }
