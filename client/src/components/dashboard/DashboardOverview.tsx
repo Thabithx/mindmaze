@@ -693,8 +693,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
 
             <div className="space-y-3.5">
-              {streamSubjectMetas.map((s) => {
-                const sProg = calculateSubjectProgression(s.name, syllabusTopics);
+              {(streamSubjectMetas || []).map((s) => {
+                const sProg = calculateSubjectProgression(s.name, effectiveTopics);
                 const sPercent = sProg.percentage;
                 const sDone = sProg.completedTopics;
                 const sTotal = sProg.totalTopics;

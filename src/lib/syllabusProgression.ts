@@ -136,9 +136,10 @@ export function calculateTopicProgress(topic: SyllabusTopic): TopicProgressDetai
  */
 export function calculateSubjectProgression(
   subjectName: string,
-  allTopics: SyllabusTopic[]
+  allTopics: SyllabusTopic[] = []
 ): SubjectProgressionDetail {
-  const subjectTopics = allTopics.filter((t) => t.subject === subjectName);
+  const safeTopics = allTopics || [];
+  const subjectTopics = safeTopics.filter((t) => t && t.subject === subjectName);
 
   if (subjectTopics.length === 0) {
     return {
@@ -204,8 +205,8 @@ export function calculateSubjectProgression(
  * Calculates the overall syllabus progression across all stream subjects
  */
 export function calculateOverallStreamProgression(
-  streamSubjects: { name: string }[],
-  allTopics: SyllabusTopic[]
+  streamSubjects: { name: string }[] = [],
+  allTopics: SyllabusTopic[] = []
 ) {
   let totalSubtopics = 0;
   let completedSubtopics = 0;
@@ -214,8 +215,11 @@ export function calculateOverallStreamProgression(
   let inProgressTopics = 0;
   let notStartedTopics = 0;
 
-  streamSubjects.forEach((s) => {
-    const detail = calculateSubjectProgression(s.name, allTopics);
+  const safeSubjects = streamSubjects || [];
+  const safeTopics = allTopics || [];
+
+  safeSubjects.forEach((s) => {
+    const detail = calculateSubjectProgression(s.name, safeTopics);
     totalSubtopics += detail.totalSubtopics;
     completedSubtopics += detail.completedSubtopics;
     totalTopics += detail.totalTopics;
