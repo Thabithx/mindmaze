@@ -97,6 +97,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const effectiveTimetable = timetableEntries || timetable || [];
   const effectiveDailyTasks = dailyTasks || [];
   const effectiveTopics = syllabusTopics || [];
+  const effectiveStreak = streakData || streak || {
+    currentStreak: userProfile?.streakDays || 1,
+    bestStreak: userProfile?.streakDays || 1,
+    completedDates: [],
+    isCompletedToday: false,
+  };
 
   const todayStr = getTodayDateString();
   const todayDayOfWeek = getTodayDayOfWeek();
@@ -446,19 +452,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl sm:text-3xl font-black text-amber-300">
-              🔥 {streakData.currentStreak} {streakData.currentStreak === 1 ? 'Day' : 'Days'}
+              🔥 {effectiveStreak.currentStreak} {effectiveStreak.currentStreak === 1 ? 'Day' : 'Days'}
             </span>
             <span className="text-xs font-bold text-amber-400/80">
-              {streakData.isCompletedToday ? 'Done today! 🎉' : streakData.currentStreak > 0 ? 'Active' : 'Start Today!'}
+              {effectiveStreak.isCompletedToday ? 'Done today! 🎉' : effectiveStreak.currentStreak > 0 ? 'Active' : 'Start Today!'}
             </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <Trophy className="w-3 h-3 text-amber-400" />
-              <span>Best: {streakData.bestStreak} days</span>
+              <span>Best: {effectiveStreak.bestStreak} days</span>
             </span>
             <span className="text-slate-400 text-[10px] font-medium">
-              {streakData.isCompletedToday ? 'Protected ✓' : 'Complete 1 task today'}
+              {effectiveStreak.isCompletedToday ? 'Protected ✓' : 'Complete 1 task today'}
             </span>
           </div>
         </div>
