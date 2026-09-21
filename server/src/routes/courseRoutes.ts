@@ -32,7 +32,7 @@ const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string
 
 // @route   GET /api/courses
 // @desc    Get all courses (filterable by stream & subject)
-router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', async (req: any, res: Response): Promise<void> => {
   try {
     const { stream, subject } = req.query;
     const filter: any = {};
@@ -48,7 +48,7 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
 
 // @route   GET /api/courses/:id
 // @desc    Get single course
-router.get('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id', async (req: any, res: Response): Promise<void> => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) {

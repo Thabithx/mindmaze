@@ -21,7 +21,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { api, getAuthToken } from '../../services/api';
-import { PastPaper } from '../../types';
+import { PastPaper, Question } from '../../types';
 
 interface AdminPanelProps {
   userRole?: string;
@@ -31,6 +31,9 @@ interface AdminPanelProps {
   pastPapers?: PastPaper[];
   onAddPastPaper?: (paper: PastPaper) => void;
   onDeletePastPaper?: (paperId: string) => void;
+  quizQuestions?: Question[];
+  onAddQuizQuestion?: (question: Question) => void;
+  onDeleteQuizQuestion?: (questionId: string) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -39,8 +42,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   pastPapers = [],
   onAddPastPaper,
   onDeletePastPaper,
+  quizQuestions = [],
+  onAddQuizQuestion,
+  onDeleteQuizQuestion,
 }) => {
-  const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers' | 'quiz'>('directory');
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -56,7 +62,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
 
-  // Past Paper Form State
+  // Simplified Past Paper Form State
   const [paperTitle, setPaperTitle] = useState('');
   const [paperSubject, setPaperSubject] = useState<any>('Physics');
   const [paperStream, setPaperStream] = useState<any>('Maths');
@@ -65,12 +71,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [paperSyllabus, setPaperSyllabus] = useState<'current' | 'old'>('current');
   const [paperType, setPaperType] = useState<any>('MCQ');
   const [paperMedium, setPaperMedium] = useState<any>('English');
-  const [paperQuestionCount, setPaperQuestionCount] = useState<number>(50);
-  const [paperDuration, setPaperDuration] = useState<number>(120);
-  const [paperSize, setPaperSize] = useState<string>('3.2 MB');
-  const [paperTags, setPaperTags] = useState<string>('Mechanics, Waves, Sound');
-  const [paperHasExplanation, setPaperHasExplanation] = useState<boolean>(true);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [paperPdfName, setPaperPdfName] = useState<string>('');
+  const [paperCalculatedSize, setPaperCalculatedSize] = useState<string>('3.2 MB');
   const [paperSuccess, setPaperSuccess] = useState<string | null>(null);
+
+  // Practice Quiz Form State
+  const [quizQuestionText, setQuizQuestionText] = useState('');
+  const [quizSubject, setQuizSubject] = useState<any>('Physics');
+  const [quizTopic, setQuizTopic] = useState('Mechanics');
+  const [quizYear, setQuizYear] = useState<number>(2026);
+  const [quizOptA, setQuizOptA] = useState('');
+  const [quizOptB, setQuizOptB] = useState('');
+  const [quizOptC, setQuizOptC] = useState('');
+  const [quizOptD, setQuizOptD] = useState('');
+  const [quizOptE, setQuizOptE] = useState('');
+  const [quizCorrectOpt, setQuizCorrectOpt] = useState<'A' | 'B' | 'C' | 'D' | 'E'>('A');
+  const [quizExplanation, setQuizExplanation] = useState('');
+  const [quizSuccess, setQuizSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAdminData();
@@ -154,20 +172,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       syllabus: paperSyllabus,
       type: paperType,
       medium: paperMedium,
-      topicTags: paperTags.split(',').map((s) => s.trim()).filter(Boolean),
-      hasExplanation: paperHasExplanation,
-      questionCount: Number(paperQuestionCount) || 50,
-      durationMinutes: Number(paperDuration) || 120,
-      downloadSize: paperSize || '3.2 MB',
+      downloadSize: paperCalculatedSize || '3.5 MB',
       isModelPaper: paperIsModel,
+      pdfUrl: selectedPdfFile ? URL.createObjectURL(selectedPdfFile) : undefined,
     };
 
     if (onAddPastPaper) {
       onAddPastPaper(newPaper);
     }
-    setPaperSuccess(`Successfully added past paper: "${newPaper.title}"`);
+    setPaperSuccess(`Successfully uploaded & published past paper: "${newPaper.title}"`);
     setPaperTitle('');
+    setSelectedPdfFile(null);
+    setPaperPdfName('');
     setTimeout(() => setPaperSuccess(null), 5000);
+  };
+
+  const handleCreateQuizQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quizQuestionText.trim() || !quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim()) return;
+
+    const newQuestion: Question = {
+      id: `q-admin-${Date.now()}`,
+      subject: quizSubject,
+      topic: quizTopic.trim() || 'General',
+      paperYear: Number(quizYear) || 2026,
+      questionText: quizQuestionText.trim(),
+      options: [
+        { id: 'A', text: quizOptA.trim(), isCorrect: quizCorrectOpt === 'A' },
+        { id: 'B', text: quizOptB.trim(), isCorrect: quizCorrectOpt === 'B' },
+        { id: 'C', text: quizOptC.trim(), isCorrect: quizCorrectOpt === 'C' },
+        { id: 'D', text: quizOptD.trim(), isCorrect: quizCorrectOpt === 'D' },
+        ...(quizOptE.trim() ? [{ id: 'E', text: quizOptE.trim(), isCorrect: quizCorrectOpt === 'E' }] : []),
+      ],
+      explanation: {
+        correctOptionId: quizCorrectOpt,
+        correctOptionText:
+          quizCorrectOpt === 'A' ? quizOptA :
+          quizCorrectOpt === 'B' ? quizOptB :
+          quizCorrectOpt === 'C' ? quizOptC :
+          quizCorrectOpt === 'D' ? quizOptD : quizOptE,
+        conceptNote: quizExplanation.trim() || 'Official solution provided by Mind Maze faculty.',
+        stepByStep: [quizExplanation.trim() || 'Select the option matching correct core principles.'],
+      },
+    };
+
+    if (onAddQuizQuestion) {
+      onAddQuizQuestion(newQuestion);
+    }
+    setQuizSuccess(`Successfully added quiz question to ${quizSubject} (${quizTopic})`);
+    setQuizQuestionText('');
+    setQuizOptA('');
+    setQuizOptB('');
+    setQuizOptC('');
+    setQuizOptD('');
+    setQuizOptE('');
+    setQuizExplanation('');
+    setTimeout(() => setQuizSuccess(null), 5000);
   };
 
   const handleDownloadCsv = () => {
@@ -223,7 +283,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Control Tabs */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
         <button
           onClick={() => setActiveTab('directory')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
@@ -248,6 +308,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <span>Past Paper Manager</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
             {pastPapers.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('quiz')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'quiz'
+              ? 'bg-[#6B4EFF] text-white shadow-lg shadow-purple-500/25'
+              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-300" />
+          <span>Practice Quiz Questions</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/30">
+            {quizQuestions.length}
           </span>
         </button>
       </div>
@@ -496,7 +571,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Title */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Paper Title</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Paper Title <span className="text-rose-400">*</span></label>
                   <input
                     type="text"
                     required
@@ -505,6 +580,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     placeholder="e.g. G.C.E. A/L Physics 2025 National Model Paper I (MCQ)"
                     className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400"
                   />
+                </div>
+
+                {/* PDF Drag & Drop Upload */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Upload / Drop Past Paper PDF Document <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative border-2 border-dashed border-white/20 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-white/5 transition-all cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedPdfFile(file);
+                          setPaperPdfName(file.name);
+                          setPaperCalculatedSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Download className="w-8 h-8 text-cyan-400" />
+                      {selectedPdfFile ? (
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-emerald-300 flex items-center justify-center gap-1">
+                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                            <span>{paperPdfName}</span>
+                          </p>
+                          <p className="text-[10px] text-slate-400">File size: {paperCalculatedSize}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-slate-200">
+                            Drag & drop your Pastpaper PDF file here, or <span className="text-cyan-400 underline">browse files</span>
+                          </p>
+                          <p className="text-[10px] text-slate-400">PDF files up to 50MB</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Subject */}
@@ -590,52 +706,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <option value="old">Old Syllabus (Pre-2019)</option>
                   </select>
                 </div>
-
-                {/* Question Count */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Question Count</label>
-                  <input
-                    type="number"
-                    value={paperQuestionCount}
-                    onChange={(e) => setPaperQuestionCount(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-
-                {/* Duration */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Duration (Minutes)</label>
-                  <input
-                    type="number"
-                    value={paperDuration}
-                    onChange={(e) => setPaperDuration(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-
-                {/* File Size */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">PDF File Size</label>
-                  <input
-                    type="text"
-                    value={paperSize}
-                    onChange={(e) => setPaperSize(e.target.value)}
-                    placeholder="e.g. 3.2 MB"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-
-                {/* Topic Tags */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Tested Topic Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={paperTags}
-                    onChange={(e) => setPaperTags(e.target.value)}
-                    placeholder="e.g. Mechanics, Waves, Sound, Equilibrium"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
               </div>
 
               {/* Toggles */}
@@ -648,16 +718,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     className="w-4 h-4 rounded text-purple-600 bg-white/10 border-white/20 focus:ring-0"
                   />
                   <span>Mark as Official Model Paper</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={paperHasExplanation}
-                    onChange={(e) => setPaperHasExplanation(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-600 bg-white/10 border-white/20 focus:ring-0"
-                  />
-                  <span>Includes Step-by-Step AI Annotated Marking Scheme</span>
                 </label>
               </div>
 

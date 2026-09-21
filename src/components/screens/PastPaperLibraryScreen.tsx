@@ -389,14 +389,6 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                   <Globe className="w-3 h-3 text-cyan-300" />
                   <span>{paper.medium} Medium</span>
                 </div>
-                {paper.hasExplanation ? (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 px-2 py-1 text-[10px] font-bold text-emerald-300">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    Explanation
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-slate-400 px-2 py-1 bg-white/5 rounded-lg">Answer Key</span>
-                )}
               </div>
 
               {/* Topic Tags */}
@@ -414,7 +406,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
               )}
 
               {/* Actions Footer */}
-              <div className="flex items-center gap-2 pt-1 border-t border-white/10">
+              <div className="flex items-center gap-2 pt-2 border-t border-white/10">
                 <button
                   onClick={() => {
                     if (onLaunchPaperQuiz) {
@@ -431,11 +423,11 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
                 <button
                   onClick={() => setDownloadModalPaper(paper)}
-                  className="px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
                   title="Download PDF"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>PDF</span>
+                  <span>Download PDF</span>
                 </button>
               </div>
             </div>
@@ -452,14 +444,13 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 <th className="py-4 px-5 font-bold">Paper Title & Year</th>
                 <th className="py-4 px-4 font-bold">Subject & Medium</th>
                 <th className="py-4 px-4 font-bold">Topics Tested</th>
-                <th className="py-4 px-4 font-bold">Explanations</th>
                 <th className="py-4 px-5 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {filteredPapers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <td colSpan={4} className="py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold text-slate-300">No past papers found matching the active filters.</p>
                     <p className="text-xs text-slate-400 mt-1">Try turning off "Current Syllabus Only" or adjusting your search keyword.</p>
                   </td>
@@ -490,8 +481,12 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                         }`}>
                           {paper.syllabus === 'current' ? 'Current Syllabus' : 'Old Syllabus'}
                         </span>
-                        <span>•</span>
-                        <span>{paper.questionCount} Questions</span>
+                        {paper.questionCount && (
+                          <>
+                            <span>•</span>
+                            <span>{paper.questionCount} Questions</span>
+                          </>
+                        )}
                       </div>
                     </td>
 
@@ -507,7 +502,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                     {/* Topic Tags */}
                     <td className="py-4 px-4">
                       <div className="flex flex-wrap gap-1.5 max-w-xs">
-                        {paper.topicTags.map((tag, i) => (
+                        {(paper.topicTags || []).map((tag, i) => (
                           <span
                             key={i}
                             className="bg-white/10 border border-white/10 text-slate-300 px-2 py-0.5 rounded-md text-[10px]"
@@ -518,42 +513,32 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                       </div>
                     </td>
 
-                    {/* Explanation Badge */}
-                    <td className="py-4 px-4">
-                      {paper.hasExplanation ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          Explanation Available
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">Answer Key Only</span>
-                      )}
-                    </td>
-
                     {/* Actions */}
-                    <td className="py-4 px-5 text-right space-x-2">
-                      <button
-                        onClick={() => {
-                          if (onLaunchPaperQuiz) {
-                            onLaunchPaperQuiz(paper.id);
-                          } else {
-                            onNavigate('practice');
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_12px_rgba(107,78,255,0.4)] transition-all active:scale-95 cursor-pointer"
-                      >
-                        <Play className="w-3 h-3 fill-white" />
-                        <span>Practice</span>
-                      </button>
+                    <td className="py-4 px-5 text-right">
+                      <div className="inline-flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            if (onLaunchPaperQuiz) {
+                              onLaunchPaperQuiz(paper.id);
+                            } else {
+                              onNavigate('practice');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_12px_rgba(107,78,255,0.4)] transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Play className="w-3 h-3 fill-white" />
+                          <span>Practice</span>
+                        </button>
 
-                      <button
-                        onClick={() => setDownloadModalPaper(paper)}
-                        title="Download PDF"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">PDF</span>
-                      </button>
+                        <button
+                          onClick={() => setDownloadModalPaper(paper)}
+                          title="Download PDF"
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>PDF</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

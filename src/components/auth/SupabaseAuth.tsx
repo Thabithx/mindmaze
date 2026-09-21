@@ -573,6 +573,7 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
         <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
         <input
           type={showPassword ? 'text' : 'password'}
+          autoComplete={showForgot ? 'current-password' : 'new-password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"

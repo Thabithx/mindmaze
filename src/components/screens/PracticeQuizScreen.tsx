@@ -25,6 +25,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { getStoredQuizQuestions } from '../../lib/storage';
+
 interface PracticeQuizScreenProps {
   userProfile: UserProfile;
   onNavigate: (screen: ScreenId) => void;
@@ -32,6 +34,7 @@ interface PracticeQuizScreenProps {
   onUpdateXP?: (earnedXP: number) => void;
   initialQuestionId?: string;
   initialTopicFilter?: string;
+  quizQuestions?: Question[];
 }
 
 export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
@@ -41,20 +44,22 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
   onUpdateXP,
   initialQuestionId,
   initialTopicFilter,
+  quizQuestions,
 }) => {
   // Questions pool
   const questionsList = React.useMemo(() => {
+    const sourcePool = quizQuestions && quizQuestions.length > 0 ? quizQuestions : getStoredQuizQuestions();
     if (initialQuestionId) {
-      const specific = MOCK_QUESTIONS.find((q) => q.id === initialQuestionId);
-      const rest = MOCK_QUESTIONS.filter((q) => q.id !== initialQuestionId);
-      return specific ? [specific, ...rest] : MOCK_QUESTIONS;
+      const specific = sourcePool.find((q) => q.id === initialQuestionId);
+      const rest = sourcePool.filter((q) => q.id !== initialQuestionId);
+      return specific ? [specific, ...rest] : sourcePool;
     }
     if (initialTopicFilter) {
-      const filtered = MOCK_QUESTIONS.filter((q) => q.topic.toLowerCase().includes(initialTopicFilter.toLowerCase()));
-      return filtered.length > 0 ? filtered : MOCK_QUESTIONS;
+      const filtered = sourcePool.filter((q) => q.topic.toLowerCase().includes(initialTopicFilter.toLowerCase()));
+      return filtered.length > 0 ? filtered : sourcePool;
     }
-    return MOCK_QUESTIONS;
-  }, [initialQuestionId, initialTopicFilter]);
+    return sourcePool;
+  }, [quizQuestions, initialQuestionId, initialTopicFilter]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);

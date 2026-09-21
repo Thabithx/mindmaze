@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper } from './types';
+import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper, Question } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken } from './services/api';
 import {
   getStoredTimetable,
@@ -14,6 +14,8 @@ import {
   saveStoredMistakes,
   getStoredPastPapers,
   saveStoredPastPapers,
+  getStoredQuizQuestions,
+  saveStoredQuizQuestions,
   getDayOfWeekFromDate,
   calculateMinutesBetween,
 } from './lib/storage';
@@ -78,6 +80,7 @@ export function App() {
   const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>(() => getStoredMistakes());
   const [pastPapers, setPastPapers] = useState<PastPaper[]>(() => getStoredPastPapers());
+  const [quizQuestions, setQuizQuestions] = useState<Question[]>(() => getStoredQuizQuestions());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
@@ -90,6 +93,18 @@ export function App() {
     const updated = pastPapers.filter((p) => p.id !== paperId);
     setPastPapers(updated);
     saveStoredPastPapers(updated);
+  };
+
+  const handleAddQuizQuestion = (newQ: Question) => {
+    const updated = [newQ, ...quizQuestions];
+    setQuizQuestions(updated);
+    saveStoredQuizQuestions(updated);
+  };
+
+  const handleDeleteQuizQuestion = (qId: string) => {
+    const updated = quizQuestions.filter((q) => q.id !== qId);
+    setQuizQuestions(updated);
+    saveStoredQuizQuestions(updated);
   };
 
   // Check auth on mount
@@ -681,6 +696,7 @@ export function App() {
                 setMistakes(updated);
                 saveStoredMistakes(updated);
               }}
+              quizQuestions={quizQuestions}
             />
           )}
 
@@ -771,6 +787,9 @@ export function App() {
                   pastPapers={pastPapers}
                   onAddPastPaper={handleAddPastPaper}
                   onDeletePastPaper={handleDeletePastPaper}
+                  quizQuestions={quizQuestions}
+                  onAddQuizQuestion={handleAddQuizQuestion}
+                  onDeleteQuizQuestion={handleDeleteQuizQuestion}
                 />
                 <AdminCourseManager />
               </div>
@@ -864,6 +883,7 @@ export function App() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-rose-400">*</span></label>
                 <input
                   type="email"
+                  autoComplete="username email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="student@example.com"
@@ -876,6 +896,7 @@ export function App() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Password <span className="text-rose-400">*</span></label>
                 <input
                   type="password"
+                  autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
