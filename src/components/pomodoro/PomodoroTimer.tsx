@@ -15,6 +15,9 @@ import {
 export interface PomodoroTimerProps {
   activeUnitTitle?: string;
   activeSubject?: string;
+  subtopics?: string[];
+  completedSubtopics?: string[];
+  onToggleSubtopic?: (subtopic: string) => void;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
   onMarkFinished?: () => void;
   onStartSession?: () => void;
@@ -34,6 +37,9 @@ const MODE_CONFIGS: Record<TimerMode, { label: string; minutes: number; color: s
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   activeUnitTitle,
   activeSubject,
+  subtopics = [],
+  completedSubtopics = [],
+  onToggleSubtopic,
   onSessionComplete,
   onMarkFinished,
   onStartSession,
@@ -239,6 +245,45 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
               <span>Mark Unit as Finished</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Subtopics Checklist for Active Task / Unit */}
+      {subtopics && subtopics.length > 0 && (
+        <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>
+                Target Subtopics ({subtopics.filter((s) => completedSubtopics?.includes(s)).length}/{subtopics.length} Done)
+              </span>
+            </span>
+            <span className="text-[10px] text-cyan-300">Tick as you finish</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+            {subtopics.map((st) => {
+              const isDone = completedSubtopics?.includes(st);
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => onToggleSubtopic && onToggleSubtopic(st)}
+                  className={`p-2 rounded-xl border text-left flex items-center justify-between gap-2 text-xs transition cursor-pointer ${
+                    isDone
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:border-indigo-400/40 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 className={`w-4 h-4 shrink-0 ${isDone ? 'text-emerald-400' : 'text-slate-500'}`} />
+                    <span className="truncate">{st}</span>
+                  </div>
+                  {isDone && <span className="text-[10px] font-bold text-emerald-400 shrink-0">Done</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

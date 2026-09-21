@@ -193,13 +193,21 @@ export function App() {
           id: currentBlock.id,
         });
 
-        if (!hasPromptedActiveBlock && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          try {
-            new Notification(`Study Session Starting!`, {
-              body: `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
-              icon: '/icon-192.png',
-            });
-          } catch {}
+        // Automatically redirect to home page timer when scheduled time arrives
+        setCurrentScreen('dashboard');
+        setIsPomodoroMinimized(false);
+
+        if (!hasPromptedActiveBlock && typeof Notification !== 'undefined') {
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(`Study Session Starting!`, {
+                body: `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
+                icon: '/icon-192.png',
+              });
+            } catch {}
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
+          }
           setHasPromptedActiveBlock(true);
         }
       }
@@ -218,6 +226,18 @@ export function App() {
       </div>
     );
   }
+
+  // Find matching syllabus topic and subtopics for active timer
+  const activeSyllabusTopic = activePomodoroTopic
+    ? syllabusTopics.find(
+        (t) =>
+          t.id === activePomodoroTopic.id ||
+          t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() ||
+          (activePomodoroTopic.subject && t.subject.toLowerCase() === activePomodoroTopic.subject.toLowerCase() && t.topicTitle.toLowerCase().includes(activePomodoroTopic.title.toLowerCase()))
+      )
+    : null;
+  const activeSubtopics = activeSyllabusTopic?.subtopics || [];
+  const activeCompletedSubtopics = activeSyllabusTopic?.completedSubtopics || [];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
@@ -284,12 +304,55 @@ export function App() {
                 </div>
               )}
 
-              {/* Responsive Layout: On mobile Pomodoro is under the name banner; on desktop side-by-side */}
-              <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
-                <div className="order-2 lg:order-1 lg:col-span-1">
+              {/* Dashboard with embedded PomodoroTimer slot right after Welcome Banner */}
+              <DashboardOverview
+                stream={userSettings?.stream || 'Physical Science'}
+                physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
+                timetableEntries={timetable || []}
+                dailyTasks={tasks || []}
+                syllabusTopics={syllabusTopics || INITIAL_SYLLABUS_TOPICS}
+                userProfile={userProfile}
+                userSettings={userSettings}
+                onNavigate={setCurrentScreen}
+                onOpenProfileEdit={() => setIsProfileEditOpen(true)}
+                pomodoroSlot={
                   <PomodoroTimer
                     activeUnitTitle={activePomodoroTopic?.title}
                     activeSubject={activePomodoroTopic?.subject}
+                    subtopics={activeSubtopics}
+                    completedSubtopics={activeCompletedSubtopics}
+                    onToggleSubtopic={(subtopicTitle) => {
+                      if (activeSyllabusTopic) {
+                        const updated = syllabusTopics.map((t) => {
+                          if (t.id === activeSyllabusTopic.id) {
+                            const map = { ...(t.subtopicProgress || {}) };
+                            const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
+                            const targetVal = current >= 100 ? 0 : 100;
+                            map[subtopicTitle] = targetVal;
+
+                            const subs = t.subtopics || [];
+                            let completed = [...(t.completedSubtopics || [])].filter((s) => s !== subtopicTitle);
+                            if (targetVal === 100) completed.push(subtopicTitle);
+
+                            let newStatus: any = 'not_started';
+                            if (subs.length > 0) {
+                              const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
+                              if (totalPoints >= subs.length * 100) newStatus = 'completed';
+                              else if (totalPoints > 0) newStatus = 'in_progress';
+                            }
+                            return {
+                              ...t,
+                              subtopicProgress: map,
+                              completedSubtopics: completed,
+                              status: newStatus,
+                            };
+                          }
+                          return t;
+                        });
+                        setSyllabusTopics(updated);
+                        saveStoredSyllabusTopics(updated);
+                      }
+                    }}
                     isMinimized={isPomodoroMinimized}
                     onToggleMinimize={() => setIsPomodoroMinimized(!isPomodoroMinimized)}
                     onStartSession={() => {
@@ -339,22 +402,8 @@ export function App() {
                       }
                     }}
                   />
-                </div>
-
-                <div className="order-1 lg:order-2 lg:col-span-2">
-                  <DashboardOverview
-                    stream={userSettings?.stream || 'Physical Science'}
-                    physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
-                    timetableEntries={timetable || []}
-                    dailyTasks={tasks || []}
-                    syllabusTopics={syllabusTopics || INITIAL_SYLLABUS_TOPICS}
-                    userProfile={userProfile}
-                    userSettings={userSettings}
-                    onNavigate={setCurrentScreen}
-                    onOpenProfileEdit={() => setIsProfileEditOpen(true)}
-                  />
-                </div>
-              </div>
+                }
+              />
             </div>
           )}
 

@@ -44,6 +44,7 @@ interface DashboardOverviewProps {
   dailyHoursGoal?: number;
   currentUserId?: string | null;
   onOpenProfileEdit?: () => void;
+  pomodoroSlot?: React.ReactNode;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -59,6 +60,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   username,
   examDate = null,
   onNavigateToSettings,
+  pomodoroSlot,
 }) => {
   const effectiveStream = stream || userSettings?.stream || 'Physical Science';
   const effectiveElective = physicalScienceElective || userSettings?.physicalScienceElective || 'Chemistry';
@@ -141,6 +143,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ⏱️ POMODORO TIMER (Right after Welcome Banner) */}
+      {pomodoroSlot && (
+        <div className="animate-fadeIn">
+          {pomodoroSlot}
+        </div>
+      )}
 
       {/* 🚀 QUICK ACCESS TOOLS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
