@@ -137,14 +137,26 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   onSaveTimetable,
 }) => {
   const [internalEntries, setInternalEntries] = useState<TimetableEntry[]>(() =>
-    propEntries.length > 0 ? propEntries : timetable
+    timetable.length > 0 ? timetable : propEntries
   );
   const [internalTasks, setInternalTasks] = useState<DailyTask[]>(() =>
-    propTasks.length > 0 ? propTasks : dailyTasks
+    dailyTasks.length > 0 ? dailyTasks : propTasks
   );
 
-  const entries = internalEntries.length > 0 ? internalEntries : (propEntries.length > 0 ? propEntries : timetable);
-  const tasks = internalTasks.length > 0 ? internalTasks : (propTasks.length > 0 ? propTasks : dailyTasks);
+  React.useEffect(() => {
+    if (timetable && timetable.length > 0) {
+      setInternalEntries(timetable);
+    }
+  }, [timetable]);
+
+  React.useEffect(() => {
+    if (dailyTasks && dailyTasks.length > 0) {
+      setInternalTasks(dailyTasks);
+    }
+  }, [dailyTasks]);
+
+  const entries = internalEntries.length > 0 ? internalEntries : (timetable.length > 0 ? timetable : propEntries);
+  const tasks = internalTasks.length > 0 ? internalTasks : (dailyTasks.length > 0 ? dailyTasks : propTasks);
   const activeStream = stream || userSettings?.stream || 'Physical Science';
   const activeElective = physicalScienceElective || userSettings?.physicalScienceElective || 'Chemistry';
   const todayStr = getTodayDateString();
@@ -247,8 +259,21 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     setFormTargets([]);
     if (topicId && !formTitle.trim()) {
       const match = syllabusTopics.find((t) => t.id === topicId);
-      if (match) setFormTitle(formBlockType === 'revision' ? `Revise ${match.topicTitle}` : match.topicTitle);
-    }
+  const handleToggleTask = (taskId: string) => {
+    setInternalTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t))
+    );
+    if (onToggleTask) onToggleTask(taskId);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setInternalTasks((prev) => prev.filter((t) => t.id !== taskId));
+    if (onDeleteTask) onDeleteTask(taskId);
+  };
+
+  const handleDeleteEntry = (entryId: string) => {
+    setInternalEntries((prev) => prev.filter((e) => e.id !== entryId));
+    if (onDeleteEntry) onDeleteEntry(entryId);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -261,25 +286,17 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
       return;
     }
     setFormTimeError('');
-    // Syllabus link is mandatory for syllabus subjects: an unlinked block can
-    // be ticked done but never moves progress %, so don't allow saving one.
-    if (syllabusTopics.some((t) => t.subject === formSubject) && !formTopicId) {
-      setFormLinkError(
-        'Link a syllabus topic — otherwise completing this block won’t move your progress %.'
-      );
-      return;
-    }
-    // Study is first-time learning: a finished topic can only be revised.
-    if (formBlockType === 'study' && formTopicId) {
-      const linked = syllabusTopics.find((t) => t.id === formTopicId);
-      if (linked && linked.status === 'completed') {
-        setFormLinkError(
-          `"${linked.topicTitle}" is already completed — switch Type to 🔁 Revision for finished topics.`
-        );
-        return;
-      }
-    }
     setFormLinkError('');
+
+    // Auto-detect topicId if not explicitly selected but matches a syllabus topic
+    let effectiveTopicId = formTopicId;
+    if (!effectiveTopicId) {
+      const match = syllabusTopics.find(
+        (t) => t.subject === formSubject && t.topicTitle.toLowerCase().includes(formTitle.trim().toLowerCase())
+      );
+      if (match) effectiveTopicId = match.id;
+    }
+
     const cleanTargets = formTargets
       .filter((t) => t.subtopic.trim())
       .map((t) => ({
@@ -289,13 +306,13 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     const first = cleanTargets[0];
 
     if (editingEntry) {
-      onUpdateEntry({
+      const updatedEntry: TimetableEntry = {
         ...editingEntry,
         dayOfWeek: formDay,
         subject: formSubject,
         blockType: formBlockType,
         topic: formTitle.trim(),
-        topicId: formTopicId || undefined,
+        topicId: effectiveTopicId || undefined,
         subtopic: first?.subtopic,
         targetProgress: first?.targetProgress,
         subtopicTargets: cleanTargets.length > 0 ? cleanTargets : undefined,
@@ -303,15 +320,17 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         endTime: formEnd,
         reminderEnabled: formReminder,
         notes: formNotes.trim(),
-      });
+      };
+      setInternalEntries((prev) => prev.map((e) => (e.id === editingEntry.id ? updatedEntry : e)));
+      if (onUpdateEntry) onUpdateEntry(updatedEntry);
     } else if (formRepeatWeekly) {
-      // Weekly repeating block — the App handler auto-creates the linked daily task too.
-      onAddEntry({
+      const newEntry: TimetableEntry = {
+        id: `tt-${Date.now()}`,
         dayOfWeek: formDay,
         subject: formSubject,
         blockType: formBlockType,
         topic: formTitle.trim(),
-        topicId: formTopicId || undefined,
+        topicId: effectiveTopicId || undefined,
         subtopic: first?.subtopic,
         targetProgress: first?.targetProgress,
         subtopicTargets: cleanTargets.length > 0 ? cleanTargets : undefined,
@@ -321,17 +340,18 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         reminderEnabled: formReminder,
         reminderOffsetMinutes: 15,
         notes: formNotes.trim(),
-        syncToDailyPlanner: true,
-      });
+      };
+      setInternalEntries((prev) => [...prev, newEntry]);
+      if (onAddEntry) onAddEntry({ ...newEntry, syncToDailyPlanner: true });
     } else {
-      // One-off block just for the selected date — no weekly repeat.
-      onAddTask({
+      const newTask: DailyTask = {
+        id: `t-${Date.now()}`,
         date: selectedDate,
         title: formTitle.trim(),
         subject: formSubject,
         blockType: formBlockType,
-        topicId: formTopicId || undefined,
-        topicTitle: syllabusTopics.find((t) => t.id === formTopicId)?.topicTitle || undefined,
+        topicId: effectiveTopicId || undefined,
+        topicTitle: syllabusTopics.find((t) => t.id === effectiveTopicId)?.topicTitle || undefined,
         subtopic: first?.subtopic,
         targetProgress: first?.targetProgress,
         subtopicTargets: cleanTargets.length > 0 ? cleanTargets : undefined,
@@ -341,8 +361,9 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         timeSlot: `${formStart} - ${formEnd}`,
         startTime: formStart,
         endTime: formEnd,
-        syncToTimetable: false,
-      });
+      };
+      setInternalTasks((prev) => [...prev, newTask]);
+      if (onAddTask) onAddTask({ ...newTask, syncToTimetable: false });
     }
     setIsModalOpen(false);
   };
@@ -647,7 +668,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                         }`}
                       >
                         <button
-                          onClick={() => onToggleTask(task.id)}
+                          onClick={() => handleToggleTask(task.id)}
                           title={task.isCompleted ? 'Mark as incomplete' : 'Mark as completed'}
                           className="shrink-0 text-cyan-400 hover:scale-110 transition cursor-pointer p-1"
                         >
@@ -747,7 +768,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
                     <button
-                      onClick={() => onToggleTask(task.id)}
+                      onClick={() => handleToggleTask(task.id)}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-cyan-400 hover:scale-110 transition cursor-pointer rounded-xl"
                       title={task.isCompleted ? 'Mark as incomplete' : 'Mark as completed'}
                     >
@@ -788,7 +809,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                     </div>
                   </div>
                   <button
-                    onClick={() => onDeleteTask(task.id)}
+                    onClick={() => handleDeleteTask(task.id)}
                     className="p-2.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
                     title="Delete block"
                   >
@@ -863,7 +884,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                       <button onClick={() => openEditModal(entry)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => onDeleteEntry(entry.id)} className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center" title="Delete">
+                      <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1117,7 +1138,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                   )}
                   <div className="flex flex-wrap items-center justify-end gap-2.5">
                   {editingEntry && (
-                    <button type="button" onClick={() => { if (window.confirm(`Delete this repeating block (${editingEntry.subject} — ${editingEntry.topic})?`)) { onDeleteEntry(editingEntry.id); setIsModalOpen(false); } }} className="mr-auto px-4 py-2 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-300 font-semibold transition cursor-pointer min-h-[44px] flex items-center gap-1.5">
+                    <button type="button" onClick={() => { if (window.confirm(`Delete this repeating block (${editingEntry.subject} — ${editingEntry.topic})?`)) { handleDeleteEntry(editingEntry.id); setIsModalOpen(false); } }} className="mr-auto px-4 py-2 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-300 font-semibold transition cursor-pointer min-h-[44px] flex items-center gap-1.5">
                       <Trash2 className="w-4 h-4" /><span>Delete</span>
                     </button>
                   )}
