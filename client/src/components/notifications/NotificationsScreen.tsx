@@ -90,13 +90,25 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       <div className="glass-card rounded-3xl p-6 border border-white/10 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3">
-            <div className={}>
+            <div className={`p-3 rounded-2xl shrink-0 ${
+              notificationPermission === 'granted'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : notificationPermission === 'denied'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}>
               <BellRing className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white">Browser Notifications Status</h3>
-                <span className={}>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                  notificationPermission === 'granted'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
+                    : notificationPermission === 'denied'
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                }`}>
                   {notificationPermission === 'granted' ? 'Enabled' : notificationPermission === 'denied' ? 'Blocked' : 'Action Required'}
                 </span>
               </div>
@@ -141,10 +153,14 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </div>
           <button
             onClick={() => onUpdateSettings({ reminderSoundEnabled: !effectiveSettings.reminderSoundEnabled })}
-            className={}
+            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+              effectiveSettings.reminderSoundEnabled !== false ? 'bg-indigo-600' : 'bg-slate-700'
+            }`}
           >
             <span
-              className={}
+              className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                effectiveSettings.reminderSoundEnabled !== false ? 'left-6' : 'left-1'
+              }`}
             />
           </button>
         </div>
