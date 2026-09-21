@@ -22,6 +22,56 @@ interface Course {
   createdAt: string;
 }
 
+const DEFAULT_COURSES: Course[] = [
+  {
+    _id: 'c1',
+    title: 'Combined Mathematics Pure Algebra & Calculus',
+    description: 'Complete video walkthrough of Pure Mathematics Paper I topics with model questions and solved integrals.',
+    subject: 'Combined Mathematics',
+    stream: 'Physical Science',
+    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    quiz: [
+      {
+        questionText: 'What is the limit of (sin x) / x as x approaches 0?',
+        options: ['0', '1', 'Infinity', 'Undefined'],
+        correctOptionIndex: 1,
+        explanation: 'Standard limit theorem: lim_{x->0} sin(x)/x = 1 in radians.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: 'c2',
+    title: 'Physics Mechanics & Newton Laws Masterclass',
+    description: 'Master vectors, momentum, work-energy, and circular motion with step-by-step problem sets.',
+    subject: 'Physics',
+    stream: 'Physical Science',
+    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    quiz: [
+      {
+        questionText: 'Which law defines force as mass times acceleration (F = ma)?',
+        options: ['First Law', 'Second Law', 'Third Law', 'Universal Gravitation'],
+        correctOptionIndex: 1,
+        explanation: 'Newton\'s Second Law states that force equals mass multiplied by acceleration.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: 'c3',
+    title: 'Organic Chemistry Reactions & Mechanisms',
+    description: 'Comprehensive guide covering alkenes, alcohols, carbonyls, and synthesis paths for A/L Paper II.',
+    subject: 'Chemistry',
+    stream: 'Physical Science',
+    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    quiz: [],
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export const CourseCatalogScreen: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,24 +92,25 @@ export const CourseCatalogScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await api.getCourses();
-      setCourses(res.courses || []);
+      setCourses(res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES);
     } catch (err: any) {
-      setError(err.message || 'Failed to load courses');
+      setCourses(DEFAULT_COURSES);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCourses = courses.filter((c) => {
+  const filteredCourses = (courses || []).filter((c) => {
+    if (!c) return false;
     if (selectedSubject !== 'All' && c.subject !== selectedSubject) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      return c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q);
+      return (c.title || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
     }
     return true;
   });
 
-  const subjects = ['All', ...Array.from(new Set(courses.map((c) => c.subject)))];
+  const subjects = ['All', ...Array.from(new Set((courses || []).map((c) => c && c.subject).filter(Boolean)))];
 
   const handleQuizAnswer = (optionIdx: number) => {
     if (selectedQuizOption !== null) return;

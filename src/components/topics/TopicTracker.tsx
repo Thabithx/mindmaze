@@ -459,7 +459,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-center shrink-0">
                     {/* Completed Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'completed')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'completed'
                           ? 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]'
@@ -473,7 +473,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
                     {/* In Progress Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'in_progress')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'in_progress'
                           ? 'bg-amber-500 text-black font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.5)]'
@@ -487,7 +487,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
                     {/* Not Started Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'not_started')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'not_started'
                           ? 'bg-slate-700 text-white border border-slate-500'
@@ -587,7 +587,13 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                                       return (
                                         <div
                                           key={idx}
-                                          onClick={() => onToggleSubtopic && onToggleSubtopic(topic.id, item.raw)}
+                                          onClick={() => {
+                                            if (onToggleSubtopic) {
+                                              onToggleSubtopic(topic.id, item.raw);
+                                            } else if (onUpdateTopicStatus) {
+                                              onUpdateTopicStatus(topic.id, isSubDone ? 'in_progress' : 'completed');
+                                            }
+                                          }}
                                           className={`flex items-start justify-between p-2 rounded-xl transition cursor-pointer select-none text-xs gap-2 ${
                                             isSubDone
                                               ? 'bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 border border-emerald-500/20'

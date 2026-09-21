@@ -230,22 +230,40 @@ export function App() {
             <TopicTracker
               topics={syllabusTopics}
               stream={userSettings.stream}
-              onUpdateSubtopicProgress={(topicId, subtopic, progress) => {
+              physicalScienceElective={userSettings.physicalScienceElective}
+              onUpdateTopicStatus={(topicId, status) => {
+                const updated = syllabusTopics.map((t) =>
+                  t.id === topicId ? { ...t, status } : t
+                );
+                setSyllabusTopics(updated);
+                saveStoredSyllabusTopics(updated);
+              }}
+              onToggleSubtopic={(topicId, subtopicTitle) => {
                 const updated = syllabusTopics.map((t) => {
                   if (t.id === topicId) {
-                    const map = t.subtopicProgress || {};
-                    map[subtopic] = progress;
-                    return { ...t, subtopicProgress: map };
+                    const map = { ...(t.subtopicProgress || {}) };
+                    const current = map[subtopicTitle] || 0;
+                    map[subtopicTitle] = current >= 100 ? 0 : 100;
+                    const subs = t.subtopics || [];
+                    const allDone = subs.length > 0 && subs.every((s) => (map[s] || 0) >= 100);
+                    return {
+                      ...t,
+                      subtopicProgress: map,
+                      status: allDone ? ('completed' as const) : ('in_progress' as const),
+                    };
                   }
                   return t;
                 });
                 setSyllabusTopics(updated);
                 saveStoredSyllabusTopics(updated);
               }}
-              onSaveCompletedPicker={(completedIds) => {
-                const updated = syllabusTopics.map((t) =>
-                  completedIds.includes(t.id) ? { ...t, status: 'completed' as const } : t
-                );
+              onAddCustomTopic={(customTopic) => {
+                const newTopic: SyllabusTopic = {
+                  ...customTopic,
+                  id: `custom-${Date.now()}`,
+                  status: 'not_started',
+                };
+                const updated = [...syllabusTopics, newTopic];
                 setSyllabusTopics(updated);
                 saveStoredSyllabusTopics(updated);
               }}
