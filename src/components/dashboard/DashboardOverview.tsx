@@ -2,24 +2,19 @@ import React from 'react';
 import { DailyTask, ScreenId, StreamType, SyllabusTopic, TimetableEntry, StreakData } from '../../types';
 import {
   Calendar,
-  CheckCircle2,
   Clock,
   BookOpen,
-  TrendingUp,
-  Flame,
   ArrowRight,
   Sparkles,
   Plus,
   Trophy,
   Zap,
-  Target,
-  GraduationCap,
   CalendarDays,
-  BookmarkCheck,
 } from 'lucide-react';
 import { getTodayDateString, getTodayDayOfWeek } from '../../lib/storage';
 import { getSubjectsForStream } from '../../data/alSyllabusData';
 import { PWAInstallButton } from '../PWAInstallButton';
+import { SubjectIcon } from '../common/SubjectIcon';
 import {
   calculateSubjectProgression,
   calculateOverallStreamProgression,
@@ -58,30 +53,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   timetable,
   dailyTasks = [],
   syllabusTopics = [],
-  streakData,
-  streak,
   userProfile,
   userSettings,
   onNavigate,
-  onToggleTask = () => {},
   username,
   examDate = null,
-  targetZScore = null,
-  motivationNote = null,
   onNavigateToSettings,
-  onOpenProfileEdit,
 }) => {
   const effectiveStream = stream || userSettings?.stream || 'Physical Science';
   const effectiveElective = physicalScienceElective || userSettings?.physicalScienceElective || 'Chemistry';
   const effectiveTimetable = timetableEntries || timetable || [];
   const effectiveDailyTasks = dailyTasks || [];
   const effectiveTopics = syllabusTopics || [];
-  const effectiveStreak = streakData || streak || {
-    currentStreak: userProfile?.streakDays || 1,
-    bestStreak: userProfile?.streakDays || 1,
-    completedDates: [],
-    isCompletedToday: false,
-  };
 
   const studentName = username || userProfile?.name || userSettings?.studentName || 'A/L Scholar';
   const todayStr = getTodayDateString();
@@ -94,27 +77,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     .filter((e) => e && e.dayOfWeek === todayDayOfWeek)
     .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
-  // Today's tasks
-  const todayTasksList = (effectiveDailyTasks || []).filter((t) => t && t.date === todayStr);
-  const completedTodayTasks = todayTasksList.filter((t) => t.isCompleted).length;
-  const totalTodayTasks = todayTasksList.length;
-
   // Overall syllabus completion
   const streamProgression = calculateOverallStreamProgression(streamSubjectMetas, effectiveTopics);
   const totalTopicsCount = streamProgression.totalTopics;
   const completedTopicsCount = streamProgression.completedTopics;
   const overallSyllabusPercent = streamProgression.totalPercentage;
-
-  // Calculate total scheduled hours for today
-  let totalTodayMinutes = 0;
-  todayBlocks.forEach((b) => {
-    if (!b.startTime || !b.endTime) return;
-    const [sh, sm] = b.startTime.split(':').map(Number);
-    const [eh, em] = b.endTime.split(':').map(Number);
-    const diff = (eh * 60 + em) - (sh * 60 + sm);
-    if (diff > 0) totalTodayMinutes += diff;
-  });
-  const todayHoursFormatted = (totalTodayMinutes / 60).toFixed(1);
 
   // Exam countdown
   const targetDate = examDate || userSettings?.targetExamDate || userProfile?.examDate;
@@ -134,8 +101,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   };
 
   return (
-    <div id="dashboard-overview-view" className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* 🌟 HERO CARD (Glassmorphism + Neon Glow) */}
+    <div id="dashboard-overview-view" className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
+      {/* 🌟 HERO CARD */}
       <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -147,15 +114,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span>{effectiveStream} {effectiveStream.includes('Physical') ? `(${effectiveElective})` : ''}</span>
               </span>
-
-              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 backdrop-blur-md">
-                <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <span>🔥 {effectiveStreak.currentStreak} Day Streak</span>
-              </span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-300">{studentName}</span>! 👋
+              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-300">{studentName}</span>!
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
@@ -164,22 +126,23 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
 
           {/* Exam Days Badge */}
-          <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shrink-0 text-center min-w-[160px] shadow-lg">
+          <div className="flex flex-col items-center justify-center p-5 sm:p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shrink-0 text-center min-w-[170px] shadow-lg">
             <div className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tight">{examDaysLeft}</div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
               Days to A/L Exam
             </div>
             <button
               onClick={handleOpenSettings}
-              className="mt-2 text-[10px] font-semibold text-indigo-300 hover:text-white underline cursor-pointer transition"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition cursor-pointer shadow-md shadow-indigo-600/30 hover:scale-105 active:scale-95"
             >
-              Update Goal Date
+              <Calendar className="w-3.5 h-3.5" />
+              <span>UPDATE EXAM DATE</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 🚀 QUICK ACCESS TOOLS (Study App Navigation Shortcuts) */}
+      {/* 🚀 QUICK ACCESS TOOLS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           onClick={() => onNavigate('planner')}
@@ -287,8 +250,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   className="glass-card-hover p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400/50 transition cursor-pointer space-y-2 group"
                 >
                   <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-white flex items-center gap-1.5 truncate">
-                      <span>{s.icon}</span>
+                    <span className="text-white flex items-center gap-2 truncate">
+                      <SubjectIcon subject={s.name} className="w-4 h-4 text-indigo-400 shrink-0" />
                       <span className="truncate">{s.name}</span>
                     </span>
                     <span className="text-cyan-300 shrink-0 font-black">{sProg.percentage}%</span>
@@ -377,7 +340,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* 📱 BOTTOM SECTION: APP REMINDER & INSTALL PROMOTION */}
+      {/* 📱 BOTTOM SECTION */}
       <div className="pt-4 border-t border-white/10 space-y-4">
         <PWAInstallButton variant="card" />
       </div>

@@ -1,23 +1,47 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Volume2, VolumeX, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Sparkles,
+  CheckCircle2,
+  Minimize2,
+  Maximize2,
+  BookOpen,
+  Clock,
+  Flame,
+} from 'lucide-react';
 
-interface PomodoroTimerProps {
+export interface PomodoroTimerProps {
+  activeUnitTitle?: string;
+  activeSubject?: string;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
+  onMarkFinished?: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
+  className?: string;
 }
 
 type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
 const MODE_CONFIGS: Record<TimerMode, { label: string; minutes: number; color: string; badge: string }> = {
-  work: { label: 'Focus Study', minutes: 25, color: 'from-indigo-600 to-purple-600', badge: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
-  shortBreak: { label: 'Short Break', minutes: 5, color: 'from-emerald-600 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  longBreak: { label: 'Long Break', minutes: 15, color: 'from-blue-600 to-cyan-600', badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  work: { label: 'Focus Study', minutes: 25, color: 'from-indigo-600 to-purple-600', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+  shortBreak: { label: 'Short Break', minutes: 5, color: 'from-emerald-600 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  longBreak: { label: 'Long Break', minutes: 15, color: 'from-blue-600 to-cyan-600', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
 };
 
-export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete }) => {
+export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
+  activeUnitTitle,
+  activeSubject,
+  onSessionComplete,
+  onMarkFinished,
+  isMinimized = false,
+  onToggleMinimize,
+  className = '',
+}) => {
   const [mode, setMode] = useState<TimerMode>('work');
   const [timeLeft, setTimeLeft] = useState<number>(MODE_CONFIGS.work.minutes * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [completedSessions, setCompletedSessions] = useState<number>(0);
 
   const totalTime = MODE_CONFIGS[mode].minutes * 60;
@@ -25,7 +49,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
 
   // Synthesize soft audio chime using Web Audio API
   const playChime = () => {
-    if (!soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
@@ -46,7 +69,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
       osc.start();
       osc.stop(ctx.currentTime + 0.8);
     } catch (e) {
-      console.warn('Audio chime fallback:', e);
+      console.warn('Audio chime:', e);
     }
   };
 
@@ -66,7 +89,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
         setCompletedSessions(newCount);
         if (onSessionComplete) onSessionComplete('work', MODE_CONFIGS.work.minutes);
 
-        // Auto switch to short break or long break every 4 sessions
         if (newCount % 4 === 0) {
           switchMode('longBreak');
         } else {
@@ -104,39 +126,106 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/80 p-6 backdrop-blur-xl shadow-xl transition-all">
-      {/* Background Gradient Glow */}
-      <div className={`absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${MODE_CONFIGS[mode].color} opacity-20 blur-3xl pointer-events-none`} />
-
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-            <Sparkles className="w-5 h-5" />
+  // Minimized Compact Bar View
+  if (isMinimized) {
+    return (
+      <div className={`glass-card rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xl border border-white/15 transition-all select-none ${className}`}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 shrink-0">
+            <Clock className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="font-semibold text-white text-base">Pomodoro Study Timer</h3>
-            <p className="text-xs text-slate-400">Boost focus with timed intervals</p>
+          <div className="min-w-0">
+            <span className="font-mono text-base font-black text-white block leading-none">
+              {formatTime(timeLeft)}
+            </span>
+            <span className="text-[10px] text-slate-400 block truncate">
+              {activeUnitTitle || MODE_CONFIGS[mode].label}
+            </span>
           </div>
         </div>
 
-        <button
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
-          title={soundEnabled ? 'Mute Sound' : 'Enable Sound'}
-        >
-          {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={toggleTimer}
+            className={`p-2 rounded-xl text-white font-bold text-xs transition shadow cursor-pointer ${
+              isRunning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'
+            }`}
+            title={isRunning ? 'Pause' : 'Start'}
+          >
+            {isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+          </button>
+
+          {onToggleMinimize && (
+            <button
+              onClick={onToggleMinimize}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition cursor-pointer"
+              title="Expand Pomodoro Timer"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Full Expanded View
+  return (
+    <div className={`glass-card relative overflow-hidden rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/15 transition-all select-none ${className}`}>
+      {/* Background Gradient Glow */}
+      <div className={`absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${MODE_CONFIGS[mode].color} opacity-25 blur-3xl pointer-events-none`} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-white text-base truncate">Pomodoro Study Timer</h3>
+            <p className="text-xs text-slate-400 truncate">Boost focus with timed intervals</p>
+          </div>
+        </div>
+
+        {onToggleMinimize && (
+          <button
+            onClick={onToggleMinimize}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+            title="Minimize Timer to Dashboard"
+          >
+            <Minimize2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
+      {/* Active Unit Focus Badge (if set) */}
+      {activeUnitTitle && (
+        <div className="mb-4 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <BookOpen className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+            <span className="text-slate-200 truncate font-semibold">
+              Focus: <strong className="text-white">{activeUnitTitle}</strong>
+            </span>
+          </div>
+          {onMarkFinished && (
+            <button
+              onClick={onMarkFinished}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold transition shrink-0 cursor-pointer"
+            >
+              Mark Done
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Mode Selectors */}
-      <div className="flex items-center gap-2 mb-6 p-1 bg-slate-800/80 rounded-xl border border-slate-700/50">
+      <div className="flex items-center gap-1.5 mb-5 p-1 bg-black/40 rounded-xl border border-white/10">
         {(['work', 'shortBreak', 'longBreak'] as TimerMode[]).map((m) => (
           <button
             key={m}
             onClick={() => switchMode(m)}
-            className={`flex-1 py-1.5 px-3 text-xs font-medium rounded-lg transition-all ${
-              mode === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+            className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mode === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
             }`}
           >
             {MODE_CONFIGS[m].label}
@@ -145,8 +234,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
       </div>
 
       {/* Circular Timer Display */}
-      <div className="relative flex flex-col items-center justify-center my-4">
-        <div className="relative flex items-center justify-center w-48 h-48 rounded-full border-4 border-slate-800 bg-slate-950/60 shadow-inner">
+      <div className="relative flex flex-col items-center justify-center my-3">
+        <div className="relative flex items-center justify-center w-44 h-44 sm:w-48 sm:h-48 rounded-full border-4 border-white/10 bg-slate-950/60 shadow-inner">
           {/* Progress Ring Overlay */}
           <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
             <circle
@@ -171,21 +260,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
           </svg>
 
           <div className="text-center z-10">
-            <span className="font-mono text-4xl font-extrabold text-white tracking-wider drop-shadow">
+            <span className="font-mono text-3xl sm:text-4xl font-black text-white tracking-wider drop-shadow">
               {formatTime(timeLeft)}
             </span>
-            <span className={`block mt-2 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${MODE_CONFIGS[mode].badge}`}>
+            <span className={`block mt-2 text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full border ${MODE_CONFIGS[mode].badge}`}>
               {MODE_CONFIGS[mode].label}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-4 mt-6">
+      {/* Timer Controls */}
+      <div className="flex items-center justify-center gap-3 mt-5">
         <button
           onClick={resetTimer}
-          className="p-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all shadow-md active:scale-95"
+          className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
           title="Reset Timer"
         >
           <RotateCcw className="w-5 h-5" />
@@ -193,7 +282,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
 
         <button
           onClick={toggleTimer}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-95 bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-95 cursor-pointer min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110`}
         >
           {isRunning ? (
             <>
@@ -207,14 +296,24 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ onSessionComplete 
         </button>
       </div>
 
-      {/* Completed Sessions Tracker */}
-      <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+      {/* Completed Sessions & Finish Early */}
+      <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
         <span className="flex items-center gap-1.5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Completed Sessions
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
         </span>
-        <span className="font-bold text-white bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
-          {completedSessions} / 4
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10">
+            {completedSessions} / 4
+          </span>
+          {onMarkFinished && (
+            <button
+              onClick={onMarkFinished}
+              className="text-[11px] font-bold text-emerald-400 hover:underline cursor-pointer"
+            >
+              Done Unit
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

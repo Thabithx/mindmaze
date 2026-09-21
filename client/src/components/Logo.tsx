@@ -1,4 +1,5 @@
 import React from 'react';
+import { Brain, Sparkles } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -14,17 +15,17 @@ export const Logo: React.FC<LogoProps> = ({
   onClick,
 }) => {
   const iconSizes = {
-    sm: 'w-10 h-10',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16',
-    xl: 'w-20 h-20',
+    sm: 'w-8 h-8',
+    md: 'w-9 h-9',
+    lg: 'w-12 h-12',
+    xl: 'w-14 h-14',
   };
 
-  const textSizes = {
-    sm: 'text-base font-bold',
-    md: 'text-xl font-extrabold',
-    lg: 'text-2xl font-black tracking-tight',
-    xl: 'text-3xl font-black tracking-tight',
+  const brainSizes = {
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
+    lg: 'w-7 h-7',
+    xl: 'w-8 h-8',
   };
 
   return (
@@ -33,26 +34,18 @@ export const Logo: React.FC<LogoProps> = ({
       onClick={onClick}
       className={`inline-flex items-center gap-3 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
-      {/* Brand mark — neon maze-brain logo (blends into the dark navy background) */}
-      <img
-        src="/icon-192.png"
-        alt="Mind Maze logo"
-        width={192}
-        height={192}
-        className={`relative rounded-xl object-cover ring-1 ring-white/10 shadow-lg shadow-[#6B4EFF]/30 ${iconSizes[size]}`}
-        draggable={false}
-      />
+      <div className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-600 shadow-lg shadow-indigo-900/40 text-white ${iconSizes[size]}`}>
+        <Brain className={brainSizes[size]} />
+      </div>
 
       {showText && (
         <div className="flex flex-col">
-          <div className={`leading-none flex items-center gap-1.5 ${textSizes[size]}`}>
-            <span className="text-white">Mind</span>
-            <span className="bg-gradient-to-r from-[#6B4EFF] via-[#8B5CF6] to-[#00F5FF] bg-clip-text text-transparent">
-              Maze
-            </span>
+          <div className="leading-none flex items-center gap-1 font-black text-white text-base tracking-wide">
+            <span>Mind Maze</span>
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           </div>
-          <span className="text-[10px] tracking-wider uppercase font-medium text-cyan-400 mt-0.5">
-            GCE A/L Study Planner
+          <span className="text-[10px] tracking-widest uppercase font-semibold text-slate-400 mt-1">
+            GCE A/L Study Suite
           </span>
         </div>
       )}

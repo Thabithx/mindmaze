@@ -183,8 +183,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* Settings */}
-          <div>
+          {/* Account */}
+          <div className="space-y-1">
             {!isCollapsed && (
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
                 Account
@@ -205,22 +205,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Settings className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'settings' ? 'text-slate-300' : 'text-slate-500 group-hover:text-slate-300'}`} />
               {!isCollapsed && <span className="text-[13px]">Settings</span>}
             </button>
+
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                title={isCollapsed ? 'Log Out' : undefined}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-400/85 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-[18px] h-[18px] shrink-0 text-rose-400/80 group-hover:text-rose-400" />
+                {!isCollapsed && <span className="text-[13px]">Log Out</span>}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-white/[0.06] space-y-1 shrink-0">
-          {onSignOut && (
-            <button
-              onClick={onSignOut}
-              title={isCollapsed ? 'Sign Out' : undefined}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-rose-400/80 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              {!isCollapsed && <span>Sign Out</span>}
-            </button>
-          )}
-
+        <div className="p-3 border-t border-white/[0.06] shrink-0">
           <button
             onClick={onToggleCollapse}
             className="hidden lg:flex w-full items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"

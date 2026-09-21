@@ -22,6 +22,7 @@ import { Sidebar } from './components/Sidebar';
 import { MobileBottomBar } from './components/MobileBottomBar';
 import { MazeBackground } from './components/MazeBackground';
 import { CelebrationModal, Celebration } from './components/common/CelebrationModal';
+import { WhatsAppCommunityBanner } from './components/common/WhatsAppCommunityBanner';
 
 // Feature Components
 import { PomodoroTimer } from './components/pomodoro/PomodoroTimer';
@@ -163,6 +164,48 @@ export function App() {
     isAuthenticated: !!user,
   };
 
+  // Active timetable session detection
+  const [activePomodoroTopic, setActivePomodoroTopic] = useState<{ title: string; subject: string; id?: string } | null>(null);
+  const [isPomodoroMinimized, setIsPomodoroMinimized] = useState(false);
+  const [hasPromptedActiveBlock, setHasPromptedActiveBlock] = useState(false);
+
+  useEffect(() => {
+    const checkActiveBlock = () => {
+      const now = new Date();
+      const currentDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMins = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHours}:${currentMins}`;
+
+      const currentBlock = timetable.find((entry) => {
+        if (entry.dayOfWeek !== currentDay) return false;
+        return entry.startTime <= currentTimeStr && currentTimeStr <= entry.endTime;
+      });
+
+      if (currentBlock && (!activePomodoroTopic || activePomodoroTopic.id !== currentBlock.id)) {
+        setActivePomodoroTopic({
+          title: currentBlock.topic,
+          subject: currentBlock.subject,
+          id: currentBlock.id,
+        });
+
+        if (!hasPromptedActiveBlock && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          try {
+            new Notification(`Study Session Starting! 📚`, {
+              body: `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
+              icon: '/icon-192.png',
+            });
+          } catch {}
+          setHasPromptedActiveBlock(true);
+        }
+      }
+    };
+
+    checkActiveBlock();
+    const interval = setInterval(checkActiveBlock, 30000);
+    return () => clearInterval(interval);
+  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
@@ -176,6 +219,9 @@ export function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Background Animated Maze Grid */}
       <MazeBackground />
+
+      {/* WhatsApp Community Banner */}
+      <WhatsAppCommunityBanner />
 
       {/* Top Navigation Bar */}
       <Navbar
@@ -202,14 +248,55 @@ export function App() {
         />
 
         {/* Main Content Body */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           {/* Home / Dashboard Screen */}
           {currentScreen === 'dashboard' && (
             <div className="space-y-6">
-              {/* Pomodoro Study Timer on Dashboard */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1">
+              {/* Active Timetable Prompt Banner if block is happening now */}
+              {activePomodoroTopic && (
+                <div className="glass-card p-4 rounded-2xl border border-indigo-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gradient-to-r from-indigo-950/50 via-purple-950/30 to-slate-900/70 shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300 block">
+                        Scheduled Study Block Active Now
+                      </span>
+                      <h4 className="text-sm font-bold text-white">
+                        {activePomodoroTopic.title} • <span className="text-slate-400">{activePomodoroTopic.subject}</span>
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setIsPomodoroMinimized(false)}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 cursor-pointer hover:scale-105 active:scale-95"
+                    >
+                      Focus With Pomodoro
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Responsive Layout: On mobile Pomodoro is under the name banner; on desktop side-by-side */}
+              <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+                <div className="order-2 lg:order-1 lg:col-span-1">
                   <PomodoroTimer
+                    activeUnitTitle={activePomodoroTopic?.title}
+                    activeSubject={activePomodoroTopic?.subject}
+                    isMinimized={isPomodoroMinimized}
+                    onToggleMinimize={() => setIsPomodoroMinimized(!isPomodoroMinimized)}
+                    onMarkFinished={() => {
+                      if (activePomodoroTopic?.title) {
+                        setCelebration({
+                          title: 'Unit Completed! 🎯',
+                          message: `Awesome job! You finished "${activePomodoroTopic.title}". Keep up the great streak!`,
+                        });
+                        setActivePomodoroTopic(null);
+                      }
+                    }}
                     onSessionComplete={(type, mins) => {
                       if (type === 'work') {
                         setCelebration({
@@ -221,14 +308,15 @@ export function App() {
                   />
                 </div>
 
-                <div className="lg:col-span-2">
+                <div className="order-1 lg:order-2 lg:col-span-2">
                   <DashboardOverview
                     stream={userSettings?.stream || 'Physical Science'}
                     physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
                     timetableEntries={timetable || []}
                     dailyTasks={tasks || []}
                     syllabusTopics={syllabusTopics || INITIAL_SYLLABUS_TOPICS}
-                    streakData={{ currentStreak: userProfile?.streakDays || 1, bestStreak: userProfile?.streakDays || 1, isCompletedToday: false, completedDates: [] }}
+                    userProfile={userProfile}
+                    userSettings={userSettings}
                     onNavigate={setCurrentScreen}
                     onOpenProfileEdit={() => setIsProfileEditOpen(true)}
                   />
