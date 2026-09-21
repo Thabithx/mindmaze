@@ -40,23 +40,25 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Extract unique topics and subjects
-  const allSubjects = ['All', ...Array.from(new Set(mistakes.map((m) => m.question.subject)))];
-  const allTopics = ['All', ...Array.from(new Set(mistakes.map((m) => m.question.topic)))];
+  const safeMistakes = mistakes || [];
+  const allSubjects = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.question?.subject).filter(Boolean)))];
+  const allTopics = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.question?.topic).filter(Boolean)))];
 
-  const filteredMistakes = mistakes.filter((m) => {
+  const filteredMistakes = safeMistakes.filter((m) => {
+    if (!m || !m.question) return false;
     if (selectedSubject !== 'All' && m.question.subject !== selectedSubject) return false;
     if (selectedTopic !== 'All' && m.question.topic !== selectedTopic) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchText = m.question.questionText.toLowerCase().includes(q);
-      const matchTopic = m.question.topic.toLowerCase().includes(q);
-      const matchConcept = m.question.explanation.conceptNote.toLowerCase().includes(q);
+      const matchText = (m.question.questionText || '').toLowerCase().includes(q);
+      const matchTopic = (m.question.topic || '').toLowerCase().includes(q);
+      const matchConcept = (m.question.explanation?.conceptNote || '').toLowerCase().includes(q);
       if (!matchText && !matchTopic && !matchConcept) return false;
     }
     return true;
   });
 
-  const masteredCount = mistakes.filter((m) => m.isMastered).length;
+  const masteredCount = safeMistakes.filter((m) => m && m.isMastered).length;
 
   return (
     <div id="mind-maze-mistake-notebook" className="space-y-8 pb-16 max-w-5xl mx-auto">

@@ -50,16 +50,17 @@ export const CourseCatalogScreen: React.FC = () => {
     }
   };
 
-  const filteredCourses = courses.filter((c) => {
+  const filteredCourses = (courses || []).filter((c) => {
+    if (!c) return false;
     if (selectedSubject !== 'All' && c.subject !== selectedSubject) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      return c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q);
+      return (c.title || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
     }
     return true;
   });
 
-  const subjects = ['All', ...Array.from(new Set(courses.map((c) => c.subject)))];
+  const subjects = ['All', ...Array.from(new Set((courses || []).map((c) => c && c.subject).filter(Boolean)))];
 
   const handleQuizAnswer = (optionIdx: number) => {
     if (selectedQuizOption !== null) return;

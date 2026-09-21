@@ -451,25 +451,9 @@ const PERM_REPORT_KEY = 'mindmaze_push_perm_reported';
  */
 async function reportPushPermissionToProfile(perm: 'granted' | 'denied' | 'default' | 'unsupported'): Promise<void> {
   try {
-    try {
-      if (localStorage.getItem(PERM_REPORT_KEY) === perm) return;
-    } catch {
-      // Storage unavailable — still attempt the report.
-    }
-    const { supabase } = await import('./supabaseClient');
-    if (!supabase) return;
-    const { data } = await supabase.auth.getUser();
-    if (!data.user?.id) return;
-    const { updateProfilePushPermission } = await import('./cloudStore');
-    const saved = await updateProfilePushPermission(data.user.id, perm);
-    if (saved) {
-      try {
-        localStorage.setItem(PERM_REPORT_KEY, perm);
-      } catch {}
-    }
-  } catch {
-    // Telemetry must never interrupt the student.
-  }
+    if (localStorage.getItem(PERM_REPORT_KEY) === perm) return;
+    localStorage.setItem(PERM_REPORT_KEY, perm);
+  } catch {}
 }
 
 /**

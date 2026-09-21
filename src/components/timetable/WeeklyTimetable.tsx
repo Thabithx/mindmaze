@@ -164,9 +164,10 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
   };
 
   // Revision is only for already-completed topics.
-  const completedTopicsCount = syllabusTopics.filter((t) => t.status === 'completed').length;
-  const completedForSubjectCount = syllabusTopics.filter(
-    (t) => t.subject === formSubject && t.status === 'completed'
+  const safeTopics = syllabusTopics || [];
+  const completedTopicsCount = safeTopics.filter((t) => t && t.status === 'completed').length;
+  const completedForSubjectCount = safeTopics.filter(
+    (t) => t && t.subject === formSubject && t.status === 'completed'
   ).length;
   const revisionLockedGlobally = completedTopicsCount === 0;
 

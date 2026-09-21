@@ -71,8 +71,9 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [newSubtopicsText, setNewSubtopicsText] = useState('');
 
   // Current Subject topics & calculation with subtopics breakdown
-  const currentSubjectTopics = topics.filter((t) => t.subject === selectedSubject);
-  const subjectProgression = calculateSubjectProgression(selectedSubject, topics);
+  const safeTopics = topics || [];
+  const currentSubjectTopics = safeTopics.filter((t) => t && t.subject === selectedSubject);
+  const subjectProgression = calculateSubjectProgression(selectedSubject, safeTopics);
   const totalCount = subjectProgression.totalTopics;
   const completedCount = subjectProgression.completedTopics;
   const inProgressCount = subjectProgression.inProgressTopics;
@@ -81,12 +82,13 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
   // Filtered topics
   const displayedTopics = currentSubjectTopics.filter((t) => {
+    if (!t) return false;
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchTitle = t.topicTitle.toLowerCase().includes(q);
-      const matchUnit = t.unitTitle.toLowerCase().includes(q);
-      const matchSub = t.subtopics?.some((s) => s.toLowerCase().includes(q));
+      const matchTitle = (t.topicTitle || '').toLowerCase().includes(q);
+      const matchUnit = (t.unitTitle || '').toLowerCase().includes(q);
+      const matchSub = t.subtopics?.some((s) => (s || '').toLowerCase().includes(q));
       if (!matchTitle && !matchUnit && !matchSub) return false;
     }
     return true;
