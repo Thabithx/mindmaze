@@ -259,6 +259,10 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     setFormTargets([]);
     if (topicId && !formTitle.trim()) {
       const match = syllabusTopics.find((t) => t.id === topicId);
+      if (match) setFormTitle(formBlockType === 'revision' ? `Revise ${match.topicTitle}` : match.topicTitle);
+    }
+  };
+
   const handleToggleTask = (taskId: string) => {
     setInternalTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t))
@@ -435,7 +439,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   return (
     <div id="study-planner-view" className="space-y-5 max-w-7xl mx-auto pb-8">
       {/* Header — one place to add anything */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#161831] via-[#12142B] to-[#0F1023] p-4 sm:p-6 backdrop-blur-xl shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-bold">
@@ -716,7 +720,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
       {/* Two columns: this date + weekly repeat */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* Left: blocks for the selected date */}
-        <div className="lg:col-span-3 rounded-3xl border border-white/10 bg-[#161831]/80 p-4 sm:p-5 backdrop-blur-xl shadow-xl space-y-3">
+        <div className="lg:col-span-3 glass-card rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Calendar className="w-4 h-4 text-emerald-400" />
@@ -822,7 +826,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         </div>
 
         {/* Right: weekly repeating template for this weekday */}
-        <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-[#161831]/80 p-4 sm:p-5 backdrop-blur-xl shadow-xl space-y-3">
+        <div className="lg:col-span-2 glass-card rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Repeat className="w-4 h-4 text-purple-300" />

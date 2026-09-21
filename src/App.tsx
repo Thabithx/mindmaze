@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken } from './services/api';
-import { getStoredTimetable, saveStoredTimetable, getUserSettings, saveUserSettings, getStoredSyllabusTopics, saveStoredSyllabusTopics, getStoredDailyTasks, saveStoredDailyTasks } from './lib/storage';
+import {
+  getStoredTimetable,
+  saveStoredTimetable,
+  getUserSettings,
+  saveUserSettings,
+  getStoredSyllabusTopics,
+  saveStoredSyllabusTopics,
+  getStoredDailyTasks,
+  saveStoredDailyTasks,
+  getDayOfWeekFromDate,
+  calculateMinutesBetween,
+} from './lib/storage';
 import { getInitialTimetableForStream, INITIAL_SYLLABUS_TOPICS } from './data/alSyllabusData';
 import { MOCK_QUESTIONS } from './data/mockData';
 
@@ -327,7 +338,43 @@ export function App() {
                 saveStoredTimetable(reset);
               }}
               onSyncFromTimetable={(dateStr) => {
-                // Not fully implemented but won't crash
+                const dayOfWeek = getDayOfWeekFromDate(dateStr);
+                const dayEntries = timetable.filter((e) => e.dayOfWeek === dayOfWeek);
+                if (dayEntries.length === 0) return;
+
+                const existingTaskTimetableIds = new Set(
+                  tasks.filter((t) => t.date === dateStr && t.fromTimetableId).map((t) => t.fromTimetableId)
+                );
+
+                const newDailyTasks: DailyTask[] = [];
+                dayEntries.forEach((entry) => {
+                  if (!existingTaskTimetableIds.has(entry.id)) {
+                    newDailyTasks.push({
+                      id: `task-sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                      date: dateStr,
+                      title: entry.topic,
+                      subject: entry.subject,
+                      blockType: entry.blockType || 'study',
+                      topicId: entry.topicId,
+                      subtopic: entry.subtopic,
+                      targetProgress: entry.targetProgress,
+                      subtopicTargets: entry.subtopicTargets,
+                      isCompleted: false,
+                      timeSlot: `${entry.startTime} - ${entry.endTime}`,
+                      startTime: entry.startTime,
+                      endTime: entry.endTime,
+                      estimatedMinutes: calculateMinutesBetween(entry.startTime, entry.endTime) || 60,
+                      priority: 'Medium',
+                      fromTimetableId: entry.id,
+                    });
+                  }
+                });
+
+                if (newDailyTasks.length > 0) {
+                  const updatedTasks = [...tasks, ...newDailyTasks];
+                  setTasks(updatedTasks);
+                  saveStoredDailyTasks(updatedTasks);
+                }
               }}
               onAddTask={(task) => {
                 const newTasks = [...tasks, { ...task, id: `t-${Date.now()}` }];

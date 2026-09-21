@@ -367,7 +367,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   return (
     <div id="progress-analytics-view" className="space-y-6 max-w-6xl mx-auto pb-8">
       {/* Header Banner */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#161831] via-[#12142B] to-[#0F1023] p-4 sm:p-6 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-bold mb-2">
             <BarChart3 className="w-3.5 h-3.5" />
