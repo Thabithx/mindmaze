@@ -20,9 +20,12 @@ import {
   Link,
   RefreshCw,
   GraduationCap,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 import { SUBJECT_METAS, getSubjectsForStream } from '../../data/alSyllabusData';
 import { INITIAL_TIMETABLE_ENTRIES } from '../../data/alSyllabusData';
+import { SubjectIcon } from '../common/SubjectIcon';
 import { SubtopicTargetPicker } from '../common/SubtopicTargetPicker';
 import { getBlockSubtopicTargets } from '../../lib/syllabusProgression';
 import { calculateMinutesBetween, formatTime12h, isEndAfterStart } from '../../lib/storage';
@@ -280,8 +283,9 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
             {(stream === 'Physical Science' || (stream as string) === 'Maths') && (
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-xs">
                 <span className="text-[10px] text-slate-300 font-semibold">3rd Elective:</span>
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-200">
-                  {physicalScienceElective === 'ICT' ? '💻 ICT' : '🧪 Chemistry'}
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                  <SubjectIcon subject={physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry'} className="w-3.5 h-3.5 text-cyan-300 inline" />
+                  <span>{physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry'}</span>
                 </span>
               </div>
             )}
@@ -499,7 +503,7 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                         {isRevision && (
                           <span className="text-[10px] text-teal-200 font-bold flex items-center gap-1 bg-teal-500/15 px-2 py-0.5 rounded-full border border-teal-400/40">
                             <RefreshCw className="w-2.5 h-2.5 text-teal-300" />
-                            Revision 🔁
+                            Revision
                           </span>
                         )}
                         {entry.fromTaskId && (
@@ -557,8 +561,9 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                           </button>
                         )}
                         {entry.reminderEnabled && (
-                          <span className="text-[11px] text-emerald-300 font-medium">
-                            🔔 {entry.reminderOffsetMinutes === 0 ? 'At time' : `${entry.reminderOffsetMinutes}m before`}
+                          <span className="text-[11px] text-emerald-300 font-medium flex items-center gap-1">
+                            <Bell className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span>{entry.reminderOffsetMinutes === 0 ? 'At time' : `${entry.reminderOffsetMinutes}m before`}</span>
                           </span>
                         )}
                       </div>
@@ -647,7 +652,7 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                                 {block.reminderEnabled && <Bell className="w-2.5 h-2.5 text-emerald-400" />}
                               </span>
                             </div>
-                            <span className="font-bold text-white block line-clamp-1">{block.subject}{isRev ? ' 🔁' : ''}</span>
+                            <span className="font-bold text-white block line-clamp-1">{block.subject}</span>
                             <span className="text-[11px] text-slate-300 line-clamp-2 mt-0.5">{block.topic}</span>
                           </div>
                         );
@@ -692,7 +697,7 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center"
                   aria-label="Close dialog"
                 >
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
@@ -733,14 +738,14 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                 >
                   {availableSubjects.map((s) => (
                     <option key={s.id} value={s.name} className="bg-[#161831] text-white">
-                      {s.icon} {s.name}
+                      {s.name}
                     </option>
                   ))}
                   <option value="General English / Git" className="bg-[#161831] text-white">
-                    📖 General English / GIT
+                    General English / GIT
                   </option>
                   <option value="Self Study & Revision" className="bg-[#161831] text-white">
-                    ⚡ Self Study & Revision
+                    Self Study & Revision
                   </option>
                 </select>
               </div>
@@ -781,16 +786,16 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                     }`}
                   >
                     <RefreshCw className="w-4 h-4" />
-                    <span>Revision 🔁</span>
+                    <span>Revision</span>
                   </button>
                 </div>
                 {revisionLockedGlobally ? (
                   <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                    🔒 Complete a topic first to unlock revision sessions — new topics can only be added as Study.
+                    Complete a topic first to unlock revision sessions — new topics can only be added as Study.
                   </p>
                 ) : formBlockType === 'revision' ? (
                   <p className="text-[11px] text-teal-300/90 mt-1.5 leading-relaxed">
-                    🔁 Revision blocks only list topics already marked <strong>completed</strong> in the Topic
+                    Revision blocks only list topics already marked <strong>completed</strong> in the Topic
                     Tracker{completedForSubjectCount === 0 ? ` — none completed yet in ${formSubject}, pick another subject or finish one first` : ''}.
                     Completing one earns a bonus without changing syllabus %.
                   </p>
@@ -851,8 +856,9 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                 </div>
               </div>
               {formTimeError ? (
-                <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300">
-                  ⚠️ {formTimeError}
+                <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{formTimeError}</span>
                 </p>
               ) : (
                 <p className="text-[11px] text-slate-400">

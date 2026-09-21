@@ -105,7 +105,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
               onClick={onClose}
               className="w-full py-3 rounded-xl border border-white/15 hover:bg-white/10 text-slate-200 text-xs font-bold transition cursor-pointer min-h-[44px]"
             >
-              Keep Going 💪
+              Keep Going
             </button>
           </div>
         </div>

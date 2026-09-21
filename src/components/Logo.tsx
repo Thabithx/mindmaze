@@ -40,9 +40,8 @@ export const Logo: React.FC<LogoProps> = ({
 
       {showText && (
         <div className="flex flex-col">
-          <div className="leading-none flex items-center gap-1 font-black text-white text-base tracking-wide">
+          <div className="leading-none flex items-center font-black text-white text-base tracking-wide">
             <span>Mind Maze</span>
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           </div>
           <span className="text-[10px] tracking-widest uppercase font-semibold text-slate-400 mt-1">
             GCE A/L Study Suite

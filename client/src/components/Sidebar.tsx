@@ -89,30 +89,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isOpenMobile ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
       >
-        {/* Logo Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-white/[0.06] shrink-0">
-          <div className="flex items-center gap-3 overflow-hidden min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-600 shadow-lg shadow-indigo-900/40">
-              <Brain className="w-5 h-5 text-white" />
-            </div>
-            {!isCollapsed && (
-              <div className="whitespace-nowrap min-w-0 overflow-hidden">
-                <span className="font-extrabold text-white text-sm tracking-wide flex items-center gap-1">
-                  Mind Maze <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
-                </span>
-                <span className="block text-[10px] text-slate-500 font-semibold tracking-wider uppercase">
-                  GCE A/L Study Suite
-                </span>
-              </div>
-            )}
+        {/* Sidebar Header (Mobile close only, no duplicate logo) */}
+        {isOpenMobile && (
+          <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06] shrink-0 lg:hidden">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation Menu</span>
+            <button
+              onClick={onCloseMobile}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onCloseMobile}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition lg:hidden"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        )}
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin">

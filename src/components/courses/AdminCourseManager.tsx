@@ -362,7 +362,7 @@ export const AdminCourseManager: React.FC = () => {
                 <div>
                   <h4 className="font-semibold text-white text-sm">{c.title}</h4>
                   <p className="text-xs text-slate-400">
-                    Subject: {c.subject} | Stream: {c.stream} | {c.pdfUrl ? '📄 PDF Uploaded' : 'No PDF'}
+                    Subject: {c.subject} | Stream: {c.stream} | {c.pdfUrl ? 'PDF Uploaded' : 'No PDF'}
                   </p>
                 </div>
                 <button

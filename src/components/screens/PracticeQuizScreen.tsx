@@ -22,6 +22,7 @@ import {
   ListOrdered,
   Lightbulb,
   AlertCircle,
+  X,
 } from 'lucide-react';
 
 interface PracticeQuizScreenProps {
@@ -493,7 +494,8 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                     : 'Mistake Analysis & Key Concept'}
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                  <span>📚 Want to learn how to answer these?</span>
+                  <BookOpen className="w-5 h-5 text-cyan-400" />
+                  <span>Want to learn how to answer these?</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {currentQuestion.subject} • {currentQuestion.topic} ({currentQuestion.paperYear} A/L)
@@ -504,7 +506,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                 onClick={() => setIsWrongModalOpen(false)}
                 className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -529,8 +531,9 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                 {currentQuestion.explanation.conceptNote}
               </p>
               {currentQuestion.explanation.keyFormula && (
-                <div className="mt-2 text-xs font-mono bg-purple-500/20 text-purple-200 p-2 rounded-lg border border-purple-400/20">
-                  💡 {currentQuestion.explanation.keyFormula}
+                <div className="mt-2 text-xs font-mono bg-purple-500/20 text-purple-200 p-2 rounded-lg border border-purple-400/20 flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{currentQuestion.explanation.keyFormula}</span>
                 </div>
               )}
             </div>
@@ -595,7 +598,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                 }`}
               >
                 <BookmarkCheck className="w-4 h-4" />
-                <span>{isSavedForLater ? 'Saved to Mistake Notebook ✓' : 'Save for Later'}</span>
+                <span>{isSavedForLater ? 'Saved to Mistake Notebook' : 'Save for Later'}</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -633,7 +636,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                 onClick={() => setActiveTryExample(null)}
                 className="text-slate-400 hover:text-white"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

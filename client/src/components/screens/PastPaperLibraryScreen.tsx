@@ -147,11 +147,11 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         <span className="text-xs font-semibold text-slate-400 mr-1">Subject:</span>
         {[
           { id: 'All', label: 'All Subjects', isLive: true },
-          { id: 'Physics', label: 'Physics', isLive: true, badge: '⚡ Live' },
-          { id: 'Chemistry', label: 'Chemistry', isLive: false, badge: '⏳ Soon' },
-          { id: 'Biology', label: 'Biology', isLive: false, badge: '⏳ Soon' },
-          { id: 'ICT', label: 'ICT', isLive: false, badge: '⏳ Soon' },
-          { id: 'Combined Maths', label: 'Combined Maths', isLive: false, badge: '⏳ Soon' },
+          { id: 'Physics', label: 'Physics', isLive: true, badge: 'Live' },
+          { id: 'Chemistry', label: 'Chemistry', isLive: false, badge: 'Soon' },
+          { id: 'Biology', label: 'Biology', isLive: false, badge: 'Soon' },
+          { id: 'ICT', label: 'ICT', isLive: false, badge: 'Soon' },
+          { id: 'Combined Maths', label: 'Combined Maths', isLive: false, badge: 'Soon' },
         ].map((tab) => {
           const isSelected = selectedSubject === tab.id;
           return (

@@ -110,7 +110,7 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
             <span>Syllabus Topic (completed only)</span>
           </label>
           <p className="text-[11px] text-slate-300 leading-relaxed">
-            🔁 Complete a topic first to unlock revision sessions — new topics can only be added as{' '}
+            Complete a topic first to unlock revision sessions — new topics can only be added as{' '}
             <strong className="text-white">Study</strong> blocks.
           </p>
         </div>

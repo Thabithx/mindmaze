@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { SUBJECT_METAS, getSubjectsForStream } from '../../data/alSyllabusData';
 import { Leaderboard } from '../leaderboard/Leaderboard';
+import { SubjectIcon } from '../common/SubjectIcon';
 import {
   calculateOverallStreamProgression,
   calculateSubjectProgression,
@@ -114,10 +115,15 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   // Paging bounds: earliest week with any logged task → current week.
   // Prev stops at the first week the user worked; Next stops at this week.
   const minWeekOffset = useMemo(() => {
-    if (dailyTasks.length === 0) return 0;
+    if (!safeDailyTasks || safeDailyTasks.length === 0) return 0;
     try {
-      const dates = dailyTasks.map((t) => t.date).filter(Boolean).sort();
+      const dates = safeDailyTasks
+        .map((t) => t?.date)
+        .filter((d): d is string => Boolean(d) && typeof d === 'string' && d.includes('-'))
+        .sort();
+      if (!dates || dates.length === 0 || !dates[0]) return 0;
       const [y, m, d] = dates[0].split('-').map(Number);
+      if (isNaN(y) || isNaN(m) || isNaN(d)) return 0;
       const first = new Date(y, m - 1, d);
       if (Number.isNaN(first.getTime())) return 0;
       const toMonday = (dt: Date) => {
@@ -133,7 +139,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     } catch {
       return 0;
     }
-  }, [dailyTasks]);
+  }, [safeDailyTasks]);
   const clampedWeekOffset = Math.max(minWeekOffset, Math.min(0, weekOffset));
 
   const weekData = useMemo(() => {
@@ -211,7 +217,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       return m;
     };
     const parseDateStr = (s: string) => {
+      if (!s || typeof s !== 'string' || !s.includes('-')) return new Date(NaN);
       const [y, mo, da] = s.split('-').map(Number);
+      if (isNaN(y) || isNaN(mo) || isNaN(da)) return new Date(NaN);
       return new Date(y, mo - 1, da);
     };
     const now = new Date();
@@ -222,17 +230,22 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     let startMonday = new Date(thisMonday);
     startMonday.setDate(thisMonday.getDate() - 7 * 7);
     let endMonday = thisMonday;
-    if (dailyTasks.length > 0) {
-      const dates = dailyTasks.map((t) => t.date).filter(Boolean).sort();
-      const first = parseDateStr(dates[0]);
-      const last = parseDateStr(dates[dates.length - 1]);
-      if (!Number.isNaN(first.getTime())) {
-        const firstMonday = toMonday(first);
-        if (firstMonday.getTime() < startMonday.getTime()) startMonday = firstMonday;
-      }
-      if (!Number.isNaN(last.getTime())) {
-        const lastMonday = toMonday(last);
-        if (lastMonday.getTime() > endMonday.getTime()) endMonday = lastMonday;
+    if (safeDailyTasks && safeDailyTasks.length > 0) {
+      const dates = safeDailyTasks
+        .map((t) => t?.date)
+        .filter((d): d is string => Boolean(d) && typeof d === 'string' && d.includes('-'))
+        .sort();
+      if (dates.length > 0 && dates[0] && dates[dates.length - 1]) {
+        const first = parseDateStr(dates[0]);
+        const last = parseDateStr(dates[dates.length - 1]);
+        if (!Number.isNaN(first.getTime())) {
+          const firstMonday = toMonday(first);
+          if (firstMonday.getTime() < startMonday.getTime()) startMonday = firstMonday;
+        }
+        if (!Number.isNaN(last.getTime())) {
+          const lastMonday = toMonday(last);
+          if (lastMonday.getTime() > endMonday.getTime()) endMonday = lastMonday;
+        }
       }
       if (startMonday.getTime() > endMonday.getTime()) startMonday = endMonday;
     }
@@ -248,9 +261,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         dt.setDate(monday2.getDate() + d);
         return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
       });
-      const weekTasks = dailyTasks.filter((t) => days.includes(t.date));
+      const weekTasks = (safeDailyTasks || []).filter((t) => t && days.includes(t.date));
       const totalMins = weekTasks.reduce((s, t) => s + taskMinutesOf(t), 0);
-      const doneMins = weekTasks.filter((t) => t.isCompleted).reduce((s, t) => s + taskMinutesOf(t), 0);
+      const doneMins = weekTasks.filter((t) => t && t.isCompleted).reduce((s, t) => s + taskMinutesOf(t), 0);
       const startL = monday2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const endD = new Date(monday2);
       endD.setDate(monday2.getDate() + 6);
@@ -268,7 +281,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     });
     const maxWk = Math.max(weeklyGoal, ...weeks.map((w) => w.totalHours), 1);
     return { weeks, maxWk };
-  }, [dailyTasks, weeklyGoal]);
+  }, [safeDailyTasks, weeklyGoal]);
 
   // Dynamic drag: leftward drag continuously collapses 7 daily bars into weekly bars.
   // dragProgress 0 = fully daily, 1 = fully weekly. Live during drag, snaps on release.
@@ -896,7 +909,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{s.icon}</span>
+                    <SubjectIcon subject={s.name} className="w-5 h-5 text-indigo-400 shrink-0" />
                     <span className="text-sm font-bold text-white line-clamp-1">{s.name}</span>
                   </div>
                   <span className="text-lg font-black text-cyan-300">{sPercent}%</span>

@@ -30,6 +30,7 @@ import {
   RotateCcw,
   Table,
   List,
+  Lightbulb,
 } from 'lucide-react';
 import { ComingSoonModal } from '../ComingSoonModal';
 
@@ -208,7 +209,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-              Welcome Back, {userProfile.name}! 👋
+              Welcome Back, {userProfile.name}!
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
               Your exam revision headquarters. Follow your daily study plan, check off your timetable routine, and lock down syllabus topics.
@@ -621,8 +622,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                 {slot.topic}
                               </p>
                               {slot.notes && (
-                                <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">
-                                  💡 {slot.notes}
+                                <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1 flex items-center gap-1">
+                                  <Lightbulb className="w-3 h-3 text-amber-400 shrink-0" />
+                                  <span>{slot.notes}</span>
                                 </p>
                               )}
                             </td>
@@ -637,13 +639,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             {/* State */}
                             <td className="py-3 px-4 align-middle text-right whitespace-nowrap">
                               <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                                   slot.isCompleted
                                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                     : 'bg-white/10 text-slate-400'
                                 }`}
                               >
-                                {slot.isCompleted ? '✓ Done' : 'Pending'}
+                                {slot.isCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                                <span>{slot.isCompleted ? 'Done' : 'Pending'}</span>
                               </span>
                             </td>
                           </tr>
@@ -708,7 +711,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
                         slot.isCompleted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-slate-400'
                       }`}>
-                        {slot.isCompleted ? '✓ Completed' : 'Pending'}
+                        {slot.isCompleted ? 'Completed' : 'Pending'}
                       </span>
                     </div>
                   </div>
@@ -787,13 +790,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           <button
                             key={idx}
                             onClick={() => handleToggleTopicCheck(topic.id, idx)}
-                            className={`p-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
+                            className={`p-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer flex items-center justify-center gap-1 ${
                               isChecked
                                 ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
                                 : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                             }`}
                           >
-                            <span>{isChecked ? '✓ ' : '○ '}{label}</span>
+                            {isChecked ? (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                            ) : (
+                              <Circle className="w-3 h-3 text-slate-500 shrink-0" />
+                            )}
+                            <span>{label}</span>
                           </button>
                         );
                       })}

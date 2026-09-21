@@ -57,6 +57,7 @@ export function App() {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [nameInput, setNameInput] = useState('');
+  const [whatsappInput, setWhatsappInput] = useState('');
   const [streamInput, setStreamInput] = useState<StreamType>('Physical Science');
   const [electiveInput, setElectiveInput] = useState<'Chemistry' | 'ICT'>('Chemistry');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -131,9 +132,10 @@ export function App() {
         name: nameInput,
         email: emailInput,
         password: passwordInput,
+        whatsappNumber: whatsappInput,
         stream: streamInput,
-        physicalScienceElective: electiveInput,
-      });
+        physicalScienceElective: streamInput === 'Physical Science' ? electiveInput : undefined,
+      } as any);
       setAuthToken(res.token);
       setUser(res.user);
       setAuthModalMode(null);
@@ -191,7 +193,7 @@ export function App() {
 
         if (!hasPromptedActiveBlock && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           try {
-            new Notification(`Study Session Starting! 📚`, {
+            new Notification(`Study Session Starting!`, {
               body: `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
               icon: '/icon-192.png',
             });
@@ -291,7 +293,7 @@ export function App() {
                     onMarkFinished={() => {
                       if (activePomodoroTopic?.title) {
                         setCelebration({
-                          title: 'Unit Completed! 🎯',
+                          title: 'Unit Completed!',
                           message: `Awesome job! You finished "${activePomodoroTopic.title}". Keep up the great streak!`,
                         });
                         setActivePomodoroTopic(null);
@@ -300,7 +302,7 @@ export function App() {
                     onSessionComplete={(type, mins) => {
                       if (type === 'work') {
                         setCelebration({
-                          title: 'Pomodoro Completed! 🎯',
+                          title: 'Pomodoro Completed!',
                           message: `Great job! You finished a ${mins}-minute focus study session. Keep building your streak!`,
                         });
                       }
@@ -616,21 +618,37 @@ export function App() {
 
             <form onSubmit={authModalMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
               {authModalMode === 'signup' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="Kasun Perera"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                    required
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-rose-400">*</span></label>
+                    <input
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      placeholder="Kasun Perera"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      WhatsApp Number <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={whatsappInput}
+                      onChange={(e) => setWhatsappInput(e.target.value)}
+                      placeholder="+94 77 123 4567"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                </>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-rose-400">*</span></label>
                 <input
                   type="email"
                   value={emailInput}
@@ -642,7 +660,7 @@ export function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Password <span className="text-rose-400">*</span></label>
                 <input
                   type="password"
                   value={passwordInput}
@@ -654,28 +672,26 @@ export function App() {
               </div>
 
               {authModalMode === 'signup' && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className={streamInput === 'Physical Science' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">A/L Stream</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">A/L Stream <span className="text-rose-400">*</span></label>
                     <select
                       value={streamInput}
                       onChange={(e) => setStreamInput(e.target.value as StreamType)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
                     >
                       <option value="Physical Science">Physical Science</option>
                       <option value="Biological Science">Biological Science</option>
-                      <option value="Maths">Maths</option>
-                      <option value="Bio">Bio</option>
                     </select>
                   </div>
 
                   {streamInput === 'Physical Science' && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Elective</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Elective Subject</label>
                       <select
                         value={electiveInput}
                         onChange={(e) => setElectiveInput(e.target.value as 'Chemistry' | 'ICT')}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
                       >
                         <option value="Chemistry">Chemistry</option>
                         <option value="ICT">ICT</option>
