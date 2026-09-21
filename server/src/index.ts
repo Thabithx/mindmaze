@@ -28,6 +28,16 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
+// Root Endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to Mind Maze GCE A/L API Server 🚀',
+    status: 'online',
+    healthCheck: '/api/health',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health Check Route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'Mind Maze API Server', time: new Date().toISOString() });
