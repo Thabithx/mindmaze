@@ -1,10 +1,43 @@
-import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType } from '../types';
+import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem } from '../types';
 import { INITIAL_SYLLABUS_TOPICS } from '../data/alSyllabusData';
+import { PHYSICS_QUESTIONS } from '../data/physicsQuestions';
 
 const TIMETABLE_STORAGE_KEY = 'mindmaze_timetable_v2';
 const DAILY_TASKS_STORAGE_KEY = 'mindmaze_daily_tasks_v2';
 const TOPICS_STORAGE_KEY = 'mindmaze_syllabus_topics_v2';
 const SETTINGS_STORAGE_KEY = 'mindmaze_user_settings_v2';
+const MISTAKES_STORAGE_KEY = 'mindmaze_mistakes_v2';
+
+export function getStoredMistakes(): MistakeItem[] {
+  try {
+    const raw = localStorage.getItem(MISTAKES_STORAGE_KEY);
+    if (!raw) {
+      const initial: MistakeItem[] = [
+        {
+          id: 'm-1',
+          savedAt: '2026-09-20',
+          userSelectedOptionId: 'A',
+          isMastered: false,
+          question: PHYSICS_QUESTIONS[0],
+        },
+      ];
+      saveStoredMistakes(initial);
+      return initial;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveStoredMistakes(mistakes: MistakeItem[]): void {
+  try {
+    localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(mistakes));
+  } catch (e) {
+    console.error('Failed to save mistakes to localStorage', e);
+  }
+}
 
 export const DEFAULT_SETTINGS: UserSettings = {
   stream: 'Physical Science',

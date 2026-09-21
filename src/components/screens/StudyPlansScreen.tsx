@@ -222,7 +222,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     } else if (timeLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       if (onUpdateXP) onUpdateXP(60);
-      setTimerToast('🎉 Study Sprint Completed! +60 XP earned towards your GCE A/L target.');
+      setTimerToast('Study Sprint Completed! +60 XP earned towards your GCE A/L target.');
       setTimeout(() => setTimerToast(null), 6000);
     }
     return () => {
@@ -2037,7 +2037,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
 
                             {slot.notes && (
                               <p className="text-xs text-slate-400 leading-relaxed max-w-2xl bg-black/20 p-2 rounded-lg border border-white/5">
-                                💡 <span className="text-slate-300 font-medium">{slot.notes}</span>
+                                <span className="text-slate-300 font-medium">{slot.notes}</span>
                               </p>
                             )}
                           </div>

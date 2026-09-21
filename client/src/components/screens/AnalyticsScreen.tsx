@@ -214,7 +214,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                     <span className="text-purple-300 text-[11px]">({topicItem.subject})</span>
                     {topicItem.predictedLikelihood === 'Very High' && (
                       <span className="bg-cyan-400/20 border border-cyan-400/40 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        ⚡ High Repeat
+                        High Repeat
                       </span>
                     )}
                   </div>

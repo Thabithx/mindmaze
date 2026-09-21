@@ -338,7 +338,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-amber-300">
-                      🔥 {u.streakDays || 0}d
+                      {u.streakDays || 0}d
                     </td>
                     <td className="py-3.5 px-4">
                       <span

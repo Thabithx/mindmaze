@@ -35,16 +35,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-white/[0.08] bg-[#0D0F1E]/90 px-3 sm:px-6 backdrop-blur-2xl shadow-lg shadow-black/20 select-none">
-      {/* Left: Mobile Sidebar Menu Toggle & Logo */}
+      {/* Left: Brand Logo */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <button
-          onClick={onToggleMobileSidebar}
-          className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-          aria-label="Toggle navigation menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
         <div onClick={() => onNavigate('dashboard')} className="cursor-pointer min-w-0">
           <Logo size="sm" />
         </div>
@@ -52,10 +44,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Header Streak Counter Badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-black shadow-sm">
+        {/* Header Streak Counter Badge (ONLY NUMBER) */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-black shadow-sm" title="Streak Days">
           <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
-          <span className="whitespace-nowrap">{userProfile?.streakDays || 1} Day Streak</span>
+          <span className="whitespace-nowrap">{userProfile?.streakDays || 1}</span>
         </div>
 
         <PWAInstallButton />
@@ -126,6 +118,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
         </div>
+
+        {/* Mobile Sidebar Menu Toggle Button on Right */}
+        <button
+          onClick={onToggleMobileSidebar}
+          className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 border border-white/10"
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
       </div>
     </header>
   );

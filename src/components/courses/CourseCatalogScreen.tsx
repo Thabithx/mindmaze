@@ -303,7 +303,7 @@ export const CourseCatalogScreen: React.FC = () => {
                       <div className="pt-2 space-y-3">
                         {activeCourse.quiz[activeQuizIndex].explanation && (
                           <p className="text-xs text-slate-300 bg-slate-900/60 p-3 rounded-lg border border-slate-700">
-                            💡 {activeCourse.quiz[activeQuizIndex].explanation}
+                            {activeCourse.quiz[activeQuizIndex].explanation}
                           </p>
                         )}
                         <button

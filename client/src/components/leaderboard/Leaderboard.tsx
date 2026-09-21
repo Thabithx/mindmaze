@@ -87,7 +87,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       </div>
 
       <p className="text-[11px] text-slate-400 leading-relaxed">
-        Ranked by total A/L syllabus completed %, study hours, and streak consistency! 💪
+        Ranked by total A/L syllabus completed %, study hours, and streak consistency!
         {myRank >= 0 && (
           <span className="text-cyan-300 font-bold"> You&apos;re #{myRank + 1}!</span>
         )}
@@ -149,7 +149,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <div className="text-xs font-black text-white truncate mt-1">@{e.username}</div>
                   <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
                   <div className="text-[10px] text-slate-400">
-                    {e.completedHours}h study • 🔥{e.currentStreak}d
+                    {e.completedHours}h study • {e.currentStreak}d streak
                   </div>
                 </div>
               ))}

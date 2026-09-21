@@ -581,10 +581,10 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
                       </option>
                     ))}
                     <option value="General English / GIT" className="bg-[#161831] text-white">
-                      📖 General English / GIT
+                      General English / GIT
                     </option>
                     <option value="General Self Study" className="bg-[#161831] text-white">
-                      ⚡ General Self Study
+                      General Self Study
                     </option>
                   </select>
                 </div>

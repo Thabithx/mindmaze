@@ -203,7 +203,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                           : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
                       }`}
                     >
-                      {isLive ? '⚡ Live' : '⏳ Coming Soon'}
+                      {isLive ? 'Live' : 'Coming Soon'}
                     </span>
                   </div>
                   <div
@@ -221,7 +221,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </div>
 
           <div className="mt-4 rounded-xl bg-purple-500/10 border border-purple-500/20 p-3 text-xs text-purple-200 flex items-center gap-2">
-            <span className="text-base">⚡</span>
             <span>
               <strong>Physics MCQs & 2000–2026 Archive</strong> are 100% live right now. Other subjects will automatically unlock as new question banks launch!
             </span>
@@ -337,7 +336,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  ✨ Current Syllabus (Recommended)
+                  Current Syllabus (Recommended)
                 </button>
                 <button
                   type="button"
@@ -348,7 +347,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  📜 Old Syllabus
+                  Old Syllabus
                 </button>
               </div>
               <p className="mt-2 text-[11px] text-slate-400">

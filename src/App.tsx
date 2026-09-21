@@ -10,6 +10,8 @@ import {
   saveStoredSyllabusTopics,
   getStoredDailyTasks,
   saveStoredDailyTasks,
+  getStoredMistakes,
+  saveStoredMistakes,
   getDayOfWeekFromDate,
   calculateMinutesBetween,
 } from './lib/storage';
@@ -71,7 +73,7 @@ export function App() {
   const [syllabusTopics, setSyllabusTopics] = useState<SyllabusTopic[]>(() => getStoredSyllabusTopics() || INITIAL_SYLLABUS_TOPICS);
   const [timetable, setTimetable] = useState<TimetableEntry[]>(() => getStoredTimetable() || []);
   const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
-  const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
+  const [mistakes, setMistakes] = useState<MistakeItem[]>(() => getStoredMistakes());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
   // Check auth on mount
@@ -290,8 +292,37 @@ export function App() {
                     activeSubject={activePomodoroTopic?.subject}
                     isMinimized={isPomodoroMinimized}
                     onToggleMinimize={() => setIsPomodoroMinimized(!isPomodoroMinimized)}
+                    onStartSession={() => {
+                      if (activePomodoroTopic?.title) {
+                        const updated = syllabusTopics.map((t) => {
+                          if (t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) {
+                            return { ...t, status: 'in_progress' as const };
+                          }
+                          return t;
+                        });
+                        setSyllabusTopics(updated);
+                        saveStoredSyllabusTopics(updated);
+                      }
+                    }}
                     onMarkFinished={() => {
                       if (activePomodoroTopic?.title) {
+                        const updated = syllabusTopics.map((t) => {
+                          if (t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) {
+                            const subs = t.subtopics || [];
+                            const newMap: Record<string, number> = {};
+                            subs.forEach((s) => { newMap[s] = 100; });
+                            return {
+                              ...t,
+                              status: 'completed' as const,
+                              subtopicProgress: newMap,
+                              completedSubtopics: [...subs],
+                            };
+                          }
+                          return t;
+                        });
+                        setSyllabusTopics(updated);
+                        saveStoredSyllabusTopics(updated);
+
                         setCelebration({
                           title: 'Unit Completed!',
                           message: `Awesome job! You finished "${activePomodoroTopic.title}". Keep up the great streak!`,
@@ -494,7 +525,11 @@ export function App() {
             <PracticeQuizScreen
               userProfile={userProfile}
               onNavigate={setCurrentScreen}
-              onSaveMistake={(m) => setMistakes((prev) => [m, ...prev])}
+              onSaveMistake={(m) => {
+                const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
+                setMistakes(updated);
+                saveStoredMistakes(updated);
+              }}
             />
           )}
 
@@ -504,11 +539,17 @@ export function App() {
               mistakes={mistakes}
               onNavigate={setCurrentScreen}
               onToggleMastered={(id) => {
-                setMistakes((prev) =>
-                  prev.map((m) => (m.id === id ? { ...m, isMastered: !m.isMastered, reviewStatus: 'Mastered' } : m))
+                const updated = mistakes.map((m) =>
+                  m.id === id ? { ...m, isMastered: !m.isMastered, reviewStatus: m.isMastered ? 'Needs Review' : 'Mastered' } : m
                 );
+                setMistakes(updated);
+                saveStoredMistakes(updated);
               }}
-              onDeleteMistake={(id) => setMistakes((prev) => prev.filter((m) => m.id !== id))}
+              onDeleteMistake={(id) => {
+                const updated = mistakes.filter((m) => m.id !== id);
+                setMistakes(updated);
+                saveStoredMistakes(updated);
+              }}
               onStartReviewSession={() => setCurrentScreen('quiz')}
             />
           )}

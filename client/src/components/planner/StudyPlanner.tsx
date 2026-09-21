@@ -943,7 +943,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                           ...availableSubjects.map((s) => ({ name: s.name, icon: s.icon })),
                         ];
                         if (!options.some((o) => o.name === formSubject)) {
-                          options.push({ name: formSubject, icon: '📚' });
+                          options.push({ name: formSubject, icon: '' });
                         }
                         return options.map((o) => {
                           const active = formSubject === o.name;

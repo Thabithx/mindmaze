@@ -17,6 +17,7 @@ export interface PomodoroTimerProps {
   activeSubject?: string;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
   onMarkFinished?: () => void;
+  onStartSession?: () => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   className?: string;
@@ -35,6 +36,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   activeSubject,
   onSessionComplete,
   onMarkFinished,
+  onStartSession,
   isMinimized = false,
   onToggleMinimize,
   className = '',
@@ -112,6 +114,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   };
 
   const toggleTimer = () => {
+    if (!isRunning && mode === 'work' && onStartSession) {
+      onStartSession();
+    }
     setIsRunning(!isRunning);
   };
 
