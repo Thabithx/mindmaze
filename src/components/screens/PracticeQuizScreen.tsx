@@ -145,8 +145,20 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
     } else {
       setWrongCount((prev) => prev + 1);
       setSessionMistakeIds((prev) => [...prev, currentQuestion.id]);
+
+      // Auto-save to Mistake Notebook
+      const autoMistake: MistakeItem = {
+        id: `mst-${Date.now()}-${currentQuestion.id}`,
+        question: currentQuestion,
+        userSelectedOptionId: selectedOptionId,
+        savedAt: new Date().toISOString().split('T')[0],
+        reviewCount: 0,
+        isMastered: false,
+      };
+      onSaveMistake(autoMistake);
+
       // Prompt modal specifically requested:
-      // "When the user answers WRONG, open a popup modal titled '📚 Want to learn how to answer these?'"
+      // "When the user answers WRONG, open a popup modal titled 'Want to learn how to answer these?'"
       setIsWrongModalOpen(true);
     }
   };

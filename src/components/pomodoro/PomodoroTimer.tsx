@@ -150,6 +150,16 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {onMarkFinished && (
+            <button
+              onClick={onMarkFinished}
+              className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition cursor-pointer"
+              title="Mark Unit as Finished"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={toggleTimer}
             className={`p-2 rounded-xl text-white font-bold text-xs transition shadow cursor-pointer ${
@@ -205,19 +215,28 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
       {/* Active Unit Focus Badge (if set) */}
       {activeUnitTitle && (
-        <div className="mb-4 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookOpen className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
-            <span className="text-slate-200 truncate font-semibold">
-              Focus: <strong className="text-white">{activeUnitTitle}</strong>
-            </span>
+        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs shadow-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 shrink-0">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-indigo-300 block tracking-wider">
+                Current Task {activeSubject ? `• ${activeSubject}` : ''}
+              </span>
+              <strong className="text-white font-bold block truncate text-xs sm:text-sm">
+                {activeUnitTitle}
+              </strong>
+            </div>
           </div>
           {onMarkFinished && (
             <button
               onClick={onMarkFinished}
-              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold transition shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition shrink-0 cursor-pointer shadow hover:scale-105 active:scale-95"
+              title="Mark this unit/task as finished"
             >
-              Mark Done
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Mark Unit as Finished</span>
             </button>
           )}
         </div>

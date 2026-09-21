@@ -76,13 +76,13 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [subtopicInputs, setSubtopicInputs] = useState<string[]>(['', '', '']);
 
   // ── One-time onboarding modal (mark pre-existing completed topics) ──────────
-  const onboardingKey = userId ? `mm_syllabus_onboarded_${userId}` : null;
+  const effectiveUserId = userId || 'default_user';
+  const onboardingKey = `mm_syllabus_onboarded_${effectiveUserId}`;
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState<Set<string>>(new Set());
   const [onboardingSubtopicChecked, setOnboardingSubtopicChecked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!onboardingKey) return;
     if (!localStorage.getItem(onboardingKey)) {
       setShowOnboarding(true);
     }
@@ -104,9 +104,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
         onToggleSubtopic(topicId, subtopic);
       }
     });
-    if (onboardingKey) {
-      localStorage.setItem(onboardingKey, 'done');
-    }
+    localStorage.setItem(onboardingKey, 'done');
     setShowOnboarding(false);
   };
 
@@ -130,8 +128,16 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   };
 
   // ── Task-gating: topic can only be marked if a daily task exists for it ─────
-  const topicHasTask = (topicId: string): boolean => {
-    return (dailyTasks || []).some((t) => t.topicId === topicId);
+  const topicHasTask = (topicId: string, topicTitle?: string): boolean => {
+    const safeTasks = dailyTasks || [];
+    const normalizedTopicTitle = (topicTitle || '').trim().toLowerCase();
+    return safeTasks.some((t) => {
+      if (!t) return false;
+      if (t.topicId && t.topicId === topicId) return true;
+      if (topicTitle && t.topicTitle && t.topicTitle.trim().toLowerCase() === normalizedTopicTitle) return true;
+      if (topicTitle && t.title && t.title.trim().toLowerCase().includes(normalizedTopicTitle)) return true;
+      return false;
+    });
   };
 
   useEffect(() => {
@@ -416,7 +422,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
             const topic = row.topic;
             const isExpanded = expandedTopicId === topic.id;
             const subs = topic.subtopics || [];
-            const hasTask = topicHasTask(topic.id);
+            const hasTask = topicHasTask(topic.id, topic.topicTitle);
 
             return (
               <div

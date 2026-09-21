@@ -271,78 +271,78 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Today's Timetable Summary */}
-        <div className="glass-card rounded-3xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-black text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-cyan-400" />
-                  <span>Today&apos;s Schedule</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {todayDayOfWeek} • {todayBlocks.length} planned session{todayBlocks.length === 1 ? '' : 's'}
-                </p>
-              </div>
+        {/* Right Column: Today's Timetable Summary + Install App Card */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="glass-card rounded-3xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-cyan-400" />
+                    <span>Today&apos;s Schedule</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {todayDayOfWeek} • {todayBlocks.length} planned session{todayBlocks.length === 1 ? '' : 's'}
+                  </p>
+                </div>
 
-              <button
-                onClick={() => onNavigate('planner')}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
-                title="Add Study Block"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Today's Blocks List */}
-            {todayBlocks.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-white/5 border border-dashed border-white/10 text-center space-y-2">
-                <Clock className="w-8 h-8 text-slate-500 mx-auto" />
-                <p className="text-xs text-slate-400">No study slots scheduled for today.</p>
                 <button
                   onClick={() => onNavigate('planner')}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:brightness-110 transition cursor-pointer"
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  title="Add Study Block"
                 >
-                  Set Schedule
+                  <Plus className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                {todayBlocks.map((b) => (
-                  <div
-                    key={b.id}
+
+              {/* Today's Blocks List */}
+              {todayBlocks.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-white/5 border border-dashed border-white/10 text-center space-y-2">
+                  <Clock className="w-8 h-8 text-slate-500 mx-auto" />
+                  <p className="text-xs text-slate-400">No study slots scheduled for today.</p>
+                  <button
                     onClick={() => onNavigate('planner')}
-                    className="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-400/40 transition cursor-pointer flex items-center justify-between gap-3 text-xs"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:brightness-110 transition cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
-                      <div className="truncate">
-                        <div className="font-bold text-white truncate">{b.topic}</div>
-                        <div className="text-[10px] text-slate-400">{b.subject}</div>
+                    Set Schedule
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {todayBlocks.map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => onNavigate('planner')}
+                      className="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-400/40 transition cursor-pointer flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+                        <div className="truncate">
+                          <div className="font-bold text-white truncate">{b.topic}</div>
+                          <div className="text-[10px] text-slate-400">{b.subject}</div>
+                        </div>
+                      </div>
+                      <div className="text-[11px] font-semibold text-purple-300 shrink-0">
+                        {b.startTime} - {b.endTime}
                       </div>
                     </div>
-                    <div className="text-[11px] font-semibold text-purple-300 shrink-0">
-                      {b.startTime} - {b.endTime}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => onNavigate('planner')}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer mt-4"
+            >
+              <span>Open Study Planner & Timetable</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
 
-          <button
-            onClick={() => onNavigate('planner')}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer mt-4"
-          >
-            <span>Open Study Planner & Timetable</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          {/* Install App Widget neatly aligned below Today's Schedule */}
+          <PWAInstallButton variant="card" />
         </div>
-      </div>
-
-      {/* 📱 BOTTOM SECTION */}
-      <div className="pt-4 border-t border-white/10 space-y-4">
-        <PWAInstallButton variant="card" />
       </div>
     </div>
   );

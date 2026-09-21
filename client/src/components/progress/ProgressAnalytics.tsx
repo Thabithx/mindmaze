@@ -177,7 +177,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     });
 
     const perDay = days.map((day) => {
-      const dayTasks = dailyTasks.filter((t) => t.date === day.dateStr);
+      const dayTasks = (safeDailyTasks || []).filter((t) => t && t.date === day.dateStr);
       const taskTotalMins = dayTasks.reduce((sum, t) => sum + taskMinutes(t), 0);
       const doneMins = dayTasks.filter((t) => t.isCompleted).reduce((sum, t) => sum + taskMinutes(t), 0);
       // Fall back to timetable plan when nothing is logged for that date.
