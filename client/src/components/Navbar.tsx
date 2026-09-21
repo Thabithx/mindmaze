@@ -38,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-slate-950/80 px-4 md:px-6 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-white/[0.08] bg-[#0D0F1E]/85 px-4 md:px-6 backdrop-blur-2xl shadow-lg shadow-black/20">
       {/* Left: Mobile Toggle & Logo */}
       <div className="flex items-center gap-3">
         <button

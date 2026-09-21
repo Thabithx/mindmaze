@@ -159,9 +159,11 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     const planMinutesByDay: Record<string, number> = {
       Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0, Sunday: 0,
     };
-    timetableEntries.forEach((entry) => {
+    safeTimetable.forEach((entry) => {
+      if (!entry.startTime || !entry.endTime) return;
       const s = entry.startTime.split(':').map(Number);
       const e = entry.endTime.split(':').map(Number);
+      if (s.length < 2 || e.length < 2) return;
       const diff = e[0] * 60 + e[1] - (s[0] * 60 + s[1]);
       if (diff > 0 && entry.dayOfWeek in planMinutesByDay) {
         planMinutesByDay[entry.dayOfWeek] += diff;
@@ -197,7 +199,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     })();
 
     return { days: perDay, weekTotal, weekDone, weekLabel, rangeLabel: `${startLabel} – ${endLabel}`, maxHrs, todayStr };
-  }, [dailyTasks, dailyGoal, clampedWeekOffset, timetableEntries]);
+  }, [dailyTasks, dailyGoal, clampedWeekOffset, safeTimetable]);
 
   // Weekly comparison: every week from the user's first logged week through the
   // latest week (current week, or furthest planned-task week if ahead of it).
@@ -365,7 +367,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   return (
     <div id="progress-analytics-view" className="space-y-6 max-w-6xl mx-auto pb-8">
       {/* Header Banner */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#161831] via-[#12142B] to-[#0F1023] p-4 sm:p-6 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-bold mb-2">
             <BarChart3 className="w-3.5 h-3.5" />

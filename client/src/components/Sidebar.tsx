@@ -17,6 +17,7 @@ import {
   LogOut,
   X,
   Sparkles,
+  Brain,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +31,33 @@ interface SidebarProps {
   onSignOut?: () => void;
 }
 
+const navGroups = [
+  {
+    label: 'Main',
+    items: [
+      { id: 'dashboard' as ScreenId, label: 'Dashboard', icon: LayoutDashboard, color: 'text-indigo-400', activeBg: 'bg-indigo-600' },
+      { id: 'topics' as ScreenId, label: 'Syllabus Tracker', icon: BookOpen, color: 'text-cyan-400', activeBg: 'bg-cyan-600' },
+      { id: 'planner' as ScreenId, label: 'Study Planner', icon: CalendarDays, color: 'text-purple-400', activeBg: 'bg-purple-600' },
+    ],
+  },
+  {
+    label: 'Study Tools',
+    items: [
+      { id: 'courses' as ScreenId, label: 'Courses & Media', icon: GraduationCap, color: 'text-emerald-400', activeBg: 'bg-emerald-600' },
+      { id: 'quiz' as ScreenId, label: 'Practice Quiz', icon: Zap, color: 'text-yellow-400', activeBg: 'bg-yellow-600' },
+      { id: 'mistakes' as ScreenId, label: 'Mistake Notebook', icon: BookmarkCheck, color: 'text-rose-400', activeBg: 'bg-rose-600' },
+      { id: 'pastpapers' as ScreenId, label: 'Past Papers', icon: FileText, color: 'text-orange-400', activeBg: 'bg-orange-600' },
+    ],
+  },
+  {
+    label: 'Progress',
+    items: [
+      { id: 'leaderboard' as ScreenId, label: 'Leaderboard', icon: Trophy, color: 'text-amber-400', activeBg: 'bg-amber-600' },
+      { id: 'progress' as ScreenId, label: 'Analytics', icon: BarChart3, color: 'text-teal-400', activeBg: 'bg-teal-600' },
+    ],
+  },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({
   currentScreen,
   onNavigate,
@@ -40,28 +68,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userRole = 'student',
   onSignOut,
 }) => {
-  const mainNavItems = [
-    { id: 'dashboard' as ScreenId, label: 'Dashboard', icon: LayoutDashboard, badge: 'Home' },
-    { id: 'topics' as ScreenId, label: 'Syllabus Tracker', icon: BookOpen, badge: 'A/L' },
-    { id: 'planner' as ScreenId, label: 'Timetable & Planner', icon: CalendarDays, badge: 'Weekly' },
-    { id: 'courses' as ScreenId, label: 'Courses & Media', icon: GraduationCap, badge: 'PDF/Videos' },
-    { id: 'quiz' as ScreenId, label: 'Practice Quiz', icon: Zap, badge: 'MCQ' },
-    { id: 'mistakes' as ScreenId, label: 'Mistake Notebook', icon: BookmarkCheck, badge: 'Review' },
-    { id: 'pastpapers' as ScreenId, label: 'Past Paper Library', icon: FileText, badge: 'PDF' },
-    { id: 'leaderboard' as ScreenId, label: 'Leaderboard', icon: Trophy, badge: 'Rank' },
-    { id: 'progress' as ScreenId, label: 'Analytics', icon: BarChart3 },
-    { id: 'settings' as ScreenId, label: 'Settings', icon: Settings },
-  ];
-
-  if (userRole === 'admin') {
-    mainNavItems.push({
-      id: 'admin' as ScreenId,
-      label: 'Admin Control',
-      icon: ShieldCheck,
-      badge: 'Admin',
-    });
-  }
-
   const handleSelect = (screenId: ScreenId) => {
     onNavigate(screenId);
     if (onCloseMobile) onCloseMobile();
@@ -79,81 +85,136 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-800 bg-slate-900/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/[0.06] bg-[#0D0F1E]/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
-        } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
+        } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
       >
-        {/* Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-slate-800">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-extrabold shadow-lg">
-              MM
+        {/* Logo Header */}
+        <div className="flex h-16 items-center justify-between px-4 border-b border-white/[0.06] shrink-0">
+          <div className="flex items-center gap-3 overflow-hidden min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-600 shadow-lg shadow-indigo-900/40">
+              <Brain className="w-5 h-5 text-white" />
             </div>
             {!isCollapsed && (
-              <div className="whitespace-nowrap">
-                <span className="font-extrabold text-white text-base tracking-wide flex items-center gap-1">
-                  Mind Maze <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="whitespace-nowrap min-w-0 overflow-hidden">
+                <span className="font-extrabold text-white text-sm tracking-wide flex items-center gap-1">
+                  Mind Maze <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
                 </span>
-                <span className="block text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+                <span className="block text-[10px] text-slate-500 font-semibold tracking-wider uppercase">
                   GCE A/L Study Suite
                 </span>
               </div>
             )}
           </div>
-
           <button
             onClick={onCloseMobile}
-            className="p-1 text-slate-400 hover:text-white lg:hidden"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition lg:hidden"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentScreen === item.id;
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              {!isCollapsed && (
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentScreen === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelect(item.id)}
+                      title={isCollapsed ? item.label : undefined}
+                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {/* Active indicator */}
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-indigo-400" />
+                      )}
+                      <Icon
+                        className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                          isActive ? item.color : 'text-slate-500 group-hover:text-slate-300'
+                        }`}
+                      />
+                      {!isCollapsed && (
+                        <span className="flex-1 text-left truncate text-[13px]">{item.label}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
-            return (
+          {/* Admin */}
+          {userRole === 'admin' && (
+            <div>
+              {!isCollapsed && (
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
+                  Admin
+                </p>
+              )}
               <button
-                key={item.id}
-                onClick={() => handleSelect(item.id)}
-                className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                    : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+                onClick={() => handleSelect('admin')}
+                title={isCollapsed ? 'Admin Control' : undefined}
+                className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                  currentScreen === 'admin'
+                    ? 'bg-white/10 text-white'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
                 }`}
-                title={isCollapsed ? item.label : undefined}
               >
-                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
-
-                {!isCollapsed && (
-                  <span className="flex-1 text-left truncate">{item.label}</span>
+                {currentScreen === 'admin' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-rose-400" />
                 )}
-
-                {!isCollapsed && item.badge && (
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
+                <ShieldCheck className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'admin' ? 'text-rose-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                {!isCollapsed && <span className="text-[13px]">Admin Control</span>}
               </button>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Settings */}
+          <div>
+            {!isCollapsed && (
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
+                Account
+              </p>
+            )}
+            <button
+              onClick={() => handleSelect('settings')}
+              title={isCollapsed ? 'Settings' : undefined}
+              className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                currentScreen === 'settings'
+                  ? 'bg-white/10 text-white'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              {currentScreen === 'settings' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-slate-400" />
+              )}
+              <Settings className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'settings' ? 'text-slate-300' : 'text-slate-500 group-hover:text-slate-300'}`} />
+              {!isCollapsed && <span className="text-[13px]">Settings</span>}
+            </button>
+          </div>
         </div>
 
-        {/* Footer Controls */}
-        <div className="p-3 border-t border-slate-800 space-y-2">
+        {/* Footer */}
+        <div className="p-3 border-t border-white/[0.06] space-y-1 shrink-0">
           {onSignOut && (
             <button
               onClick={onSignOut}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
+              title={isCollapsed ? 'Sign Out' : undefined}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-rose-400/80 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               {!isCollapsed && <span>Sign Out</span>}
@@ -162,10 +223,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex w-full items-center justify-center p-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="hidden lg:flex w-full items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
       </aside>

@@ -78,13 +78,32 @@
   border: 1px solid rgba(107, 78, 255, 0.3);
 }
 
+.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-card-hover:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border-color: rgba(107, 78, 255, 0.4);
+  box-shadow: 0 12px 40px 0 rgba(107, 78, 255, 0.25);
+  transform: translateY(-2px);
+}
+
 .glass-input {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
 }
 .glass-input:focus {
-  border-color: #00F5FF;
-  box-shadow: 0 0 15px -3px rgba(0, 245, 255, 0.3);
+  border-color: #6B4EFF;
+  box-shadow: 0 0 15px -3px rgba(107, 78, 255, 0.4);
 }
 
 /* Landing page only — ambient brain-logo backdrop (decorative, non-interactive) */

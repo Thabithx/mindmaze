@@ -164,28 +164,30 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   return (
     <div id="topic-tracker-view" className="space-y-6 max-w-6xl mx-auto pb-8">
       {/* Header Banner */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#161831] via-[#12142B] to-[#0F1023] p-4 sm:p-6 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 text-xs font-bold mb-2">
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Sri Lankan GCE A/L Syllabus Tracker</span>
+      <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold mb-2 backdrop-blur-md">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Sri Lankan GCE A/L Syllabus Tracker</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
+              Topic Tracker by Subject
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1">
+              Systematically check off units, theory modules, and practical competencies to ensure zero syllabus gaps.
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-            Topic Tracker by Subject
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Systematically check off units, theory modules, and practical competencies to ensure zero syllabus gaps.
-          </p>
-        </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          id="btn-add-custom-topic"
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:from-[#7C5DFA] px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(107,78,255,0.4)] transition hover:scale-105 active:scale-95 cursor-pointer min-h-[44px] shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Custom Topic</span>
-        </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            id="btn-add-custom-topic"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:from-[#7C5DFA] px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(107,78,255,0.4)] transition hover:scale-105 active:scale-95 cursor-pointer min-h-[44px] shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Custom Topic</span>
+          </button>
+        </div>
       </div>
 
       {/* Stream & Elective Indicator Banner (read-only; change in Settings) */}
@@ -257,7 +259,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
       </div>
 
       {/* Current Subject Progress Card */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#171A38] to-[#12142B] p-5 sm:p-6 backdrop-blur-xl shadow-lg">
+      <div className="glass-card rounded-3xl p-5 sm:p-7 shadow-xl border border-white/15">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -459,7 +461,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-center shrink-0">
                     {/* Completed Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'completed')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'completed'
                           ? 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]'
@@ -473,7 +475,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
                     {/* In Progress Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'in_progress')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'in_progress'
                           ? 'bg-amber-500 text-black font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.5)]'
@@ -487,7 +489,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
                     {/* Not Started Button */}
                     <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
+                      onClick={() => onUpdateTopicStatus && onUpdateTopicStatus(topic.id, 'not_started')}
                       className={`flex items-center gap-1 px-2.5 min-[380px]:px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
                         topic.status === 'not_started'
                           ? 'bg-slate-700 text-white border border-slate-500'
@@ -587,7 +589,13 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                                       return (
                                         <div
                                           key={idx}
-                                          onClick={() => onToggleSubtopic && onToggleSubtopic(topic.id, item.raw)}
+                                          onClick={() => {
+                                            if (onToggleSubtopic) {
+                                              onToggleSubtopic(topic.id, item.raw);
+                                            } else if (onUpdateTopicStatus) {
+                                              onUpdateTopicStatus(topic.id, isSubDone ? 'in_progress' : 'completed');
+                                            }
+                                          }}
                                           className={`flex items-start justify-between p-2 rounded-xl transition cursor-pointer select-none text-xs gap-2 ${
                                             isSubDone
                                               ? 'bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 border border-emerald-500/20'

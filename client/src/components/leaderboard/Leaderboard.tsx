@@ -55,7 +55,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     );
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-6 backdrop-blur-xl shadow-xl space-y-4">
+    <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 border border-white/15">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-base font-black text-white flex items-center gap-2">
           <Trophy className="w-5 h-5 text-amber-400" />
