@@ -486,6 +486,62 @@ export function App() {
                 setSyllabusTopics(updated);
                 saveStoredSyllabusTopics(updated);
               }}
+              onBulkOnboardingComplete={(completedTopicIds, subtopicKeys) => {
+                // Apply all onboarding selections in ONE state update — fixes stale-closure bug
+                const topicIdSet = new Set(completedTopicIds);
+
+                // Build a map of topicId -> Set<subtopicTitle> for partial-subtopic selection
+                const partialSubtopicMap = new Map<string, Set<string>>();
+                subtopicKeys.forEach((key) => {
+                  const [topicId, subtopic] = key.split('|||');
+                  if (!topicId || !subtopic) return;
+                  if (!partialSubtopicMap.has(topicId)) partialSubtopicMap.set(topicId, new Set());
+                  partialSubtopicMap.get(topicId)!.add(subtopic);
+                });
+
+                const updated = syllabusTopics.map((t) => {
+                  const isFullyCompleted = topicIdSet.has(t.id);
+                  const partialSubtopics = partialSubtopicMap.get(t.id);
+
+                  if (isFullyCompleted) {
+                    // Mark entire topic + all subtopics as completed
+                    const allSubs = t.subtopics || [];
+                    const newProgress: Record<string, number> = {};
+                    allSubs.forEach(s => { newProgress[s] = 100; });
+                    return {
+                      ...t,
+                      status: 'completed' as const,
+                      subtopicProgress: newProgress,
+                      completedSubtopics: [...allSubs],
+                    };
+                  }
+
+                  if (partialSubtopics && partialSubtopics.size > 0) {
+                    // Apply partial subtopic selection
+                    const map = { ...(t.subtopicProgress || {}) };
+                    const subs = t.subtopics || [];
+                    partialSubtopics.forEach((sub) => {
+                      map[sub] = 100;
+                    });
+                    const completed = subs.filter(s => (map[s] || 0) >= 100);
+                    let newStatus: any = 'not_started';
+                    const totalPoints = subs.reduce((sum, s) => sum + (map[s] || 0), 0);
+                    if (subs.length > 0 && totalPoints >= subs.length * 100) newStatus = 'completed';
+                    else if (totalPoints > 0) newStatus = 'in_progress';
+                    return {
+                      ...t,
+                      subtopicProgress: map,
+                      completedSubtopics: completed,
+                      status: newStatus,
+                    };
+                  }
+
+                  return t;
+                });
+
+                setSyllabusTopics(updated);
+                saveStoredSyllabusTopics(updated);
+              }}
               onAddCustomTopic={(customTopic) => {
                 const newTopic: SyllabusTopic = {
                   ...customTopic,

@@ -37,6 +37,8 @@ interface TopicTrackerProps {
   onUpdateTopicStatus: (topicId: string, status: TopicStatus) => void;
   onToggleSubtopic: (topicId: string, subtopicTitle: string) => void;
   onAddCustomTopic: (topic: Omit<SyllabusTopic, 'id'>) => void;
+  /** Bulk-apply onboarding selections in a single state update */
+  onBulkOnboardingComplete: (completedTopicIds: string[], subtopicKeys: string[]) => void;
 }
 
 export const TopicTracker: React.FC<TopicTrackerProps> = ({
@@ -48,6 +50,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   onUpdateTopicStatus,
   onToggleSubtopic,
   onAddCustomTopic,
+  onBulkOnboardingComplete,
 }) => {
   const availableSubjectMetas = getSubjectsForStream(stream, physicalScienceElective);
 
@@ -89,21 +92,12 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   }, [onboardingKey]);
 
   const handleOnboardingSubmit = () => {
-    // Mark all checked topics as completed
-    const safeAll = topics || [];
-    onboardingChecked.forEach((topicId) => {
-      const topic = safeAll.find((t) => t.id === topicId);
-      if (topic) {
-        onUpdateTopicStatus(topicId, 'completed');
-      }
-    });
-    // Mark checked subtopics
-    onboardingSubtopicChecked.forEach((key) => {
-      const [topicId, subtopic] = key.split('|||');
-      if (topicId && subtopic) {
-        onToggleSubtopic(topicId, subtopic);
-      }
-    });
+    // Pass all checked data to parent as a single bulk update — avoids stale closure bug
+    const topicIds = Array.from(onboardingChecked);
+    const subtopicKeys = Array.from(onboardingSubtopicChecked);
+    if (topicIds.length > 0 || subtopicKeys.length > 0) {
+      onBulkOnboardingComplete(topicIds, subtopicKeys);
+    }
     localStorage.setItem(onboardingKey, 'done');
     setShowOnboarding(false);
   };
@@ -111,8 +105,19 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const toggleOnboardingTopic = (topicId: string) => {
     setOnboardingChecked((prev) => {
       const next = new Set(prev);
-      if (next.has(topicId)) next.delete(topicId);
-      else next.add(topicId);
+      if (next.has(topicId)) {
+        next.delete(topicId);
+        // Also clear any individually selected subtopics for this topic
+        setOnboardingSubtopicChecked((prevSubs) => {
+          const nextSubs = new Set(prevSubs);
+          Array.from(nextSubs).forEach((key) => {
+            if (key.startsWith(`${topicId}|||`)) nextSubs.delete(key);
+          });
+          return nextSubs;
+        });
+      } else {
+        next.add(topicId);
+      }
       return next;
     });
   };
