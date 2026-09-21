@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #0F1023;
+    color: #F1F5F9;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 16, 35, 0.7);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(107, 78, 255, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 78, 255, 0.8);
+}
+
+/* Custom glowing & frosted glass effects */
+.glow-purple {
+  box-shadow: 0 0 25px -5px rgba(107, 78, 255, 0.5);
+}
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.5);
+}
+.glow-bulb {
+  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.85)) drop-shadow(0 0 24px rgba(107, 78, 255, 0.6));
+}
+
+/* Frosted Glass Theme Classes */
+.glass-frosted {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-frosted-subtle {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-frosted-cyan {
+  background: rgba(6, 182, 212, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+}
+
+.glass-frosted-purple {
+  background: rgba(107, 78, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(107, 78, 255, 0.3);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-glow {
+  background: linear-gradient(135deg, rgba(107, 78, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(107, 78, 255, 0.3);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.glass-input:focus {
+  border-color: #00F5FF;
+  box-shadow: 0 0 15px -3px rgba(0, 245, 255, 0.3);
+}
+
+/* Landing page only — ambient brain-logo backdrop (decorative, non-interactive) */
+.landing-brain-glow {
+  position: absolute;
+  left: 50%;
+  top: -140px;
+  transform: translateX(-50%);
+  width: min(94vw, 720px);
+  height: min(94vw, 720px);
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(0, 245, 255, 0.22) 0%,
+    rgba(107, 78, 255, 0.24) 32%,
+    rgba(236, 72, 153, 0.14) 52%,
+    rgba(107, 78, 255, 0) 70%
+  );
+  filter: blur(56px);
+  opacity: 0.55;
+  animation: landing-brain-breathe 8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.landing-brain-logo {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  width: min(86vw, 540px);
+  height: auto;
+  opacity: 0.14;
+  user-select: none;
+  filter:
+    drop-shadow(0 0 28px rgba(0, 245, 255, 0.35))
+    drop-shadow(0 0 64px rgba(107, 78, 255, 0.45))
+    drop-shadow(0 0 110px rgba(236, 72, 153, 0.22))
+    saturate(1.25);
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, black 42%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 42%, black 42%, transparent 72%);
+  animation: landing-brain-breathe 8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes landing-brain-breathe {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.18; }
+}
+
+@media (min-width: 768px) {
+  .landing-brain-glow {
+    top: -180px;
+    width: min(60vw, 860px);
+    height: min(60vw, 860px);
+  }
+  .landing-brain-logo {
+    top: -24px;
+    width: min(52vw, 640px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-brain-glow,
+  .landing-brain-logo {
+    animation: none;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+@keyframes mazeDash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+.maze-animate-path {
+  stroke-dasharray: 20, 10;
+  animation: mazeDash 30s linear infinite;
+}
+
+/* Mobile Safe Area & Touch Enhancements */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem));
+}
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0.5rem));
+}
+
+@keyframes slideUpMobile {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Touch optimization */
+@media (hover: none) and (pointer: coarse) {
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/*
+ * Prevent iOS Safari auto-zoom on form focus (<16px inputs trigger it).
+ * Desktop + larger text are untouched; labels and tiny captions keep
+ * their designed sizes — only tappable form fields are normalized.
+ */
+@media (max-width: 768px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Never allow accidental sideways page scroll from decorative/absolute layers */
+html, body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+
+

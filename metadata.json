@@ -1,0 +1,6 @@
+{
+  "name": "Mind Maze",
+  "description": "Comprehensive GCE A/L Study Planner web app for Sri Lankan students featuring weekly timetables, daily study planner, syllabus topic tracker, progress analytics, and smart study reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

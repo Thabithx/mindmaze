@@ -1,0 +1,24 @@
+{
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ],
+  "rewrites": [
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/icon-192.png", "destination": "/icon-192.png" },
+    { "source": "/icon-512.png", "destination": "/icon-512.png" },
+    { "source": "/icon-maskable-512.png", "destination": "/icon-maskable-512.png" },
+    { "source": "/bell.png", "destination": "/bell.png" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

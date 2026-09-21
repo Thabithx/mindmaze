@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F1023" />
+      <stop offset="50%" stop-color="#1A1B3D" />
+      <stop offset="100%" stop-color="#0B0F19" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6B4EFF" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#00F5FF" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#6B4EFF" flood-opacity="0.45" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded Base Canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#glow)" stroke-width="4" stroke-opacity="0.3" />
+
+  <!-- Maze Labyrinth Geometry -->
+  <g filter="url(#shadow)" stroke="url(#glow)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Outer Maze Ring -->
+    <path d="M 120 190 L 120 140 L 392 140 L 392 372 L 140 372 L 140 260" />
+    <!-- Middle Maze Ring -->
+    <path d="M 180 260 L 180 196 L 332 196 L 332 316 L 204 316" />
+    <!-- Center Core & Target Pathway -->
+    <path d="M 256 256 L 256 268" stroke-width="28" stroke="#00F5FF" />
+  </g>
+
+  <!-- Graduation Cap / Scholar Icon Accent in Center -->
+  <g transform="translate(256, 256) scale(1.15)">
+    <!-- Cap top rhombus -->
+    <polygon points="0,-48 64,-24 0,0 -64,-24" fill="url(#glow)" />
+    <!-- Cap skull base -->
+    <path d="M -36 -10 L -36 14 Q 0 32 36 14 L 36 -10" fill="#6B4EFF" opacity="0.9" />
+    <!-- Tassel -->
+    <path d="M 44 -17 L 54 8 L 54 22" fill="none" stroke="#00F5FF" stroke-width="4" stroke-linecap="round" />
+    <circle cx="54" cy="24" r="3" fill="#00F5FF" />
+  </g>
+
+  <!-- Sri Lanka GCE A/L Badge Star Accent -->
+  <circle cx="392" cy="140" r="14" fill="#00F5FF" />
+  <circle cx="120" cy="372" r="12" fill="#6B4EFF" />
+</svg>
