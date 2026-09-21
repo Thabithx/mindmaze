@@ -7,21 +7,17 @@ import {
 } from '../../lib/leaderboard';
 
 interface LeaderboardProps {
-  /** Signed-in student's id — highlights their own row. */
   currentUserId?: string | null;
-  /** Compact preview for the dashboard (top 5 + link to the full board). */
+  currentUserProfile?: any;
+  onNavigate?: (screen: ScreenId) => void;
   compact?: boolean;
-  /** Compact mode only: jumps to the full board (Progress page). */
   onViewAll?: () => void;
 }
 
-/**
- * 🏆 Weekly / Monthly leaderboard: friendly competition ranked by completed
- * study HOURS (then tasks, then streak). Usernames only — no PII.
- * Visible to every signed-in student (not just admins).
- */
 export const Leaderboard: React.FC<LeaderboardProps> = ({
   currentUserId = null,
+  currentUserProfile,
+  onNavigate,
   compact = false,
   onViewAll,
 }) => {
