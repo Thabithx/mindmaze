@@ -159,9 +159,11 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     const planMinutesByDay: Record<string, number> = {
       Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0, Sunday: 0,
     };
-    timetableEntries.forEach((entry) => {
+    safeTimetable.forEach((entry) => {
+      if (!entry.startTime || !entry.endTime) return;
       const s = entry.startTime.split(':').map(Number);
       const e = entry.endTime.split(':').map(Number);
+      if (s.length < 2 || e.length < 2) return;
       const diff = e[0] * 60 + e[1] - (s[0] * 60 + s[1]);
       if (diff > 0 && entry.dayOfWeek in planMinutesByDay) {
         planMinutesByDay[entry.dayOfWeek] += diff;
@@ -197,7 +199,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     })();
 
     return { days: perDay, weekTotal, weekDone, weekLabel, rangeLabel: `${startLabel} – ${endLabel}`, maxHrs, todayStr };
-  }, [dailyTasks, dailyGoal, clampedWeekOffset, timetableEntries]);
+  }, [dailyTasks, dailyGoal, clampedWeekOffset, safeTimetable]);
 
   // Weekly comparison: every week from the user's first logged week through the
   // latest week (current week, or furthest planned-task week if ahead of it).

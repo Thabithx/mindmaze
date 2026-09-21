@@ -484,14 +484,21 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setSelectedDate(todayStr)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
-                isViewingToday ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              {isViewingToday ? 'Today' : 'Back to Today'}
-            </button>
+            <div className="relative flex items-center group">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <button
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[44px] ${
+                  isViewingToday ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40' : 'text-slate-300 hover:text-white group-hover:bg-white/5'
+                }`}
+              >
+                {isViewingToday ? 'Today' : getFormattedDateDisplay(selectedDate)}
+              </button>
+            </div>
             <button
               onClick={() => changeDateByDays(viewMode === 'week' ? 7 : 1)}
               className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"

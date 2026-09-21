@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken } from './services/api';
-import { getStoredTimetable, saveStoredTimetable, getUserSettings, saveUserSettings, getStoredSyllabusTopics, saveStoredSyllabusTopics } from './lib/storage';
+import { getStoredTimetable, saveStoredTimetable, getUserSettings, saveUserSettings, getStoredSyllabusTopics, saveStoredSyllabusTopics, getStoredDailyTasks, saveStoredDailyTasks } from './lib/storage';
 import { getInitialTimetableForStream, INITIAL_SYLLABUS_TOPICS } from './data/alSyllabusData';
 import { MOCK_QUESTIONS } from './data/mockData';
 
@@ -57,6 +57,7 @@ export function App() {
   const [userSettings, setUserSettingsState] = useState<UserSettings>(() => getUserSettings() || DEFAULT_SETTINGS);
   const [syllabusTopics, setSyllabusTopics] = useState<SyllabusTopic[]>(() => getStoredSyllabusTopics() || INITIAL_SYLLABUS_TOPICS);
   const [timetable, setTimetable] = useState<TimetableEntry[]>(() => getStoredTimetable() || []);
+  const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
@@ -214,7 +215,7 @@ export function App() {
                     stream={userSettings?.stream || 'Physical Science'}
                     physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
                     timetableEntries={timetable || []}
-                    dailyTasks={[]}
+                    dailyTasks={tasks || []}
                     syllabusTopics={syllabusTopics || INITIAL_SYLLABUS_TOPICS}
                     streakData={{ currentStreak: userProfile?.streakDays || 1, bestStreak: userProfile?.streakDays || 1, isCompletedToday: false, completedDates: [] }}
                     onNavigate={setCurrentScreen}
@@ -232,9 +233,21 @@ export function App() {
               stream={userSettings.stream}
               physicalScienceElective={userSettings.physicalScienceElective}
               onUpdateTopicStatus={(topicId, status) => {
-                const updated = syllabusTopics.map((t) =>
-                  t.id === topicId ? { ...t, status } : t
-                );
+                const updated = syllabusTopics.map((t) => {
+                  if (t.id === topicId) {
+                    const allSubtopics = t.subtopics || [];
+                    const isCompleted = status === 'completed';
+                    const newProgress: Record<string, number> = {};
+                    allSubtopics.forEach(s => { newProgress[s] = isCompleted ? 100 : 0; });
+                    return {
+                      ...t,
+                      status,
+                      subtopicProgress: newProgress,
+                      completedSubtopics: isCompleted ? [...allSubtopics] : []
+                    };
+                  }
+                  return t;
+                });
                 setSyllabusTopics(updated);
                 saveStoredSyllabusTopics(updated);
               }}
@@ -242,14 +255,25 @@ export function App() {
                 const updated = syllabusTopics.map((t) => {
                   if (t.id === topicId) {
                     const map = { ...(t.subtopicProgress || {}) };
-                    const current = map[subtopicTitle] || 0;
-                    map[subtopicTitle] = current >= 100 ? 0 : 100;
+                    const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
+                    const targetVal = current >= 100 ? 0 : 100;
+                    map[subtopicTitle] = targetVal;
+                    
                     const subs = t.subtopics || [];
-                    const allDone = subs.length > 0 && subs.every((s) => (map[s] || 0) >= 100);
+                    let completed = [...(t.completedSubtopics || [])].filter(s => s !== subtopicTitle);
+                    if (targetVal === 100) completed.push(subtopicTitle);
+                    
+                    let newStatus: any = 'not_started';
+                    if (subs.length > 0) {
+                      const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
+                      if (totalPoints >= subs.length * 100) newStatus = 'completed';
+                      else if (totalPoints > 0) newStatus = 'in_progress';
+                    }
                     return {
                       ...t,
                       subtopicProgress: map,
-                      status: allDone ? ('completed' as const) : ('in_progress' as const),
+                      completedSubtopics: completed,
+                      status: newStatus,
                     };
                   }
                   return t;
@@ -276,9 +300,49 @@ export function App() {
               userSettings={userSettings}
               timetable={timetable}
               syllabusTopics={syllabusTopics}
+              tasks={tasks}
+              dailyTasks={tasks}
               onSaveTimetable={(newSlots) => {
                 setTimetable(newSlots);
                 saveStoredTimetable(newSlots);
+              }}
+              onAddEntry={(entry) => {
+                const newEntries = [...timetable, { ...entry, id: `tt-${Date.now()}` }];
+                setTimetable(newEntries);
+                saveStoredTimetable(newEntries);
+              }}
+              onUpdateEntry={(entry) => {
+                const updated = timetable.map((e) => (e.id === entry.id ? entry : e));
+                setTimetable(updated);
+                saveStoredTimetable(updated);
+              }}
+              onDeleteEntry={(id) => {
+                const updated = timetable.filter((e) => e.id !== id);
+                setTimetable(updated);
+                saveStoredTimetable(updated);
+              }}
+              onResetTimetable={() => {
+                const reset = getInitialTimetableForStream(userSettings.stream, userSettings.physicalScienceElective);
+                setTimetable(reset);
+                saveStoredTimetable(reset);
+              }}
+              onSyncFromTimetable={(dateStr) => {
+                // Not fully implemented but won't crash
+              }}
+              onAddTask={(task) => {
+                const newTasks = [...tasks, { ...task, id: `t-${Date.now()}` }];
+                setTasks(newTasks);
+                saveStoredDailyTasks(newTasks);
+              }}
+              onDeleteTask={(taskId) => {
+                const newTasks = tasks.filter(t => t.id !== taskId);
+                setTasks(newTasks);
+                saveStoredDailyTasks(newTasks);
+              }}
+              onToggleTask={(taskId) => {
+                const newTasks = tasks.map(t => t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t);
+                setTasks(newTasks);
+                saveStoredDailyTasks(newTasks);
               }}
             />
           )}
@@ -332,6 +396,7 @@ export function App() {
               userSettings={userSettings}
               syllabusTopics={syllabusTopics}
               timetable={timetable}
+              dailyTasks={tasks}
             />
           )}
 
