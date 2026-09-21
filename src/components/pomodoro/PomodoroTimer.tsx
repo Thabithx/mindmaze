@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SyllabusTopic } from '../../types';
 import {
   Play,
   Pause,
@@ -10,6 +11,7 @@ import {
   BookOpen,
   Clock,
   Flame,
+  ChevronDown,
 } from 'lucide-react';
 
 export interface PomodoroTimerProps {
@@ -17,6 +19,8 @@ export interface PomodoroTimerProps {
   activeSubject?: string;
   subtopics?: string[];
   completedSubtopics?: string[];
+  availableTopics?: SyllabusTopic[];
+  onSelectTopic?: (topic: SyllabusTopic) => void;
   onToggleSubtopic?: (subtopic: string) => void;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
   onMarkFinished?: () => void;
@@ -39,6 +43,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   activeSubject,
   subtopics = [],
   completedSubtopics = [],
+  availableTopics = [],
+  onSelectTopic,
   onToggleSubtopic,
   onSessionComplete,
   onMarkFinished,
@@ -219,9 +225,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         )}
       </div>
 
-      {/* Active Unit Focus Badge (if set) */}
-      {activeUnitTitle && (
-        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs shadow-sm">
+      {/* Active Unit Focus Badge / Unit Selector */}
+      {activeUnitTitle ? (
+        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 shrink-0">
               <BookOpen className="w-4 h-4" />
@@ -235,17 +241,61 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
               </strong>
             </div>
           </div>
-          {onMarkFinished && (
-            <button
-              onClick={onMarkFinished}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition shrink-0 cursor-pointer shadow hover:scale-105 active:scale-95"
-              title="Mark this unit/task as finished"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Mark Unit as Finished</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {availableTopics && availableTopics.length > 0 && onSelectTopic && (
+              <select
+                onChange={(e) => {
+                  const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                  if (found) onSelectTopic(found);
+                }}
+                className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer"
+                defaultValue=""
+              >
+                <option value="" disabled>Switch Unit...</option>
+                {availableTopics.map((t) => (
+                  <option key={t.id} value={t.id} className="bg-[#161831] text-white">
+                    {t.subject}: Unit {t.unitNumber} - {t.topicTitle}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {onMarkFinished && (
+              <button
+                onClick={onMarkFinished}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition shrink-0 cursor-pointer shadow hover:scale-105 active:scale-95"
+                title="Mark this unit/task as finished"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Mark Unit as Finished</span>
+              </button>
+            )}
+          </div>
         </div>
+      ) : (
+        availableTopics && availableTopics.length > 0 && onSelectTopic && (
+          <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="text-slate-300 font-semibold">Select a syllabus unit to study:</span>
+            </div>
+            <select
+              onChange={(e) => {
+                const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                if (found) onSelectTopic(found);
+              }}
+              className="bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer w-full sm:w-auto"
+              defaultValue=""
+            >
+              <option value="" disabled>Choose Syllabus Unit...</option>
+              {availableTopics.map((t) => (
+                <option key={t.id} value={t.id} className="bg-[#161831] text-white">
+                  {t.subject}: Unit {t.unitNumber} - {t.topicTitle}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
       )}
 
       {/* Subtopics Checklist for Active Task / Unit */}

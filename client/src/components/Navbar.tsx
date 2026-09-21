@@ -9,6 +9,7 @@ import {
   Flame,
   Sparkles,
   LogIn,
+  Bell,
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -49,6 +50,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
           <span className="whitespace-nowrap">{userProfile?.streakDays || 1}</span>
         </div>
+
+        {/* Header Notifications Bell Button */}
+        <button
+          onClick={() => onNavigate('notifications')}
+          className={`relative p-2 rounded-xl border transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center ${
+            currentScreen === 'notifications'
+              ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Notifications & Study Reminders"
+        >
+          <Bell className="w-4 h-4" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        </button>
 
         <PWAInstallButton />
 

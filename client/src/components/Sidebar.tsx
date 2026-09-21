@@ -18,6 +18,7 @@ import {
   X,
   Sparkles,
   Brain,
+  Bell,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -50,10 +51,11 @@ const navGroups = [
     ],
   },
   {
-    label: 'Progress',
+    label: 'Progress & Alerts',
     items: [
       { id: 'leaderboard' as ScreenId, label: 'Leaderboard', icon: Trophy, color: 'text-amber-400', activeBg: 'bg-amber-600' },
       { id: 'progress' as ScreenId, label: 'Analytics', icon: BarChart3, color: 'text-teal-400', activeBg: 'bg-teal-600' },
+      { id: 'notifications' as ScreenId, label: 'Notifications', icon: Bell, color: 'text-indigo-400', activeBg: 'bg-indigo-600' },
     ],
   },
 ];

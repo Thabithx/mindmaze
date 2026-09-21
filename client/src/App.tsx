@@ -41,6 +41,7 @@ import { ProgressAnalytics } from './components/progress/ProgressAnalytics';
 import { SettingsScreen } from './components/settings/SettingsScreen';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { ProfileEditModal } from './components/profile/ProfileEditModal';
+import { NotificationsScreen } from './components/notifications/NotificationsScreen';
 import { LandingPage } from './components/screens/LandingPage';
 
 import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen } from 'lucide-react';
@@ -321,10 +322,19 @@ export function App() {
                     activeSubject={activePomodoroTopic?.subject}
                     subtopics={activeSubtopics}
                     completedSubtopics={activeCompletedSubtopics}
+                    availableTopics={syllabusTopics}
+                    onSelectTopic={(topic) => {
+                      setActivePomodoroTopic({
+                        title: topic.topicTitle,
+                        subject: topic.subject,
+                        id: topic.id,
+                      });
+                    }}
                     onToggleSubtopic={(subtopicTitle) => {
-                      if (activeSyllabusTopic) {
+                      const topicToUpdate = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
+                      if (topicToUpdate) {
                         const updated = syllabusTopics.map((t) => {
-                          if (t.id === activeSyllabusTopic.id) {
+                          if (t.id === topicToUpdate.id || t.topicTitle.toLowerCase() === topicToUpdate.topicTitle.toLowerCase()) {
                             const map = { ...(t.subtopicProgress || {}) };
                             const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
                             const targetVal = current >= 100 ? 0 : 100;
@@ -356,9 +366,10 @@ export function App() {
                     isMinimized={isPomodoroMinimized}
                     onToggleMinimize={() => setIsPomodoroMinimized(!isPomodoroMinimized)}
                     onStartSession={() => {
-                      if (activePomodoroTopic?.title) {
+                      const topicToStart = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
+                      if (topicToStart) {
                         const updated = syllabusTopics.map((t) => {
-                          if (t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) {
+                          if (t.id === topicToStart.id || t.topicTitle.toLowerCase() === topicToStart.topicTitle.toLowerCase()) {
                             return { ...t, status: 'in_progress' as const };
                           }
                           return t;
@@ -368,12 +379,13 @@ export function App() {
                       }
                     }}
                     onMarkFinished={() => {
-                      if (activePomodoroTopic?.title) {
+                      const currentTopic = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
+                      if (currentTopic) {
+                        const subs = currentTopic.subtopics || [];
+                        const newMap: Record<string, number> = {};
+                        subs.forEach((s) => { newMap[s] = 100; });
                         const updated = syllabusTopics.map((t) => {
-                          if (t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) {
-                            const subs = t.subtopics || [];
-                            const newMap: Record<string, number> = {};
-                            subs.forEach((s) => { newMap[s] = 100; });
+                          if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
                             return {
                               ...t,
                               status: 'completed' as const,
@@ -386,9 +398,19 @@ export function App() {
                         setSyllabusTopics(updated);
                         saveStoredSyllabusTopics(updated);
 
+                        // Also mark matching daily task completed
+                        const updatedTasks = tasks.map((tk) => {
+                          if (tk.topicId === currentTopic.id || (tk.title && tk.title.toLowerCase().includes(currentTopic.topicTitle.toLowerCase()))) {
+                            return { ...tk, isCompleted: true };
+                          }
+                          return tk;
+                        });
+                        setTasks(updatedTasks);
+                        saveStoredDailyTasks(updatedTasks);
+
                         setCelebration({
                           title: 'Unit Completed!',
-                          message: `Awesome job! You finished "${activePomodoroTopic.title}". Keep up the great streak!`,
+                          message: `Awesome job! You finished "${currentTopic.topicTitle}". Keep up the great streak!`,
                         });
                         setActivePomodoroTopic(null);
                       }
@@ -639,6 +661,22 @@ export function App() {
               }}
               userRole={user?.role || 'student'}
               onOpenProfileEdit={() => setIsProfileEditOpen(true)}
+            />
+          )}
+
+          {/* Notifications Center */}
+          {currentScreen === 'notifications' && (
+            <NotificationsScreen
+              settings={userSettings}
+              userSettings={userSettings}
+              onUpdateSettings={(newS) => {
+                const merged = { ...userSettings, ...newS };
+                setUserSettingsState(merged);
+                saveUserSettings(merged);
+              }}
+              onNavigate={setCurrentScreen}
+              timetableEntries={timetable}
+              syllabusTopics={syllabusTopics}
             />
           )}
 

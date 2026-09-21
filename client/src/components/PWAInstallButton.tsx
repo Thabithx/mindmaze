@@ -94,24 +94,25 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       <>
         <div
           id="pwa-install-dashboard-card"
-          className={`rounded-2xl border border-purple-500/30 bg-gradient-to-br from-[#1B173B]/90 via-[#13152C]/90 to-[#1A2644]/90 p-4 sm:p-5 shadow-xl backdrop-blur-xl relative overflow-hidden ${className}`}
+          className={`glass-card rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-[#181A38] via-[#14162E] to-[#0F1123] p-5 sm:p-6 shadow-xl relative overflow-hidden ${className}`}
         >
           {/* Top-right Dismiss Button */}
           <button
             onClick={dismissCard}
             id="btn-dismiss-pwa-card"
             aria-label="Dismiss install card"
-            title="Dismiss this bar"
-            className="absolute top-3 right-3 p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer z-20 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            title="Dismiss install card"
+            className="absolute top-3 right-3 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer z-20 min-w-[36px] min-h-[36px] flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="absolute top-0 right-0 -mr-10 -mt-10 w-36 h-36 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10 pr-6 sm:pr-8">
+          <div className="absolute top-0 right-0 -mr-12 -mt-12 w-40 h-40 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex flex-col gap-4 relative z-10 pr-6 sm:pr-8">
             <div className="flex items-start gap-3.5">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-[#6B4EFF] to-cyan-500 text-white shadow-lg shrink-0">
-                <Smartphone className="w-6 h-6 text-white" />
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-[#6B4EFF] to-cyan-500 text-white shadow-lg shrink-0 shadow-indigo-600/30">
+                <Smartphone className="w-5 h-5 text-white" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -119,21 +120,21 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                     Install Mind Maze App
                   </h3>
                   <span className="text-[10px] bg-cyan-400/20 text-cyan-300 font-bold px-2 py-0.5 rounded-full border border-cyan-400/30 uppercase tracking-wider">
-                    PWA Offline
+                    PWA Fast
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                  Install onto your phone, tablet, or desktop for instant launch, offline GCE A/L syllabus revision, timetable alerts, and zero browser tab clutter.
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  Fast offline access, fullscreen mode, and instant home screen launch on your phone, tablet, or desktop.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:shrink-0">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               {isInstallable ? (
                 <button
                   onClick={install}
                   id="btn-pwa-install-dashboard"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:from-[#7C5DFA] hover:to-[#9D74FF] text-white text-xs font-bold shadow-lg transition hover:scale-105 active:scale-95 cursor-pointer min-h-[44px]"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:from-[#7C5DFA] text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition hover:scale-105 active:scale-95 cursor-pointer min-h-[40px]"
                 >
                   <Download className="w-4 h-4 text-cyan-200" />
                   <span>Install App</span>
@@ -142,7 +143,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                 <button
                   onClick={() => setShowIOSGuide(true)}
                   id="btn-pwa-install-dashboard-ios"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] text-white text-xs font-bold shadow-lg transition hover:scale-105 active:scale-95 cursor-pointer min-h-[44px]"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition hover:scale-105 active:scale-95 cursor-pointer min-h-[40px]"
                 >
                   <Smartphone className="w-4 h-4 text-cyan-200" />
                   <span>Install on iOS</span>
@@ -151,7 +152,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                 <button
                   onClick={() => setShowDesktopHelp(true)}
                   id="btn-pwa-desktop-instructions"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold transition cursor-pointer min-h-[44px]"
+                  className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold transition cursor-pointer min-h-[40px]"
                 >
                   <Sparkles className="w-4 h-4 text-cyan-400" />
                   <span>How to Install</span>
@@ -162,7 +163,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                 onClick={markAsInstalled}
                 id="btn-mark-already-installed"
                 title="Dismiss because app is already installed"
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition cursor-pointer min-h-[44px]"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition cursor-pointer min-h-[40px]"
               >
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Already Installed</span>
