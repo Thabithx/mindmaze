@@ -116,10 +116,10 @@ router.get('/export-csv', protect, adminOnly, async (req: AuthRequest, res: Resp
   try {
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
     
-    let csvContent = 'ID,Name,Email,Role,Stream,Elective,ExamDate,ZScoreTarget,StreakDays,BestStreak,XP,Status\n';
+    let csvContent = 'ID,Name,Email,Role,Stream,Elective,ExamDate,ZScoreTarget,StreakDays,BestStreak,Status\n';
     
     users.forEach((u) => {
-      const line = `"${u._id}","${u.name}","${u.email}","${u.role}","${u.stream}","${u.physicalScienceElective}","${u.targetExamDate}","${u.targetZScore}",${u.streakDays},${u.bestStreak},${u.xp},"${u.isActive ? 'Active' : 'Blocked'}"\n`;
+      const line = `"${u._id}","${u.name}","${u.email}","${u.role}","${u.stream}","${u.physicalScienceElective}","${u.targetExamDate}","${u.targetZScore}",${u.streakDays},${u.bestStreak},"${u.isActive ? 'Active' : 'Blocked'}"\n`;
       csvContent += line;
     });
 

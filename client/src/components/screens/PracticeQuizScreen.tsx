@@ -28,7 +28,7 @@ interface PracticeQuizScreenProps {
   userProfile: UserProfile;
   onNavigate: (screen: ScreenId) => void;
   onSaveMistake: (mistake: MistakeItem) => void;
-  onUpdateXP: (earnedXP: number) => void;
+  onUpdateXP?: (earnedXP: number) => void;
   initialQuestionId?: string;
   initialTopicFilter?: string;
 }
@@ -263,12 +263,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
                   {String(secondsRemaining % 60).padStart(2, '0')}
                 </span>
               </div>
-
-              <div className="flex items-center gap-1 text-xs font-bold text-purple-300 bg-purple-500/15 border border-purple-400/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-                <span>+25 XP</span>
-              </div>
-            </div>
+          </div>
           </div>
 
           {/* Progress Bar */}
@@ -445,10 +440,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="text-2xl sm:text-3xl font-black text-rose-400">{wrongCount}</div>
               <div className="text-[11px] text-slate-400 mt-0.5">Wrong (In Notebook)</div>
-            </div>
-            <div className="rounded-2xl border border-purple-400/30 bg-purple-500/15 p-4 backdrop-blur-sm">
-              <div className="text-2xl sm:text-3xl font-black text-cyan-300">+{totalXPEarned}</div>
-              <div className="text-[11px] text-purple-300 mt-0.5">XP Earned</div>
             </div>
           </div>
 

@@ -35,25 +35,36 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
       notes,
     } = req.body;
 
-    if (!dayOfWeek || !subject || !topic || !startTime || !endTime) {
-      res.status(400).json({ message: 'Day, subject, topic, start time, and end time are required' });
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
+      res.status(400).json({ message: 'Valid day of week is required' });
+      return;
+    }
+
+    if (!subject || typeof subject !== 'string' || !topic || typeof topic !== 'string') {
+      res.status(400).json({ message: 'Subject and topic titles are required' });
+      return;
+    }
+
+    if (!startTime || !endTime) {
+      res.status(400).json({ message: 'Start time and end time are required' });
       return;
     }
 
     const slot = await Timetable.create({
       user: req.user!._id,
       dayOfWeek,
-      subject,
-      topic,
-      blockType: blockType || 'study',
+      subject: subject.trim(),
+      topic: topic.trim(),
+      blockType: blockType === 'revision' ? 'revision' : 'study',
       topicId: topicId || '',
-      subtopicTargets: subtopicTargets || [],
-      startTime,
-      endTime,
+      subtopicTargets: Array.isArray(subtopicTargets) ? subtopicTargets : [],
+      startTime: String(startTime).trim(),
+      endTime: String(endTime).trim(),
       color: color || 'blue',
-      reminderEnabled: reminderEnabled !== undefined ? reminderEnabled : true,
-      reminderOffsetMinutes: reminderOffsetMinutes || 15,
-      notes: notes || '',
+      reminderEnabled: reminderEnabled !== undefined ? Boolean(reminderEnabled) : true,
+      reminderOffsetMinutes: Number(reminderOffsetMinutes) || 15,
+      notes: notes ? String(notes).trim() : '',
     });
 
     res.status(201).json({ slot });
@@ -95,11 +106,10 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
 
     await slot.save();
 
-    // If slot completed today, update user XP and streak
+    // If slot completed today, update user streak
     if (req.body.isCompleted === true) {
       const user = await User.findById(req.user!._id);
       if (user) {
-        user.xp += 50;
         const todayStr = new Date().toISOString().split('T')[0];
         if (!user.completedDates.includes(todayStr)) {
           user.completedDates.push(todayStr);
@@ -107,8 +117,8 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
           if (user.streakDays > user.bestStreak) {
             user.bestStreak = user.streakDays;
           }
+          await user.save();
         }
-        await user.save();
       }
     }
 

@@ -63,14 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         )}
 
-        {/* XP Counter Badge */}
-        {userProfile && (
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-bold">
-            <Zap className="w-4 h-4 fill-current" />
-            <span>{userProfile.xp || 150} XP</span>
-          </div>
-        )}
-
         <PWAInstallButton />
 
         {/* Profile Dropdown */}

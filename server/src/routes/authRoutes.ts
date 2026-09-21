@@ -7,6 +7,8 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'mind_maze_jwt_secret_key_2026_al_app';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const generateToken = (id: string): string => {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
 };
@@ -15,14 +17,27 @@ const generateToken = (id: string): string => {
 // @desc    Register a new student/user
 router.post('/register', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, email, password, stream, physicalScienceElective } = req.body;
+    let { name, email, password, stream, physicalScienceElective } = req.body;
 
-    if (!name || !email || !password) {
-      res.status(400).json({ message: 'Name, email, and password are required' });
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      res.status(400).json({ message: 'Full name must be at least 2 characters long' });
       return;
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      res.status(400).json({ message: 'Please provide a valid email address' });
+      return;
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      res.status(400).json({ message: 'Password must be at least 6 characters long' });
+      return;
+    }
+
+    name = name.trim();
+    email = email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       res.status(400).json({ message: 'User with this email already exists' });
       return;
@@ -31,17 +46,19 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Make the first registered user admin automatically if no admin exists, else student
     const count = await User.countDocuments();
     const role = count === 0 ? 'admin' : 'student';
 
+    const validStreams = ['Physical Science', 'Biological Science', 'Maths', 'Bio'];
+    const selectedStream = validStreams.includes(stream) ? stream : 'Physical Science';
+
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email,
       passwordHash,
       role,
-      stream: stream || 'Physical Science',
-      physicalScienceElective: physicalScienceElective || 'Chemistry',
+      stream: selectedStream,
+      physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
       targetExamYear: '2026',
     });
 
@@ -62,7 +79,6 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         mobileNumber: user.mobileNumber,
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
-        xp: user.xp,
         streakDays: user.streakDays,
         bestStreak: user.bestStreak,
         badges: user.badges,
@@ -78,14 +94,16 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
 // @desc    Authenticate user & get token
 router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ message: 'Please provide email and password' });
       return;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    email = email.trim().toLowerCase();
+
+    const user = await User.findOne({ email });
     if (!user) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
@@ -119,7 +137,6 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         mobileNumber: user.mobileNumber,
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
-        xp: user.xp,
         streakDays: user.streakDays,
         bestStreak: user.bestStreak,
         badges: user.badges,
@@ -160,16 +177,42 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
       weeklyHoursGoal,
     } = req.body;
 
-    if (name !== undefined) user.name = name;
-    if (stream !== undefined) user.stream = stream;
-    if (physicalScienceElective !== undefined) user.physicalScienceElective = physicalScienceElective;
-    if (targetExamYear !== undefined) user.targetExamYear = targetExamYear;
-    if (targetExamDate !== undefined) user.targetExamDate = targetExamDate;
-    if (targetZScore !== undefined) user.targetZScore = targetZScore;
-    if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
-    if (motivationNote !== undefined) user.motivationNote = motivationNote;
-    if (dailyHoursGoal !== undefined) user.dailyHoursGoal = Number(dailyHoursGoal);
-    if (weeklyHoursGoal !== undefined) user.weeklyHoursGoal = Number(weeklyHoursGoal);
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length < 2) {
+        res.status(400).json({ message: 'Name must be at least 2 characters long' });
+        return;
+      }
+      user.name = name.trim();
+    }
+
+    if (stream !== undefined) {
+      const validStreams = ['Physical Science', 'Biological Science', 'Maths', 'Bio'];
+      if (validStreams.includes(stream)) user.stream = stream;
+    }
+
+    if (physicalScienceElective !== undefined) {
+      user.physicalScienceElective = physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry';
+    }
+
+    if (targetExamYear !== undefined) user.targetExamYear = String(targetExamYear).trim();
+    if (targetExamDate !== undefined) user.targetExamDate = String(targetExamDate).trim();
+    if (targetZScore !== undefined) user.targetZScore = String(targetZScore).trim();
+    if (mobileNumber !== undefined) user.mobileNumber = String(mobileNumber).trim();
+    if (motivationNote !== undefined) user.motivationNote = String(motivationNote).trim();
+
+    if (dailyHoursGoal !== undefined) {
+      const val = Number(dailyHoursGoal);
+      if (!isNaN(val) && val >= 1 && val <= 24) {
+        user.dailyHoursGoal = val;
+      }
+    }
+
+    if (weeklyHoursGoal !== undefined) {
+      const val = Number(weeklyHoursGoal);
+      if (!isNaN(val) && val >= 1 && val <= 168) {
+        user.weeklyHoursGoal = val;
+      }
+    }
 
     await user.save();
 
@@ -189,7 +232,6 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         motivationNote: user.motivationNote,
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
-        xp: user.xp,
         streakDays: user.streakDays,
         bestStreak: user.bestStreak,
         badges: user.badges,

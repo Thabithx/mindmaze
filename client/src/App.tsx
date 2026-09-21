@@ -142,7 +142,7 @@ export function App() {
     name: user?.name || userSettings.studentName || 'A/L Scholar',
     email: user?.email || '',
     stream: user?.stream || userSettings.stream || 'Physical Science',
-    xp: user?.xp || 150,
+    xp: 0,
     streakDays: user?.streakDays || 1,
     targetYear: user?.targetExamYear || '2026',
     targetZScore: user?.targetZScore || '',
@@ -274,9 +274,6 @@ export function App() {
               userProfile={userProfile}
               onNavigate={setCurrentScreen}
               onSaveMistake={(m) => setMistakes((prev) => [m, ...prev])}
-              onUpdateXP={(xp) => {
-                if (user) setUser((prev: any) => ({ ...prev, xp: (prev.xp || 0) + xp }));
-              }}
             />
           )}
 
