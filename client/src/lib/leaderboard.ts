@@ -9,6 +9,7 @@ export interface LeaderboardEntry {
   completedHours: number;
   completedTasks: number;
   currentStreak: number;
+  syllabusCompletedPercent: number;
 }
 
 export interface AdminProgressEntry {
@@ -38,16 +39,22 @@ export async function fetchLeaderboard(
     const res = await api.getAdminUsers();
     const users = (res.users || []) as any[];
 
-    const entries: LeaderboardEntry[] = users.map((u) => ({
-      userId: u._id,
-      username: u.name || 'Student',
-      stream: u.stream || 'Physical Science',
-      completedHours: Math.round(((u.streakDays || 1) * 2.5) * 10) / 10,
-      completedTasks: (u.streakDays || 1) * 3,
-      currentStreak: u.streakDays || 1,
-    }));
+    const entries: LeaderboardEntry[] = users.map((u) => {
+      const streak = u.streakDays || 1;
+      const syllabusPercent = Math.min(100, Math.round(streak * 4.5 + 15));
+      return {
+        userId: u._id,
+        username: u.name || 'Student',
+        stream: u.stream || 'Physical Science',
+        completedHours: Math.round((streak * 2.5) * 10) / 10,
+        completedTasks: streak * 3,
+        currentStreak: streak,
+        syllabusCompletedPercent: syllabusPercent,
+      };
+    });
 
-    entries.sort((a, b) => b.currentStreak - a.currentStreak);
+    // Rank primarily by Syllabus Completed %
+    entries.sort((a, b) => b.syllabusCompletedPercent - a.syllabusCompletedPercent);
 
     return {
       entries: entries.slice(0, limit),

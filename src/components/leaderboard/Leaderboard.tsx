@@ -59,7 +59,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-base font-black text-white flex items-center gap-2">
           <Trophy className="w-5 h-5 text-amber-400" />
-          <span>Leaderboard — study hours</span>
+          <span>Syllabus Master Leaderboard</span>
         </h3>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl bg-white/5 border border-white/10 p-1">
@@ -87,23 +87,15 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       </div>
 
       <p className="text-[11px] text-slate-400 leading-relaxed">
-        {period === 'weekly' ? 'This week (Mon–Sun, Sri Lanka time)' : 'This calendar month (Sri Lanka time)'} — ranked by
-        completed study hours, then tasks, then streak. Friendly competition alongside your daily target! 💪
+        Ranked by total A/L syllabus completed %, study hours, and streak consistency! 💪
         {myRank >= 0 && (
           <span className="text-cyan-300 font-bold"> You&apos;re #{myRank + 1}!</span>
         )}
       </p>
 
-      {needsSetup ? (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-amber-200 text-xs leading-relaxed">
-          Leaderboard isn&apos;t set up in Supabase yet. Run{' '}
-          <code className="px-1 py-0.5 rounded bg-black/40 border border-white/15">supabase/migration_add_daily_target_and_leaderboard.sql</code>{' '}
-          in the Supabase SQL Editor, then press refresh.
-        </div>
-      ) : !loading && entries.length === 0 ? (
+      {!loading && entries.length === 0 ? (
         <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-center">
-          <p className="text-xs font-bold text-slate-300">No completed study time {period === 'weekly' ? 'this week' : 'this month'} yet.</p>
-          <p className="text-[11px] text-slate-500 mt-1">Complete a planner block to take the lead! 🔥</p>
+          <p className="text-xs font-bold text-slate-300">No active student rankings found.</p>
         </div>
       ) : compact ? (
         <>
@@ -125,7 +117,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                     <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                   )}
                 </span>
-                <span className="text-xs font-black text-amber-300">{e.completedHours}h</span>
+                <span className="text-xs font-black text-cyan-300">{e.syllabusCompletedPercent || 0}% Syllabus</span>
               </div>
             ))}
           </div>
@@ -155,9 +147,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                 >
                   <div className="flex justify-center">{medal(i)}</div>
                   <div className="text-xs font-black text-white truncate mt-1">@{e.username}</div>
-                  <div className="text-sm font-black text-amber-300 mt-0.5">{e.completedHours}h</div>
+                  <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
                   <div className="text-[10px] text-slate-400">
-                    {e.completedTasks} tasks • 🔥{e.currentStreak}d
+                    {e.completedHours}h study • 🔥{e.currentStreak}d
                   </div>
                 </div>
               ))}
@@ -170,8 +162,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/10">
                     <th className="py-2 pr-3 font-bold">#</th>
                     <th className="py-2 pr-3 font-bold">Student</th>
+                    <th className="py-2 pr-3 font-bold">Syllabus %</th>
                     <th className="py-2 pr-3 font-bold">Hours</th>
-                    <th className="py-2 pr-3 font-bold">Tasks</th>
                     <th className="py-2 font-bold">Streak</th>
                   </tr>
                 </thead>

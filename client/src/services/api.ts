@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -35,6 +35,10 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Invalid/expired token
+      removeAuthToken();
+    }
     throw new Error(data.message || `Request failed with status ${response.status}`);
   }
 
