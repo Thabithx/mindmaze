@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { SyllabusTopic, StreamType, TopicStatus } from '../../types';
+import { SyllabusTopic, StreamType, TopicStatus, DailyTask } from '../../types';
 import {
   BookOpen,
   CheckCircle2,
@@ -14,6 +14,8 @@ import {
   BarChart3,
   X,
   Trash2,
+  Lock,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getSubjectsForStream,
@@ -30,6 +32,8 @@ interface TopicTrackerProps {
   topics: SyllabusTopic[];
   stream: StreamType;
   physicalScienceElective?: 'Chemistry' | 'ICT';
+  dailyTasks?: DailyTask[];
+  userId?: string;
   onUpdateTopicStatus: (topicId: string, status: TopicStatus) => void;
   onToggleSubtopic: (topicId: string, subtopicTitle: string) => void;
   onAddCustomTopic: (topic: Omit<SyllabusTopic, 'id'>) => void;
@@ -39,6 +43,8 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   topics,
   stream,
   physicalScienceElective,
+  dailyTasks = [],
+  userId,
   onUpdateTopicStatus,
   onToggleSubtopic,
   onAddCustomTopic,
@@ -68,6 +74,65 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [newUnitTitle, setNewUnitTitle] = useState('');
   const [subtopicsCount, setSubtopicsCount] = useState(3);
   const [subtopicInputs, setSubtopicInputs] = useState<string[]>(['', '', '']);
+
+  // ── One-time onboarding modal (mark pre-existing completed topics) ──────────
+  const onboardingKey = userId ? `mm_syllabus_onboarded_${userId}` : null;
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState<Set<string>>(new Set());
+  const [onboardingSubtopicChecked, setOnboardingSubtopicChecked] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!onboardingKey) return;
+    if (!localStorage.getItem(onboardingKey)) {
+      setShowOnboarding(true);
+    }
+  }, [onboardingKey]);
+
+  const handleOnboardingSubmit = () => {
+    // Mark all checked topics as completed
+    const safeAll = topics || [];
+    onboardingChecked.forEach((topicId) => {
+      const topic = safeAll.find((t) => t.id === topicId);
+      if (topic) {
+        onUpdateTopicStatus(topicId, 'completed');
+      }
+    });
+    // Mark checked subtopics
+    onboardingSubtopicChecked.forEach((key) => {
+      const [topicId, subtopic] = key.split('|||');
+      if (topicId && subtopic) {
+        onToggleSubtopic(topicId, subtopic);
+      }
+    });
+    if (onboardingKey) {
+      localStorage.setItem(onboardingKey, 'done');
+    }
+    setShowOnboarding(false);
+  };
+
+  const toggleOnboardingTopic = (topicId: string) => {
+    setOnboardingChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(topicId)) next.delete(topicId);
+      else next.add(topicId);
+      return next;
+    });
+  };
+
+  const toggleOnboardingSubtopic = (topicId: string, subtopic: string) => {
+    const key = `${topicId}|||${subtopic}`;
+    setOnboardingSubtopicChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // ── Task-gating: topic can only be marked if a daily task exists for it ─────
+  const topicHasTask = (topicId: string): boolean => {
+    return (dailyTasks || []).some((t) => t.topicId === topicId);
+  };
 
   useEffect(() => {
     setNewSubject(selectedSubject);
@@ -351,6 +416,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
             const topic = row.topic;
             const isExpanded = expandedTopicId === topic.id;
             const subs = topic.subtopics || [];
+            const hasTask = topicHasTask(topic.id);
 
             return (
               <div
@@ -369,6 +435,12 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                       <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-cyan-300 border border-white/10">
                         Unit {topic.unitNumber}{topic.unitTitle && topic.unitTitle.trim().toLowerCase() !== topic.topicTitle.trim().toLowerCase() ? `: ${topic.unitTitle}` : ''}
                       </span>
+                      {!hasTask && (
+                        <span className="flex items-center gap-1 text-[10px] text-amber-400 font-semibold">
+                          <Lock className="w-3 h-3" />
+                          <span className="hidden sm:inline">Add a daily task to unlock</span>
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-sm sm:text-base font-bold text-white">
@@ -376,42 +448,51 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                     </h3>
                   </div>
 
-                  {/* Status Buttons */}
+                  {/* Status Buttons — task-gated */}
                   <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                        topic.status === 'completed'
-                          ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                          : 'bg-white/5 text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Completed</span>
-                    </button>
+                    {hasTask ? (
+                      <>
+                        <button
+                          onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                            topic.status === 'completed'
+                              ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                              : 'bg-white/5 text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Completed</span>
+                        </button>
 
-                    <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                        topic.status === 'in_progress'
-                          ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
-                          : 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>In Progress</span>
-                    </button>
+                        <button
+                          onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                            topic.status === 'in_progress'
+                              ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                              : 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10'
+                          }`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>In Progress</span>
+                        </button>
 
-                    <button
-                      onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                        topic.status === 'not_started'
-                          ? 'bg-slate-700 text-white'
-                          : 'bg-white/5 text-slate-500 hover:text-white'
-                      }`}
-                    >
-                      Not Started
-                    </button>
+                        <button
+                          onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                            topic.status === 'not_started'
+                              ? 'bg-slate-700 text-white'
+                              : 'bg-white/5 text-slate-500 hover:text-white'
+                          }`}
+                        >
+                          Not Started
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+                        <Lock className="w-3.5 h-3.5 shrink-0" />
+                        <span>Create a task first</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -437,15 +518,21 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                           return (
                             <div
                               key={sub}
-                              onClick={() => onToggleSubtopic(topic.id, sub)}
-                              className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 text-xs ${
-                                isDone
-                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-                                  : 'bg-white/5 border-white/10 text-slate-300 hover:border-indigo-400/40'
+                              onClick={() => hasTask && onToggleSubtopic(topic.id, sub)}
+                              className={`p-2.5 rounded-xl border transition flex items-center justify-between gap-2 text-xs ${
+                                hasTask
+                                  ? isDone
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 cursor-pointer'
+                                    : 'bg-white/5 border-white/10 text-slate-300 hover:border-indigo-400/40 cursor-pointer'
+                                  : 'bg-white/5 border-white/10 text-slate-400 cursor-not-allowed opacity-60'
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate">
-                                <CheckCircle2 className={`w-4 h-4 shrink-0 ${isDone ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                {hasTask ? (
+                                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${isDone ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                ) : (
+                                  <Lock className="w-4 h-4 shrink-0 text-amber-400/50" />
+                                )}
                                 <span className="truncate">{sub}</span>
                               </div>
                               <span className="text-[10px] font-bold text-cyan-300 shrink-0">{progressVal}%</span>
@@ -615,6 +702,114 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── One-Time Onboarding Modal ─────────────────────────────────────── */}
+      {showOnboarding && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[110] overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4"
+        >
+          <div
+            className="w-full max-w-2xl rounded-3xl border border-indigo-500/40 bg-[#161831] shadow-2xl text-slate-100 flex flex-col max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10 bg-[#161831] shrink-0">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 text-base font-bold text-white">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span>First-Time Setup: Mark Already Completed Units</span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Tick any units or subtopics you've already finished. This one-time setup sets your baseline progress.
+                </p>
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 overscroll-contain">
+              {availableSubjectMetas.map((subjectMeta) => {
+                const subjectTopics = safeTopics.filter((t) => t.subject === subjectMeta.name);
+                if (subjectTopics.length === 0) return null;
+                return (
+                  <div key={subjectMeta.id} className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-indigo-300 pt-1 pb-1 border-b border-white/10">
+                      <SubjectIcon subject={subjectMeta.name} className="w-3.5 h-3.5" />
+                      <span>{subjectMeta.name}</span>
+                    </div>
+                    {subjectTopics.map((topic) => {
+                      const checked = onboardingChecked.has(topic.id);
+                      return (
+                        <div key={topic.id} className="space-y-1.5">
+                          <div
+                            onClick={() => toggleOnboardingTopic(topic.id)}
+                            className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition text-xs ${
+                              checked
+                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200'
+                                : 'bg-white/5 border-white/10 text-slate-300 hover:border-indigo-400/40'
+                            }`}
+                          >
+                            <CheckCircle2 className={`w-4 h-4 shrink-0 ${checked ? 'text-emerald-400' : 'text-slate-500'}`} />
+                            <span className="font-semibold">Unit {topic.unitNumber}: {topic.topicTitle}</span>
+                          </div>
+                          {topic.subtopics && topic.subtopics.length > 0 && checked && (
+                            <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              {topic.subtopics.map((sub) => {
+                                const subKey = `${topic.id}|||${sub}`;
+                                const subChecked = onboardingSubtopicChecked.has(subKey);
+                                return (
+                                  <div
+                                    key={sub}
+                                    onClick={() => toggleOnboardingSubtopic(topic.id, sub)}
+                                    className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition text-xs ${
+                                      subChecked
+                                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                        : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
+                                    }`}
+                                  >
+                                    <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${subChecked ? 'text-emerald-400' : 'text-slate-600'}`} />
+                                    <span className="truncate">{sub}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-white/10 bg-[#14162e]/95 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
+              <p className="text-[11px] text-slate-400">
+                {onboardingChecked.size} unit{onboardingChecked.size !== 1 ? 's' : ''} marked as completed
+              </p>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onboardingKey) localStorage.setItem(onboardingKey, 'done');
+                    setShowOnboarding(false);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-slate-300 font-semibold transition cursor-pointer min-h-[44px] text-xs"
+                >
+                  Skip (Start Fresh)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOnboardingSubmit}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-bold transition shadow-lg cursor-pointer min-h-[44px] text-xs"
+                >
+                  Save My Progress
+                </button>
+              </div>
+            </div>
           </div>
         </div>,
         document.body

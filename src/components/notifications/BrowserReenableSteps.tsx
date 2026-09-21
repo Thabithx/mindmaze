@@ -24,7 +24,7 @@ const STEPS: Record<BrowserKind, { label: string; steps: string[] }> = {
       'Tap the padlock (or tune) icon next to the site URL in the address bar.',
       'Open “Site settings” (on mobile: “Permissions”).',
       'Find Notifications and change it to “Allow”.',
-      'Reload this page — reminders will start working. 🎉',
+      'Reload this page — reminders will start working.',
     ],
   },
   edge: {
@@ -33,7 +33,7 @@ const STEPS: Record<BrowserKind, { label: string; steps: string[] }> = {
       'Tap the padlock icon next to the site URL in the address bar.',
       'Open “Site settings” (on mobile: “Permissions”).',
       'Find Notifications and change it to “Allow”.',
-      'Reload this page — reminders will start working. 🎉',
+      'Reload this page — reminders will start working.',
     ],
   },
   firefox: {
@@ -42,7 +42,7 @@ const STEPS: Record<BrowserKind, { label: string; steps: string[] }> = {
       'Tap the padlock icon next to the site URL in the address bar.',
       'Open “Connection secure” → “More information” → the Permissions tab.',
       'Find “Send Notifications”, uncheck “Use default” and choose “Allow”.',
-      'Reload this page — reminders will start working. 🎉',
+      'Reload this page — reminders will start working.',
     ],
   },
   safari: {
@@ -51,7 +51,7 @@ const STEPS: Record<BrowserKind, { label: string; steps: string[] }> = {
       'On iPhone/iPad: install Mind Maze first via Share → “Add to Home Screen”.',
       'Then open the iPhone Settings app → find Mind Maze → Notifications → Allow Notifications.',
       'On Mac Safari: Safari menu → Settings → Websites → Notifications → allow this site.',
-      'Come back here and reload the page. 🎉',
+      'Come back here and reload the page.',
     ],
   },
   other: {
@@ -60,7 +60,7 @@ const STEPS: Record<BrowserKind, { label: string; steps: string[] }> = {
       'Tap the padlock (or info) icon next to the site URL in the address bar.',
       'Open “Site settings” or “Permissions”.',
       'Find Notifications and change it to “Allow”.',
-      'Reload this page — reminders will start working. 🎉',
+      'Reload this page — reminders will start working.',
     ],
   },
 };

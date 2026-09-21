@@ -322,7 +322,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         )}
 
         <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-          Get reminded when it&apos;s time to study, keep your streak alive, and stay on track for your A/Ls. 💪
+          Get reminded when it&apos;s time to study, keep your streak alive, and stay on track for your A/Ls.
         </p>
 
         {notificationPermission === 'denied' && (

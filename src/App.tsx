@@ -333,6 +333,8 @@ export function App() {
               topics={syllabusTopics}
               stream={userSettings.stream}
               physicalScienceElective={userSettings.physicalScienceElective}
+              dailyTasks={tasks}
+              userId={user?.id || userProfile?.id}
               onUpdateTopicStatus={(topicId, status) => {
                 const updated = syllabusTopics.map((t) => {
                   if (t.id === topicId) {

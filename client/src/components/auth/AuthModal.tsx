@@ -1075,7 +1075,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <div className="font-bold">✨ Current (2019+)</div>
+                      <div className="font-bold">Current (2019+)</div>
                       <div className="text-[10px] text-slate-400">Standard syllabus</div>
                     </button>
                     <button
@@ -1087,7 +1087,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <div className="font-bold">📜 Old Syllabus</div>
+                      <div className="font-bold">Old Syllabus</div>
                       <div className="text-[10px] text-slate-400">Pre-2019 curriculum</div>
                     </button>
                   </div>
