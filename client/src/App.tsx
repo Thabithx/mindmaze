@@ -308,6 +308,8 @@ export function App() {
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           userRole={user?.role || 'student'}
+          isAuthenticated={!!user}
+          onOpenAuthModal={(mode) => setAuthModalMode(mode)}
           onSignOut={handleSignOut}
         />
 
@@ -470,128 +472,159 @@ export function App() {
 
           {/* Syllabus Progress Tracker */}
           {currentScreen === 'topics' && (
-            <TopicTracker
-              topics={syllabusTopics}
-              stream={userSettings.stream}
-              physicalScienceElective={userSettings.physicalScienceElective}
-              dailyTasks={tasks}
-              userId={user?.id || userProfile?.id}
-              onUpdateTopicStatus={(topicId, status) => {
-                const updated = syllabusTopics.map((t) => {
-                  if (t.id === topicId) {
-                    const allSubtopics = t.subtopics || [];
-                    const isCompleted = status === 'completed';
-                    const newProgress: Record<string, number> = {};
-                    allSubtopics.forEach(s => { newProgress[s] = isCompleted ? 100 : 0; });
-                    return {
-                      ...t,
-                      status,
-                      subtopicProgress: newProgress,
-                      completedSubtopics: isCompleted ? [...allSubtopics] : []
-                    };
-                  }
-                  return t;
-                });
-                setSyllabusTopics(updated);
-                saveStoredSyllabusTopics(updated);
-              }}
-              onToggleSubtopic={(topicId, subtopicTitle) => {
-                const updated = syllabusTopics.map((t) => {
-                  if (t.id === topicId) {
-                    const map = { ...(t.subtopicProgress || {}) };
-                    const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
-                    const targetVal = current >= 100 ? 0 : 100;
-                    map[subtopicTitle] = targetVal;
-                    
-                    const subs = t.subtopics || [];
-                    let completed = [...(t.completedSubtopics || [])].filter(s => s !== subtopicTitle);
-                    if (targetVal === 100) completed.push(subtopicTitle);
-                    
-                    let newStatus: any = 'not_started';
-                    if (subs.length > 0) {
-                      const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
-                      if (totalPoints >= subs.length * 100) newStatus = 'completed';
-                      else if (totalPoints > 0) newStatus = 'in_progress';
+            !user ? (
+              <div className="p-8 sm:p-12 rounded-3xl bg-[#161831]/90 border border-white/10 text-center space-y-5 max-w-lg mx-auto my-12 shadow-2xl backdrop-blur-xl">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mx-auto shadow-lg">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                    Student Account Required
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Unlock Syllabus Tracker</h2>
+                  <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
+                    Sign in or create a free account to track your GCE A/L syllabus progress across all units, tick off subtopics, and monitor your mastery breakdown.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setAuthModalMode('signup')}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg shadow-indigo-500/25 cursor-pointer"
+                  >
+                    Create Free Account
+                  </button>
+                  <button
+                    onClick={() => setAuthModalMode('signin')}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <TopicTracker
+                topics={syllabusTopics}
+                stream={userSettings.stream}
+                physicalScienceElective={userSettings.physicalScienceElective}
+                dailyTasks={tasks}
+                userId={user?.id || userProfile?.id}
+                onUpdateTopicStatus={(topicId, status) => {
+                  const updated = syllabusTopics.map((t) => {
+                    if (t.id === topicId) {
+                      const allSubtopics = t.subtopics || [];
+                      const isCompleted = status === 'completed';
+                      const newProgress: Record<string, number> = {};
+                      allSubtopics.forEach(s => { newProgress[s] = isCompleted ? 100 : 0; });
+                      return {
+                        ...t,
+                        status,
+                        subtopicProgress: newProgress,
+                        completedSubtopics: isCompleted ? [...allSubtopics] : []
+                      };
                     }
-                    return {
-                      ...t,
-                      subtopicProgress: map,
-                      completedSubtopics: completed,
-                      status: newStatus,
-                    };
-                  }
-                  return t;
-                });
-                setSyllabusTopics(updated);
-                saveStoredSyllabusTopics(updated);
-              }}
-              onBulkOnboardingComplete={(completedTopicIds, subtopicKeys) => {
-                // Apply all onboarding selections in ONE state update — fixes stale-closure bug
-                const topicIdSet = new Set(completedTopicIds);
+                    return t;
+                  });
+                  setSyllabusTopics(updated);
+                  saveStoredSyllabusTopics(updated);
+                }}
+                onToggleSubtopic={(topicId, subtopicTitle) => {
+                  const updated = syllabusTopics.map((t) => {
+                    if (t.id === topicId) {
+                      const map = { ...(t.subtopicProgress || {}) };
+                      const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
+                      const targetVal = current >= 100 ? 0 : 100;
+                      map[subtopicTitle] = targetVal;
+                      
+                      const subs = t.subtopics || [];
+                      let completed = [...(t.completedSubtopics || [])].filter(s => s !== subtopicTitle);
+                      if (targetVal === 100) completed.push(subtopicTitle);
+                      
+                      let newStatus: any = 'not_started';
+                      if (subs.length > 0) {
+                        const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
+                        if (totalPoints >= subs.length * 100) newStatus = 'completed';
+                        else if (totalPoints > 0) newStatus = 'in_progress';
+                      }
+                      return {
+                        ...t,
+                        subtopicProgress: map,
+                        completedSubtopics: completed,
+                        status: newStatus,
+                      };
+                    }
+                    return t;
+                  });
+                  setSyllabusTopics(updated);
+                  saveStoredSyllabusTopics(updated);
+                }}
+                onBulkOnboardingComplete={(completedTopicIds, subtopicKeys) => {
+                  // Apply all onboarding selections in ONE state update — fixes stale-closure bug
+                  const topicIdSet = new Set(completedTopicIds);
 
-                // Build a map of topicId -> Set<subtopicTitle> for partial-subtopic selection
-                const partialSubtopicMap = new Map<string, Set<string>>();
-                subtopicKeys.forEach((key) => {
-                  const [topicId, subtopic] = key.split('|||');
-                  if (!topicId || !subtopic) return;
-                  if (!partialSubtopicMap.has(topicId)) partialSubtopicMap.set(topicId, new Set());
-                  partialSubtopicMap.get(topicId)!.add(subtopic);
-                });
+                  // Build a map of topicId -> Set<subtopicTitle> for partial-subtopic selection
+                  const partialSubtopicMap = new Map<string, Set<string>>();
+                  subtopicKeys.forEach((key) => {
+                    const [topicId, subtopic] = key.split('|||');
+                    if (!topicId || !subtopic) return;
+                    if (!partialSubtopicMap.has(topicId)) partialSubtopicMap.set(topicId, new Set());
+                    partialSubtopicMap.get(topicId)!.add(subtopic);
+                  });
 
-                const updated = syllabusTopics.map((t) => {
-                  const isFullyCompleted = topicIdSet.has(t.id);
-                  const partialSubtopics = partialSubtopicMap.get(t.id);
+                  const updated = syllabusTopics.map((t) => {
+                    const isFullyCompleted = topicIdSet.has(t.id);
+                    const partialSubtopics = partialSubtopicMap.get(t.id);
 
-                  if (isFullyCompleted) {
-                    // Mark entire topic + all subtopics as completed
-                    const allSubs = t.subtopics || [];
-                    const newProgress: Record<string, number> = {};
-                    allSubs.forEach(s => { newProgress[s] = 100; });
-                    return {
-                      ...t,
-                      status: 'completed' as const,
-                      subtopicProgress: newProgress,
-                      completedSubtopics: [...allSubs],
-                    };
-                  }
+                    if (isFullyCompleted) {
+                      // Mark entire topic + all subtopics as completed
+                      const allSubs = t.subtopics || [];
+                      const newProgress: Record<string, number> = {};
+                      allSubs.forEach(s => { newProgress[s] = 100; });
+                      return {
+                        ...t,
+                        status: 'completed' as const,
+                        subtopicProgress: newProgress,
+                        completedSubtopics: [...allSubs],
+                      };
+                    }
 
-                  if (partialSubtopics && partialSubtopics.size > 0) {
-                    // Apply partial subtopic selection
-                    const map = { ...(t.subtopicProgress || {}) };
-                    const subs = t.subtopics || [];
-                    partialSubtopics.forEach((sub) => {
-                      map[sub] = 100;
-                    });
-                    const completed = subs.filter(s => (map[s] || 0) >= 100);
-                    let newStatus: any = 'not_started';
-                    const totalPoints = subs.reduce((sum, s) => sum + (map[s] || 0), 0);
-                    if (subs.length > 0 && totalPoints >= subs.length * 100) newStatus = 'completed';
-                    else if (totalPoints > 0) newStatus = 'in_progress';
-                    return {
-                      ...t,
-                      subtopicProgress: map,
-                      completedSubtopics: completed,
-                      status: newStatus,
-                    };
-                  }
+                    if (partialSubtopics && partialSubtopics.size > 0) {
+                      // Apply partial subtopic selection
+                      const map = { ...(t.subtopicProgress || {}) };
+                      const subs = t.subtopics || [];
+                      partialSubtopics.forEach((sub) => {
+                        map[sub] = 100;
+                      });
+                      const completed = subs.filter(s => (map[s] || 0) >= 100);
+                      let newStatus: any = 'not_started';
+                      const totalPoints = subs.reduce((sum, s) => sum + (map[s] || 0), 0);
+                      if (subs.length > 0 && totalPoints >= subs.length * 100) newStatus = 'completed';
+                      else if (totalPoints > 0) newStatus = 'in_progress';
+                      return {
+                        ...t,
+                        subtopicProgress: map,
+                        completedSubtopics: completed,
+                        status: newStatus,
+                      };
+                    }
 
-                  return t;
-                });
+                    return t;
+                  });
 
-                setSyllabusTopics(updated);
-                saveStoredSyllabusTopics(updated);
-              }}
-              onAddCustomTopic={(customTopic) => {
-                const newTopic: SyllabusTopic = {
-                  ...customTopic,
-                  id: `custom-${Date.now()}`,
-                  status: 'not_started',
-                };
-                const updated = [...syllabusTopics, newTopic];
-                setSyllabusTopics(updated);
-                saveStoredSyllabusTopics(updated);
-              }}
-            />
+                  setSyllabusTopics(updated);
+                  saveStoredSyllabusTopics(updated);
+                }}
+                onAddCustomTopic={(customTopic) => {
+                  const newTopic: SyllabusTopic = {
+                    ...customTopic,
+                    id: `custom-${Date.now()}`,
+                    status: 'not_started',
+                  };
+                  const updated = [...syllabusTopics, newTopic];
+                  setSyllabusTopics(updated);
+                  saveStoredSyllabusTopics(updated);
+                }}
+              />
+            )
           )}
 
           {/* Timetable & Study Planner */}
@@ -603,15 +636,27 @@ export function App() {
               tasks={tasks}
               dailyTasks={tasks}
               onSaveTimetable={(newSlots) => {
+                if (!user) {
+                  setAuthModalMode('signup');
+                  return;
+                }
                 setTimetable(newSlots);
                 saveStoredTimetable(newSlots);
               }}
               onAddEntry={(entry) => {
+                if (!user) {
+                  setAuthModalMode('signup');
+                  return;
+                }
                 const newEntries = [...timetable, { ...entry, id: `tt-${Date.now()}` }];
                 setTimetable(newEntries);
                 saveStoredTimetable(newEntries);
               }}
               onUpdateEntry={(entry) => {
+                if (!user) {
+                  setAuthModalMode('signup');
+                  return;
+                }
                 const updated = timetable.map((e) => (e.id === entry.id ? entry : e));
                 setTimetable(updated);
                 saveStoredTimetable(updated);
@@ -666,6 +711,10 @@ export function App() {
                 }
               }}
               onAddTask={(task) => {
+                if (!user) {
+                  setAuthModalMode('signup');
+                  return;
+                }
                 const newTasks = [...tasks, { ...task, id: `t-${Date.now()}` }];
                 setTasks(newTasks);
                 saveStoredDailyTasks(newTasks);
@@ -688,16 +737,47 @@ export function App() {
 
           {/* Practice Quiz */}
           {currentScreen === 'quiz' && (
-            <PracticeQuizScreen
-              userProfile={userProfile}
-              onNavigate={setCurrentScreen}
-              onSaveMistake={(m) => {
-                const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
-                setMistakes(updated);
-                saveStoredMistakes(updated);
-              }}
-              quizQuestions={quizQuestions}
-            />
+            !user ? (
+              <div className="p-8 sm:p-12 rounded-3xl bg-[#161831]/90 border border-white/10 text-center space-y-5 max-w-lg mx-auto my-12 shadow-2xl backdrop-blur-xl">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/40 text-yellow-400 flex items-center justify-center mx-auto shadow-lg">
+                  <Zap className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-yellow-500/20 text-yellow-300 border border-yellow-400/30">
+                    Student Account Required
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Join Practice Quiz Arena</h2>
+                  <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
+                    Sign in or create a free account to practice past paper MCQs, save mistakes to your personal Mistake Notebook, and compete on the leaderboard.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setAuthModalMode('signup')}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-600 to-amber-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg shadow-yellow-500/25 cursor-pointer"
+                  >
+                    Create Free Account
+                  </button>
+                  <button
+                    onClick={() => setAuthModalMode('signin')}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <PracticeQuizScreen
+                userProfile={userProfile}
+                onNavigate={setCurrentScreen}
+                onSaveMistake={(m) => {
+                  const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
+                  setMistakes(updated);
+                  saveStoredMistakes(updated);
+                }}
+                quizQuestions={quizQuestions}
+              />
+            )
           )}
 
           {/* Mistake Notebook */}
@@ -778,6 +858,7 @@ export function App() {
                 }));
               }}
               onSignOut={handleSignOut}
+              onOpenAuthModal={(mode) => setAuthModalMode(mode)}
               notificationPermission={notificationPermission}
               onRequestNotificationPermission={async () => {
                 await requestPermission();

@@ -51,15 +51,36 @@ export function useNotifications(): UseNotificationsReturn {
   }, [isSupported]);
 
   const requestPermission = useCallback(async (): Promise<NotificationPermissionState> => {
-    if (!isSupported) return 'unsupported';
-    try {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      return result;
-    } catch {
-      return permission;
+    if (typeof window === 'undefined') return 'unsupported';
+    if (!('Notification' in window)) {
+      setPermission('unsupported');
+      return 'unsupported';
     }
-  }, [isSupported, permission]);
+
+    try {
+      // Support both modern Promise-based and older callback-based Notification.requestPermission()
+      let status: NotificationPermission;
+      const maybePromise = Notification.requestPermission((res) => {
+        if (res) {
+          setPermission(res);
+        }
+      });
+
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        status = await maybePromise;
+      } else {
+        status = Notification.permission;
+      }
+
+      setPermission(status);
+      return status;
+    } catch (err) {
+      console.warn('[useNotifications] requestPermission error:', err);
+      const fallback = Notification.permission || 'denied';
+      setPermission(fallback);
+      return fallback;
+    }
+  }, []);
 
   /**
    * Show an OS notification immediately.  Routes through the SW when available

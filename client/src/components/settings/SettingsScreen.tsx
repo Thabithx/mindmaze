@@ -124,6 +124,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    // Guard: require sign in to save profile
+    if (!currentUser && !userProfile?.isAuthenticated) {
+      if (onOpenAuthModal) {
+        onOpenAuthModal('signin');
+      } else {
+        setErrorMessage('Please sign in or create an account to save your profile.');
+      }
+      return;
+    }
+
     // Password validation if attempting to change password
     if (showPasswordSection && newPassword) {
       if (newPassword.length < 6) {
@@ -157,12 +167,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         payload.newPassword = newPassword;
       }
 
-      // 1. If user is logged in, sync to server backend
-      if (currentUser || userProfile?.isAuthenticated) {
-        const res = await api.updateProfile(payload);
-        if (onProfileUpdated && res?.user) {
-          onProfileUpdated(res.user);
-        }
+      // 1. Sync to server backend
+      const res = await api.updateProfile(payload);
+      if (onProfileUpdated && res?.user) {
+        onProfileUpdated(res.user);
       }
 
       // 2. Update local settings state
@@ -218,8 +226,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setTimeout(() => setTestSent(false), 4000);
   };
 
+  const isGuest = !currentUser && !userProfile?.isAuthenticated;
+
   return (
     <div id="settings-view" className="space-y-6 max-w-4xl mx-auto pb-16 select-none">
+      {/* Guest Banner */}
+      {isGuest && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-indigo-950/50 border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs shadow-xl backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-300 shrink-0">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm">Guest Mode</h4>
+              <p className="text-slate-400">Sign in or create an account to edit and save your profile, syllabus tracking, and study goals.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => onOpenAuthModal?.('signup')}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold cursor-pointer hover:brightness-110 shadow text-xs text-center"
+            >
+              Create Account
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenAuthModal?.('signin')}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold cursor-pointer text-xs text-center"
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Profile Header Card */}
       <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1B163B] via-[#14162E] to-[#0D0F1E] p-5 sm:p-7 backdrop-blur-2xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
@@ -236,15 +277,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black text-white truncate max-w-xs sm:max-w-md">
-                {name || 'Student Profile'}
+                {name || (isGuest ? 'Guest Student' : 'Student Profile')}
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                {userRole === 'admin' ? 'Admin' : 'Student'}
+                {isGuest ? 'Guest' : userRole === 'admin' ? 'Admin' : 'Student'}
               </span>
             </div>
 
             <p className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
-              {email || 'A/L Examination Scholar'}
+              {email || (isGuest ? 'Sign in to save profile' : 'A/L Examination Scholar')}
             </p>
 
             <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400 flex-wrap pt-1">
@@ -261,7 +302,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
 
-        {onSignOut && (
+        {!isGuest && onSignOut ? (
           <button
             type="button"
             onClick={() => {
@@ -274,7 +315,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
           </button>
-        )}
+        ) : isGuest && onOpenAuthModal ? (
+          <button
+            type="button"
+            onClick={() => onOpenAuthModal('signin')}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer self-start sm:self-center shrink-0 shadow-lg shadow-indigo-600/30"
+          >
+            <span>Sign In / Register</span>
+          </button>
+        ) : null}
       </div>
 
       {/* Success / Error Feedback Alerts */}

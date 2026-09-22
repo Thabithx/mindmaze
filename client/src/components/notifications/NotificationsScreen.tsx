@@ -122,7 +122,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             </div>
           </div>
 
-          {notificationPermission !== 'granted' && (
+          {notificationPermission !== 'granted' && onRequestNotificationPermission && (
             <button
               onClick={onRequestNotificationPermission}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg cursor-pointer shrink-0"
@@ -131,6 +131,20 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             </button>
           )}
         </div>
+
+        {notificationPermission === 'unsupported' && (
+          <div className="p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 space-y-2 mt-3">
+            <h4 className="text-xs font-bold text-cyan-300">📱 iPhone / iOS Safari Notice:</h4>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Apple requires web apps to be added to your Home Screen to enable OS notifications:
+            </p>
+            <ol className="list-decimal list-inside text-[11px] text-slate-300 space-y-1">
+              <li>Tap the <strong className="text-white">Share</strong> button in Safari (box with arrow pointing up).</li>
+              <li>Select <strong className="text-white">Add to Home Screen</strong> and tap <strong className="text-white">Add</strong>.</li>
+              <li>Open Mind Maze from your Home Screen and tap <strong className="text-white">Enable Notifications</strong>.</li>
+            </ol>
+          </div>
+        )}
 
         {notificationPermission === 'denied' && (
           <div className="pt-3 border-t border-white/10">

@@ -227,28 +227,28 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
       {/* Active Unit Focus Badge / Unit Selector */}
       {activeUnitTitle ? (
-        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
-            <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-indigo-300 block tracking-wider">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] uppercase font-bold text-indigo-300 block tracking-wider truncate">
                 Current Task {activeSubject ? `• ${activeSubject}` : ''}
               </span>
-              <strong className="text-white font-bold block truncate text-xs sm:text-sm">
+              <strong className="text-white font-bold block truncate text-xs sm:text-sm max-w-full" title={activeUnitTitle}>
                 {activeUnitTitle}
               </strong>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap max-w-full">
             {availableTopics && availableTopics.length > 0 && onSelectTopic && (
               <select
                 onChange={(e) => {
                   const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
                   if (found) onSelectTopic(found);
                 }}
-                className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer"
+                className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[180px] truncate"
                 defaultValue=""
               >
                 <option value="" disabled>Switch Unit...</option>
@@ -267,24 +267,24 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 title="Mark this unit/task as finished"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Mark Unit as Finished</span>
+                <span>Mark Finished</span>
               </button>
             )}
           </div>
         </div>
       ) : (
         availableTopics && availableTopics.length > 0 && onSelectTopic && (
-          <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs overflow-hidden">
+            <div className="flex items-center gap-2 min-w-0">
               <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="text-slate-300 font-semibold">Select a syllabus unit to study:</span>
+              <span className="text-slate-300 font-semibold truncate">Select a syllabus unit to study:</span>
             </div>
             <select
               onChange={(e) => {
                 const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
                 if (found) onSelectTopic(found);
               }}
-              className="bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer w-full sm:w-auto"
+              className="bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer w-full sm:w-auto max-w-full sm:max-w-[260px] truncate"
               defaultValue=""
             >
               <option value="" disabled>Choose Syllabus Unit...</option>

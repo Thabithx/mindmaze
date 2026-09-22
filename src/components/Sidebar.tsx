@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  LogIn,
   X,
   Sparkles,
   Brain,
@@ -30,6 +31,8 @@ interface SidebarProps {
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
   userRole?: string;
+  isAuthenticated?: boolean;
+  onOpenAuthModal?: (mode: 'signin' | 'signup') => void;
   onSignOut?: () => void;
 }
 
@@ -69,6 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   onCloseMobile,
   userRole = 'student',
+  isAuthenticated = false,
+  onOpenAuthModal,
   onSignOut,
 }) => {
   const handleSelect = (screenId: ScreenId) => {
@@ -197,7 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && <span className="text-[13px]">Profile & Settings</span>}
             </button>
 
-            {onSignOut && (
+            {isAuthenticated && onSignOut ? (
               <button
                 onClick={onSignOut}
                 title={isCollapsed ? 'Log Out' : undefined}
@@ -206,7 +211,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <LogOut className="w-[18px] h-[18px] shrink-0 text-rose-400/80 group-hover:text-rose-400" />
                 {!isCollapsed && <span className="text-[13px]">Log Out</span>}
               </button>
-            )}
+            ) : onOpenAuthModal ? (
+              <button
+                onClick={() => {
+                  onOpenAuthModal('signin');
+                  if (onCloseMobile) onCloseMobile();
+                }}
+                title={isCollapsed ? 'Sign In / Register' : undefined}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer"
+              >
+                <LogIn className="w-[18px] h-[18px] shrink-0 text-indigo-400 group-hover:text-indigo-300" />
+                {!isCollapsed && <span className="text-[13px]">Sign In / Register</span>}
+              </button>
+            ) : null}
           </div>
         </div>
 
