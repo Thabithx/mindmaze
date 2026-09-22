@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper, Question } from './types';
-import { api, getAuthToken, setAuthToken, removeAuthToken } from './services/api';
+import { api, getAuthToken, setAuthToken, removeAuthToken, getStoredUser, setStoredUser, removeStoredUser } from './services/api';
 import {
   getStoredTimetable,
   saveStoredTimetable,
@@ -49,7 +49,7 @@ import { NotificationsScreen } from './components/notifications/NotificationsScr
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
 
-import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen } from 'lucide-react';
+import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap } from 'lucide-react';
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('dashboard');
@@ -57,7 +57,7 @@ export function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   // User State & Auth
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | null>(null);
 
@@ -83,6 +83,10 @@ export function App() {
   const [pastPapers, setPastPapers] = useState<PastPaper[]>(() => getStoredPastPapers());
   const [quizQuestions, setQuizQuestions] = useState<Question[]>(() => getStoredQuizQuestions());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+
+  // Block lifecycle trackers
+  const [dismissedBlockIds, setDismissedBlockIds] = useState<string[]>([]);
+  const [emailedBlockIds, setEmailedBlockIds] = useState<string[]>([]);
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
     const updated = [newPaper, ...pastPapers];
@@ -115,30 +119,49 @@ export function App() {
 
   const checkCurrentAuth = async () => {
     const token = getAuthToken();
+    const cachedUser = getStoredUser();
+    if (cachedUser) {
+      setUser(cachedUser);
+      if (cachedUser.role === 'admin') {
+        setCurrentScreen('admin');
+      }
+    }
+
     if (!token) {
       setAuthLoading(false);
       return;
     }
     try {
       const res = await api.getProfile();
-      setUser(res.user);
-      if (res.user?.role === 'admin') {
-        setCurrentScreen('admin');
+      if (res?.user) {
+        setUser(res.user);
+        setStoredUser(res.user);
+        if (res.user.role === 'admin') {
+          setCurrentScreen('admin');
+        }
+        if (res.user.stream) {
+          setUserSettingsState((prev) => ({
+            ...prev,
+            stream: res.user.stream,
+            physicalScienceElective: res.user.physicalScienceElective || 'Chemistry',
+            studentName: res.user.name,
+            targetExamYear: res.user.targetExamYear || '2026',
+            targetExamDate: res.user.targetExamDate || '',
+            targetZScore: res.user.targetZScore || '',
+          }));
+        }
       }
-      if (res.user?.stream) {
-        setUserSettingsState((prev) => ({
-          ...prev,
-          stream: res.user.stream,
-          physicalScienceElective: res.user.physicalScienceElective || 'Chemistry',
-          studentName: res.user.name,
-          targetExamYear: res.user.targetExamYear || '2026',
-          targetExamDate: res.user.targetExamDate || '',
-          targetZScore: res.user.targetZScore || '',
-        }));
+    } catch (e: any) {
+      console.warn('[Auth] checkCurrentAuth warning:', e?.message || e);
+      if (
+        e?.message?.includes('401') ||
+        e?.message?.toLowerCase().includes('unauthorized') ||
+        e?.message?.toLowerCase().includes('invalid token')
+      ) {
+        removeAuthToken();
+        removeStoredUser();
+        setUser(null);
       }
-    } catch (e) {
-      removeAuthToken();
-      setUser(null);
     } finally {
       setAuthLoading(false);
     }
@@ -155,6 +178,7 @@ export function App() {
       }
       setAuthToken(res.token);
       setUser(res.user);
+      setStoredUser(res.user);
       setAuthModalMode(null);
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
@@ -182,6 +206,7 @@ export function App() {
       } as any);
       setAuthToken(res.token);
       setUser(res.user);
+      setStoredUser(res.user);
       setAuthModalMode(null);
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
@@ -195,6 +220,7 @@ export function App() {
 
   const handleSignOut = () => {
     removeAuthToken();
+    removeStoredUser();
     setUser(null);
     setCurrentScreen('dashboard');
   };
@@ -234,7 +260,11 @@ export function App() {
         return entry.startTime <= currentTimeStr && currentTimeStr <= entry.endTime;
       });
 
-      if (currentBlock && (!activePomodoroTopic || activePomodoroTopic.id !== currentBlock.id)) {
+      if (
+        currentBlock &&
+        !dismissedBlockIds.includes(currentBlock.id) &&
+        (!activePomodoroTopic || activePomodoroTopic.id !== currentBlock.id)
+      ) {
         setActivePomodoroTopic({
           title: currentBlock.topic,
           subject: currentBlock.subject,
@@ -245,8 +275,20 @@ export function App() {
         setCurrentScreen('dashboard');
         setIsPomodoroMinimized(false);
 
+        // Dispatch study block reminder email to user if authenticated
+        if (user?.email && !emailedBlockIds.includes(currentBlock.id)) {
+          setEmailedBlockIds((prev) => [...prev, currentBlock.id]);
+          api.sendTimetableReminder({
+            subject: currentBlock.subject,
+            topic: currentBlock.topic,
+            startTime: currentBlock.startTime,
+            notes: currentBlock.notes,
+          }).catch((err) => {
+            console.log('[Email] Background timetable reminder notice:', err?.message || err);
+          });
+        }
+
         if (!hasPromptedActiveBlock) {
-          // Use SW-backed OS notification (works even when tab is minimised)
           sendNotification(
             'Study Session Starting!',
             `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
@@ -260,7 +302,7 @@ export function App() {
     checkActiveBlock();
     const interval = setInterval(checkActiveBlock, 30000);
     return () => clearInterval(interval);
-  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, sendNotification]);
+  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, emailedBlockIds, user?.email, sendNotification]);
 
   if (authLoading) {
     return (
@@ -466,6 +508,9 @@ export function App() {
                         title: 'Study Task Completed! 🎉',
                         message: `Awesome job! You finished "${title}". Keep up the great streak!`,
                       });
+                      if (activePomodoroTopic?.id) {
+                        setDismissedBlockIds((prev) => [...prev, activePomodoroTopic.id!]);
+                      }
                       setActivePomodoroTopic(null);
                     }}
                     onSessionComplete={(type, mins) => {
@@ -570,10 +615,7 @@ export function App() {
                   saveStoredSyllabusTopics(updated);
                 }}
                 onBulkOnboardingComplete={(completedTopicIds, subtopicKeys) => {
-                  // Apply all onboarding selections in ONE state update — fixes stale-closure bug
                   const topicIdSet = new Set(completedTopicIds);
-
-                  // Build a map of topicId -> Set<subtopicTitle> for partial-subtopic selection
                   const partialSubtopicMap = new Map<string, Set<string>>();
                   subtopicKeys.forEach((key) => {
                     const [topicId, subtopic] = key.split('|||');
@@ -587,7 +629,6 @@ export function App() {
                     const partialSubtopics = partialSubtopicMap.get(t.id);
 
                     if (isFullyCompleted) {
-                      // Mark entire topic + all subtopics as completed
                       const allSubs = t.subtopics || [];
                       const newProgress: Record<string, number> = {};
                       allSubs.forEach(s => { newProgress[s] = 100; });
@@ -600,7 +641,6 @@ export function App() {
                     }
 
                     if (partialSubtopics && partialSubtopics.size > 0) {
-                      // Apply partial subtopic selection
                       const map = { ...(t.subtopicProgress || {}) };
                       const subs = t.subtopics || [];
                       partialSubtopics.forEach((sub) => {
@@ -749,47 +789,16 @@ export function App() {
 
           {/* Practice Quiz */}
           {currentScreen === 'quiz' && (
-            !user ? (
-              <div className="p-8 sm:p-12 rounded-3xl bg-[#161831]/90 border border-white/10 text-center space-y-5 max-w-lg mx-auto my-12 shadow-2xl backdrop-blur-xl">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/40 text-yellow-400 flex items-center justify-center mx-auto shadow-lg">
-                  <Zap className="w-8 h-8" />
-                </div>
-                <div className="space-y-2">
-                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-yellow-500/20 text-yellow-300 border border-yellow-400/30">
-                    Student Account Required
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-white">Join Practice Quiz Arena</h2>
-                  <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-                    Sign in or create a free account to practice past paper MCQs, save mistakes to your personal Mistake Notebook, and compete on the leaderboard.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <button
-                    onClick={() => setAuthModalMode('signup')}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-600 to-amber-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg shadow-yellow-500/25 cursor-pointer"
-                  >
-                    Create Free Account
-                  </button>
-                  <button
-                    onClick={() => setAuthModalMode('signin')}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <PracticeQuizScreen
-                userProfile={userProfile}
-                onNavigate={setCurrentScreen}
-                onSaveMistake={(m) => {
-                  const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
-                  setMistakes(updated);
-                  saveStoredMistakes(updated);
-                }}
-                quizQuestions={quizQuestions}
-              />
-            )
+            <PracticeQuizScreen
+              userProfile={userProfile}
+              onNavigate={setCurrentScreen}
+              onSaveMistake={(m) => {
+                const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
+                setMistakes(updated);
+                saveStoredMistakes(updated);
+              }}
+              quizQuestions={quizQuestions}
+            />
           )}
 
           {/* Mistake Notebook */}
@@ -892,21 +901,11 @@ export function App() {
             <NotificationsScreen
               settings={userSettings}
               userSettings={userSettings}
+              userProfile={userProfile}
               onUpdateSettings={(newS) => {
                 const merged = { ...userSettings, ...newS };
                 setUserSettingsState(merged);
                 saveUserSettings(merged);
-              }}
-              notificationPermission={notificationPermission}
-              onRequestNotificationPermission={async () => {
-                await requestPermission();
-              }}
-              onSendTestNotification={() => {
-                sendNotification(
-                  'Mind Maze Study Reminder',
-                  'This is a test notification! Your study reminders are working perfectly.',
-                  'test-notification'
-                );
               }}
               onNavigate={setCurrentScreen}
               timetableEntries={timetable}

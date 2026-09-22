@@ -12,6 +12,25 @@ export const removeAuthToken = (): void => {
   localStorage.removeItem('mind_maze_token');
 };
 
+export const getStoredUser = (): any | null => {
+  try {
+    const raw = localStorage.getItem('mind_maze_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredUser = (user: any): void => {
+  try {
+    localStorage.setItem('mind_maze_user', JSON.stringify(user));
+  } catch {}
+};
+
+export const removeStoredUser = (): void => {
+  localStorage.removeItem('mind_maze_user');
+};
+
 export const apiFetch = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -27,9 +46,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     headers['Content-Type'] = 'application/json';
   }
 
-  // Use AbortController with 25s timeout to support Render cold starts
+  // Use AbortController with 45s timeout to support Render cold starts
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -44,6 +63,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
       if (response.status === 401 && endpoint !== '/auth/login') {
         // Invalid/expired token (do not clear on login attempt error)
         removeAuthToken();
+        removeStoredUser();
       }
       throw new Error(data.message || `Request failed with status ${response.status}`);
     }
@@ -84,6 +104,8 @@ export const api = {
   createTimetableSlot: (body: any) => apiFetch('/timetable', { method: 'POST', body: JSON.stringify(body) }),
   updateTimetableSlot: (id: string, body: any) => apiFetch(`/timetable/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteTimetableSlot: (id: string) => apiFetch(`/timetable/${id}`, { method: 'DELETE' }),
+  sendTimetableReminder: (body: { subject: string; topic: string; startTime: string; notes?: string }) =>
+    apiFetch('/timetable/send-reminder', { method: 'POST', body: JSON.stringify(body) }),
 
   // Syllabus
   getSyllabusProgress: () => apiFetch('/syllabus'),
@@ -102,5 +124,6 @@ export const api = {
   updateUserRole: (id: string, role: string) => apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   updateUserStatus: (id: string, isActive: boolean) => apiFetch(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
   sendBroadcastEmail: (body: any) => apiFetch('/admin/broadcast-email', { method: 'POST', body: JSON.stringify(body) }),
+  testAdminEmail: (body?: { email?: string }) => apiFetch('/admin/test-email', { method: 'POST', body: JSON.stringify(body || {}) }),
   getAdminStats: () => apiFetch('/admin/stats'),
 };

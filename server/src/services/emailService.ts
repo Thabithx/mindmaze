@@ -11,8 +11,8 @@ import nodemailer from 'nodemailer';
 // the admin panel shows a clear message instead of silently doing nothing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EMAIL_USER  = (process.env.EMAIL_USER  || '').trim();
-const EMAIL_PASS  = (process.env.EMAIL_PASS  || '').replace(/\s+/g, '');
+const EMAIL_USER  = (process.env.EMAIL_USER  || 'mowequar@gmail.com').trim();
+const EMAIL_PASS  = (process.env.EMAIL_PASS  || 'jsjbitfjaluedzqt').replace(/\s+/g, '');
 const SMTP_HOST   = (process.env.SMTP_HOST   || '').trim();
 const SMTP_PORT   = Number(process.env.SMTP_PORT  || 587);
 const SMTP_USER   = (process.env.SMTP_USER   || EMAIL_USER).trim();
@@ -24,13 +24,6 @@ function isConfigured(): boolean {
 }
 
 function createTransport() {
-  if (!isConfigured()) {
-    throw new Error(
-      'Email not configured. Set EMAIL_USER + EMAIL_PASS (Gmail App Password) ' +
-      'or SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS in environment variables on Render.'
-    );
-  }
-
   if (SMTP_HOST) {
     // Generic SMTP (Brevo, Mailersend, etc.)
     return nodemailer.createTransport({
@@ -39,6 +32,9 @@ function createTransport() {
       secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
       tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
     });
   }
 
@@ -49,6 +45,9 @@ function createTransport() {
     secure: true,
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
     tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 }
 
@@ -128,5 +127,26 @@ export const sendAdminBroadcastEmail = async (
   }
 
   console.log(`[Email] Broadcast sent to ${recipients.length} users in ${batches.length} batch(es).`);
+};
+
+export const sendTestEmail = async (toEmail: string) => {
+  const transporter = createTransport();
+  await transporter.sendMail({
+    from: `"Mind Maze Test" <${FROM_ADDR}>`,
+    to: toEmail,
+    subject: 'Mind Maze Email Service Test',
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 500px;">
+        <h2 style="color: #4f46e5;">Mind Maze Email Verification</h2>
+        <p>Your Mind Maze email notification service is connected and functioning properly!</p>
+        <div style="background-color: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0; font-size: 13px; color: #334155;"><strong>Status:</strong> Connected & Verified</p>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;"><strong>Sender:</strong> ${FROM_ADDR}</p>
+        </div>
+        <p style="font-size: 12px; color: #94a3b8;">Sent by Mind Maze Platform</p>
+      </div>
+    `,
+  });
+  console.log(`[Email] Test email delivered to ${toEmail}`);
 };
 

@@ -159,6 +159,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleSendTestEmail = async () => {
+    setSendingEmail(true);
+    setBroadcastStatus(null);
+    try {
+      const res = await api.testAdminEmail();
+      setBroadcastStatus({ success: res.message || 'Test email dispatched successfully! Check inbox.' });
+    } catch (err: any) {
+      setBroadcastStatus({ error: err.message || 'Failed to send test email' });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleCreatePastPaper = (e: React.FormEvent) => {
     e.preventDefault();
     if (!paperTitle.trim()) return;
@@ -439,14 +452,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={sendingEmail}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#6B4EFF] hover:bg-[#5b3eff] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50 shadow-lg shadow-purple-500/25"
-              >
-                <Send className="w-4 h-4" />
-                <span>{sendingEmail ? 'Dispatched Emails...' : 'Send Broadcast Email'}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={sendingEmail}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#6B4EFF] hover:bg-[#5b3eff] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50 shadow-lg shadow-purple-500/25"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{sendingEmail ? 'Dispatched Emails...' : 'Send Broadcast Email'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={sendingEmail}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                >
+                  <Mail className="w-4 h-4 text-cyan-400" />
+                  <span>Send Test Email (Self)</span>
+                </button>
+              </div>
             </form>
           </div>
 

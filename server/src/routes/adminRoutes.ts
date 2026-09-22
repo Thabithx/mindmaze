@@ -3,7 +3,7 @@ import User from '../models/User.js';
 import Course from '../models/Course.js';
 import Timetable from '../models/Timetable.js';
 import { protect, adminOnly, AuthRequest } from '../middleware/authMiddleware.js';
-import { sendAdminBroadcastEmail } from '../services/emailService.js';
+import { sendAdminBroadcastEmail, sendTestEmail } from '../services/emailService.js';
 
 const router = Router();
 
@@ -86,6 +86,20 @@ router.post('/broadcast-email', protect, adminOnly, async (req: AuthRequest, res
   } catch (error: any) {
     const msg = error?.message || 'Failed to send broadcast email';
     console.error('[Admin] broadcast-email error:', msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
+// @route   POST /api/admin/test-email
+// @desc    Send test verification email to admin or target address
+router.post('/test-email', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const targetEmail = req.body?.email || req.user?.email || 'mowequar@gmail.com';
+    await sendTestEmail(targetEmail);
+    res.json({ message: `Test email successfully delivered to ${targetEmail}` });
+  } catch (error: any) {
+    const msg = error?.message || 'Failed to send test email';
+    console.error('[Admin] test-email error:', msg);
     res.status(500).json({ message: msg });
   }
 });

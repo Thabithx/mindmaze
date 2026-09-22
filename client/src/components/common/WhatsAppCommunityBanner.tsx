@@ -27,7 +27,7 @@ export const WhatsAppCommunityBanner: React.FC = () => {
             <MessageCircle className="w-3.5 h-3.5 fill-current" />
           </div>
           <p className="text-slate-200 leading-snug">
-            <span className="font-bold text-emerald-300">Join 500+ Sri Lankan A/L Students</span> on WhatsApp for daily study targets, past paper discussions & model MCQs!
+            <span className="font-bold text-emerald-300">Join 500+ Sri Lankan A/L Students</span>
           </p>
         </div>
 

@@ -143,4 +143,32 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
   }
 });
 
+// @route   POST /api/timetable/send-reminder
+// @desc    Send email study reminder to student for active or upcoming study block
+router.post('/send-reminder', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { subject, topic, startTime, notes } = req.body;
+    const user = await User.findById(req.user!._id);
+    if (!user || !user.email) {
+      res.status(400).json({ message: 'User email not found' });
+      return;
+    }
+
+    const { sendStudyReminderEmail } = await import('../services/emailService.js');
+    await sendStudyReminderEmail(
+      user.email,
+      user.name || 'Scholar',
+      subject || 'General Study',
+      topic || 'Scheduled Study Block',
+      startTime || 'Now',
+      notes
+    );
+
+    res.json({ message: `Study reminder email sent to ${user.email}` });
+  } catch (error: any) {
+    console.error('[Timetable] Error sending reminder email:', error?.message);
+    res.status(500).json({ message: error?.message || 'Failed to send reminder email' });
+  }
+});
+
 export default router;
