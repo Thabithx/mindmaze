@@ -1,7 +1,12 @@
 import nodemailer from 'nodemailer';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-// Supports Gmail SMTP with App Password or custom SMTP relay (Brevo/SendGrid/etc.)
+// Render and cloud platforms block outbound TCP ports 25, 465, and 587.
+// To bypass this limitation, Mind Maze supports HTTPS (Port 443) delivery via:
+// 1. Brevo HTTP API (BREVO_API_KEY) - Free, 300 emails/day, no custom domain needed!
+// 2. Google Apps Script Webhook Relay (GMAIL_RELAY_URL) - Free, uses your Gmail account!
+// 3. Resend HTTP API (RESEND_API_KEY)
+// 4. Standard SMTP (Local development or non-restricted hosting)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EMAIL_USER = (process.env.EMAIL_USER || 'mowequar@gmail.com').trim();
@@ -12,6 +17,132 @@ const SMTP_USER  = (process.env.SMTP_USER || EMAIL_USER).trim();
 const SMTP_PASS  = (process.env.SMTP_PASS || EMAIL_PASS).replace(/\s+/g, '');
 const FROM_ADDR  = EMAIL_USER || SMTP_USER || 'mowequar@gmail.com';
 
+const BREVO_API_KEY = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim();
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
+const GMAIL_RELAY_URL = (process.env.GMAIL_RELAY_URL || process.env.EMAIL_RELAY_URL || '').trim();
+
+export interface SendEmailPayload {
+  fromName?: string;
+  fromEmail?: string;
+  to: string | string[];
+  bcc?: string[];
+  subject: string;
+  html: string;
+}
+
+/**
+ * 1. Brevo HTTPS API Engine (Port 443 — Never blocked by Render firewall)
+ */
+async function sendViaBrevo(payload: SendEmailPayload): Promise<boolean> {
+  if (!BREVO_API_KEY) return false;
+  try {
+    const toRecipients = Array.isArray(payload.to)
+      ? payload.to.map((email) => ({ email }))
+      : [{ email: payload.to }];
+
+    const bccRecipients = payload.bcc?.map((email) => ({ email })) || [];
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: payload.fromName || 'Mind Maze Study Planner',
+          email: payload.fromEmail || FROM_ADDR,
+        },
+        to: toRecipients,
+        ...(bccRecipients.length > 0 ? { bcc: bccRecipients } : {}),
+        subject: payload.subject,
+        htmlContent: payload.html,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Email:Brevo] Error sending email:', res.status, errorText);
+      return false;
+    }
+    console.log('[Email:Brevo] Successfully sent email via Brevo HTTPS API');
+    return true;
+  } catch (err: any) {
+    console.error('[Email:Brevo] Network error:', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * 2. Google Apps Script Webhook Relay (Port 443 — Sends directly from Gmail)
+ */
+async function sendViaGmailRelay(payload: SendEmailPayload): Promise<boolean> {
+  if (!GMAIL_RELAY_URL) return false;
+  try {
+    const res = await fetch(GMAIL_RELAY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: payload.to,
+        bcc: payload.bcc,
+        subject: payload.subject,
+        html: payload.html,
+        fromName: payload.fromName || 'Mind Maze Study Planner',
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Email:GmailRelay] Error response:', res.status, errorText);
+      return false;
+    }
+    console.log('[Email:GmailRelay] Successfully delivered email via Google Webhook Relay');
+    return true;
+  } catch (err: any) {
+    console.error('[Email:GmailRelay] Error:', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * 3. Resend HTTPS API Engine (Port 443)
+ */
+async function sendViaResend(payload: SendEmailPayload): Promise<boolean> {
+  if (!RESEND_API_KEY) return false;
+  try {
+    const toRecipients = Array.isArray(payload.to) ? payload.to : [payload.to];
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${payload.fromName || 'Mind Maze'} <${payload.fromEmail || 'onboarding@resend.dev'}>`,
+        to: toRecipients,
+        bcc: payload.bcc,
+        subject: payload.subject,
+        html: payload.html,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Email:Resend] Error:', res.status, errorText);
+      return false;
+    }
+    console.log('[Email:Resend] Successfully sent email via Resend API');
+    return true;
+  } catch (err: any) {
+    console.error('[Email:Resend] Error:', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * 4. Standard SMTP Transporters (Fast 5-second timeouts to avoid hanging on blocked ports)
+ */
 function createPrimaryTransporter() {
   if (SMTP_HOST) {
     return nodemailer.createTransport({
@@ -20,55 +151,89 @@ function createPrimaryTransporter() {
       secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
       tls: { rejectUnauthorized: false },
-      connectionTimeout: 12000,
-      greetingTimeout: 12000,
-      socketTimeout: 15000,
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 8000,
     });
   }
 
-  // Primary Gmail transport using standard service configuration
   return nodemailer.createTransport({
     service: 'gmail',
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 12000,
-    greetingTimeout: 12000,
-    socketTimeout: 15000,
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 }
 
 function createFallbackTransporter() {
-  // Fallback direct SMTP on port 587 with STARTTLS
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 12000,
-    greetingTimeout: 12000,
-    socketTimeout: 15000,
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 }
 
-async function sendMailWithFallback(mailOptions: nodemailer.SendMailOptions) {
+/**
+ * Universal dispatcher: Tries HTTPS APIs first (Render-proof), then falls back to SMTP
+ */
+async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
+  // 1. Try Brevo HTTPS API if configured
+  if (BREVO_API_KEY) {
+    const success = await sendViaBrevo(payload);
+    if (success) return;
+  }
+
+  // 2. Try Google Webhook Relay if configured
+  if (GMAIL_RELAY_URL) {
+    const success = await sendViaGmailRelay(payload);
+    if (success) return;
+  }
+
+  // 3. Try Resend if configured
+  if (RESEND_API_KEY) {
+    const success = await sendViaResend(payload);
+    if (success) return;
+  }
+
+  // 4. Try Direct SMTP with short timeouts
   const primary = createPrimaryTransporter();
+  const mailOptions: nodemailer.SendMailOptions = {
+    from: `"${payload.fromName || 'Mind Maze'}" <${payload.fromEmail || FROM_ADDR}>`,
+    to: payload.to,
+    bcc: payload.bcc,
+    subject: payload.subject,
+    html: payload.html,
+  };
+
   try {
-    return await primary.sendMail(mailOptions);
+    await primary.sendMail(mailOptions);
+    console.log('[Email:SMTP] Delivered via primary SMTP');
+    return;
   } catch (err: any) {
-    console.warn('[Email] Primary transport attempt failed, trying fallback 587:', err?.message || err);
-    const fallback = createFallbackTransporter();
-    return await fallback.sendMail(mailOptions);
+    console.warn('[Email:SMTP] Primary SMTP failed (likely Render port 465 block):', err?.message || err);
+    try {
+      const fallback = createFallbackTransporter();
+      await fallback.sendMail(mailOptions);
+      console.log('[Email:SMTP] Delivered via fallback port 587 SMTP');
+      return;
+    } catch (fallbackErr: any) {
+      const errMsg = fallbackErr?.message || String(fallbackErr);
+      console.error('[Email:SMTP] Fallback port 587 also failed:', errMsg);
+
+      if (errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ECONNREFUSED')) {
+        throw new Error(
+          'Render blocks outbound SMTP ports (465/587). To enable instant email delivery, add a free BREVO_API_KEY or GMAIL_RELAY_URL in your Render Environment Variables.'
+        );
+      }
+      throw new Error(`Email delivery failed: ${errMsg}`);
+    }
   }
 }
 
@@ -83,8 +248,9 @@ export const sendStudyReminderEmail = async (
 ) => {
   if (!toEmail) return;
 
-  await sendMailWithFallback({
-    from: `"Mind Maze Study Planner" <${FROM_ADDR}>`,
+  await dispatchEmail({
+    fromName: 'Mind Maze Study Planner',
+    fromEmail: FROM_ADDR,
     to: toEmail,
     subject: `Study Reminder: ${subject} - ${topic}`,
     html: `
@@ -116,7 +282,6 @@ export const sendAdminBroadcastEmail = async (
     validRecipients.push(FROM_ADDR);
   }
 
-  // Send in BCC batches of 40 to stay well within SMTP boundaries
   const BATCH_SIZE = 40;
   const batches: string[][] = [];
   for (let i = 0; i < validRecipients.length; i += BATCH_SIZE) {
@@ -124,8 +289,9 @@ export const sendAdminBroadcastEmail = async (
   }
 
   for (const batch of batches) {
-    await sendMailWithFallback({
-      from: `"Mind Maze Admin" <${FROM_ADDR}>`,
+    await dispatchEmail({
+      fromName: 'Mind Maze Admin',
+      fromEmail: FROM_ADDR,
       to: FROM_ADDR,
       bcc: batch,
       subject: subject,
@@ -148,20 +314,21 @@ export const sendAdminBroadcastEmail = async (
     });
   }
 
-  console.log(`[Email] Broadcast sent to ${validRecipients.length} users in ${batches.length} batch(es).`);
+  console.log(`[Email] Broadcast dispatched to ${validRecipients.length} user(s).`);
 };
 
 // ─── Test Email ───────────────────────────────────────────────────────────────
 export const sendTestEmail = async (toEmail: string) => {
   const target = toEmail || FROM_ADDR;
-  await sendMailWithFallback({
-    from: `"Mind Maze Test" <${FROM_ADDR}>`,
+  await dispatchEmail({
+    fromName: 'Mind Maze Test',
+    fromEmail: FROM_ADDR,
     to: target,
-    subject: 'Mind Maze Email Service Test',
+    subject: 'Mind Maze Email Service Verification',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 500px;">
         <h2 style="color: #4f46e5;">Mind Maze Email Verification</h2>
-        <p>Your Mind Maze email notification service is connected and functioning properly!</p>
+        <p>Your Mind Maze email notification service is active and working properly!</p>
         <div style="background-color: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin: 16px 0;">
           <p style="margin: 0; font-size: 13px; color: #334155;"><strong>Status:</strong> Connected & Verified</p>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;"><strong>Sender:</strong> ${FROM_ADDR}</p>
