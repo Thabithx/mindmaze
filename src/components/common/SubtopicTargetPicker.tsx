@@ -11,13 +11,7 @@ interface SubtopicTargetPickerProps {
   onTopicChange: (topicId: string) => void;
   targets: SubtopicTarget[];
   onTargetsChange: (targets: SubtopicTarget[]) => void;
-  /** When true, only topics with status 'completed' are offered (Revision mode). */
   completedOnly?: boolean;
-  /**
-   * When true, completed topics are hidden (Study mode — first-time learning
-   * only). The currently selected topic stays visible so editing an older
-   * block never orphans its link.
-   */
   excludeCompleted?: boolean;
 }
 
@@ -67,8 +61,6 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
     if (targetMap.has(raw)) {
       onTargetsChange(targets.filter((t) => t.subtopic !== raw));
     } else {
-      // Default slider value: finish it fully, unless already partially done
-      // (then default to the remaining gap, at least 50).
       const existing = currentTopic ? getSubtopicProgressValue(currentTopic, raw) : 0;
       const def = existing >= 100 ? 100 : Math.max(50, 100);
       onTargetsChange([...targets, { subtopic: raw, targetProgress: def }]);
@@ -86,8 +78,6 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
     onTargetsChange(targets.filter((t) => t.subtopic !== raw));
   };
 
-  // Projected topic % after this block completes (mean of subtopic progress,
-  // using max(existing, planned) for targeted subtopics).
   const projection = useMemo(() => {
     if (!currentTopic) return null;
     const subs = currentTopic.subtopics || [];

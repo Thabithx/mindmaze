@@ -244,7 +244,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleDownloadCsv = () => {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
+    const API_URL = import.meta.env.VITE_API_URL || 'https:
     const token = getAuthToken();
     window.open(`${API_URL}/admin/export-csv?token=${token}`, '_blank');
   };
@@ -348,7 +348,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Tab 1: Student Directory & Broadcast */}
       {activeTab === 'directory' && (
         <>
           {/* Stats Cards */}
@@ -590,7 +589,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </>
       )}
 
-      {/* Tab 2: Past Paper Manager & Creator */}
       {activeTab === 'pastpapers' && (
         <div className="space-y-6">
           {/* Create Form */}
@@ -832,7 +830,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Tab 3: Practice Quiz Manager */}
       {activeTab === 'quiz' && (
         <div className="space-y-6">
           {/* Create Form */}

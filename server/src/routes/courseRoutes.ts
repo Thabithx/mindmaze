@@ -9,10 +9,9 @@ const router = Router();
 // Configure multer memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB max PDF size
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-// Helper function to upload buffer to Cloudinary
 const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string = 'courses'): Promise<any> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -31,7 +30,6 @@ const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string
 };
 
 // @route   GET /api/courses
-// @desc    Get all courses (filterable by stream & subject)
 router.get('/', async (req: any, res: Response): Promise<void> => {
   try {
     const { stream, subject } = req.query;
@@ -62,7 +60,6 @@ router.get('/:id', async (req: any, res: Response): Promise<void> => {
 });
 
 // @route   POST /api/courses
-// @desc    Create course (Admin only) with PDF file upload to Cloudinary & attached quiz
 router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { title, description, subject, stream, videoUrl, thumbnailUrl, quizJson } = req.body;
@@ -76,7 +73,6 @@ router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthR
     let pdfPublicId = '';
     let pdfFileName = '';
 
-    // If PDF file was uploaded via multer
     if (req.file) {
       pdfFileName = req.file.originalname;
       const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname, 'mind_maze_courses');

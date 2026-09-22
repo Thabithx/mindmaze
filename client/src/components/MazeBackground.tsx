@@ -15,7 +15,7 @@ export const MazeBackground: React.FC<{ opacity?: number }> = ({ opacity = 0.25 
       {/* SVG Maze Circuit Grid */}
       <svg
         className="w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
+        xmlns="http:
         width="100%"
         height="100%"
       >

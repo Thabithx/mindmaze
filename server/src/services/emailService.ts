@@ -1,12 +1,7 @@
 import nodemailer from 'nodemailer';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-// Render and cloud platforms block outbound TCP ports 25, 465, and 587.
-// To bypass this limitation, Mind Maze supports HTTPS (Port 443) delivery via:
-// 1. Brevo HTTP API (BREVO_API_KEY) - Free, 300 emails/day, no custom domain needed!
-// 2. Google Apps Script Webhook Relay (GMAIL_RELAY_URL) - Free, uses your Gmail account!
 // 3. Resend HTTP API (RESEND_API_KEY)
-// 4. Standard SMTP (Local development or non-restricted hosting)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EMAIL_USER = (process.env.EMAIL_USER || 'mowequar@gmail.com').trim();
@@ -30,9 +25,6 @@ export interface SendEmailPayload {
   html: string;
 }
 
-/**
- * 1. Brevo HTTPS API Engine (Port 443 — Never blocked by Render firewall)
- */
 async function sendViaBrevo(payload: SendEmailPayload, apiKey: string): Promise<boolean> {
   const senderEmail = (process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER || FROM_ADDR).trim();
   const toRecipients = Array.isArray(payload.to)
@@ -41,7 +33,7 @@ async function sendViaBrevo(payload: SendEmailPayload, apiKey: string): Promise<
 
   const bccRecipients = payload.bcc?.map((email) => ({ email })) || [];
 
-  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+  const res = await fetch('https:
     method: 'POST',
     headers: {
       'api-key': apiKey,
@@ -75,9 +67,6 @@ async function sendViaBrevo(payload: SendEmailPayload, apiKey: string): Promise<
   return true;
 }
 
-/**
- * 2. Google Apps Script Webhook Relay (Port 443 — Sends directly from Gmail)
- */
 async function sendViaGmailRelay(payload: SendEmailPayload, relayUrl: string): Promise<boolean> {
   const res = await fetch(relayUrl, {
     method: 'POST',
@@ -100,12 +89,9 @@ async function sendViaGmailRelay(payload: SendEmailPayload, relayUrl: string): P
   return true;
 }
 
-/**
- * 3. Resend HTTPS API Engine (Port 443)
- */
 async function sendViaResend(payload: SendEmailPayload, apiKey: string): Promise<boolean> {
   const toRecipients = Array.isArray(payload.to) ? payload.to : [payload.to];
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https:
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -129,9 +115,6 @@ async function sendViaResend(payload: SendEmailPayload, apiKey: string): Promise
   return true;
 }
 
-/**
- * 4. Standard SMTP Transporters (Fast 5-second timeouts to avoid hanging on blocked ports)
- */
 function createPrimaryTransporter() {
   if (SMTP_HOST) {
     return nodemailer.createTransport({
@@ -169,21 +152,16 @@ function createFallbackTransporter() {
   });
 }
 
-/**
- * Universal dispatcher: Tries HTTPS APIs first (Render-proof), then falls back to SMTP
- */
 async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
   const brevoKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || BREVO_API_KEY || '').trim();
   const gmailRelay = (process.env.GMAIL_RELAY_URL || process.env.EMAIL_RELAY_URL || GMAIL_RELAY_URL || '').trim();
   const resendKey = (process.env.RESEND_API_KEY || RESEND_API_KEY || '').trim();
 
-  // 1. Try Brevo HTTPS API if configured
   if (brevoKey) {
     const success = await sendViaBrevo(payload, brevoKey);
     if (success) return;
   }
 
-  // 2. Try Google Webhook Relay if configured
   if (gmailRelay) {
     const success = await sendViaGmailRelay(payload, gmailRelay);
     if (success) return;
@@ -195,7 +173,6 @@ async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
     if (success) return;
   }
 
-  // 4. Try Direct SMTP with short timeouts
   const primary = createPrimaryTransporter();
   const mailOptions: nodemailer.SendMailOptions = {
     from: `"${payload.fromName || 'Mind Maze'}" <${payload.fromEmail || FROM_ADDR}>`,

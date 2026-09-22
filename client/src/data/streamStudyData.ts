@@ -41,7 +41,6 @@ export const GCE_AL_STREAMS: StreamInfo[] = [
 ];
 
 // ============================================================================
-// ALL GCE A/L STUDY PLANS ORGANIZED BY STREAM
 // ============================================================================
 export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = {
   Maths: [
@@ -350,7 +349,6 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
 };
 
 // ============================================================================
-// ALL GCE A/L DAILY COVER TOPICS ORGANIZED BY STREAM
 // ============================================================================
 export const ALL_STREAM_DAILY_TOPICS: Partial<Record<StreamType, DailyCoverTopic[]>> = {
   Maths: [
@@ -553,7 +551,6 @@ export const ALL_STREAM_DAILY_TOPICS: Partial<Record<StreamType, DailyCoverTopic
 };
 
 // ============================================================================
-// ALL GCE A/L WEEKLY TIMETABLES ORGANIZED BY STREAM
 // ============================================================================
 export const ALL_STREAM_TIMETABLES: Partial<Record<StreamType, TimetableSlot[]>> = {
   Maths: [

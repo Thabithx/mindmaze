@@ -155,7 +155,6 @@ router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise
 });
 
 // @route   PUT /api/auth/profile
-// @desc    Update profile info (Stream, Elective, Exam Date, Z-Score, Mobile, Goals)
 router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.user!._id);

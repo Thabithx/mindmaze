@@ -1,5 +1,4 @@
 import React from 'react';
-import { Brain, Sparkles } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -21,21 +20,18 @@ export const Logo: React.FC<LogoProps> = ({
     xl: 'w-14 h-14',
   };
 
-  const brainSizes = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-7 h-7',
-    xl: 'w-8 h-8',
-  };
-
   return (
     <div
       id="mind-maze-brand-logo"
       onClick={onClick}
-      className={`inline-flex items-center gap-3 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`inline-flex items-center gap-2.5 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
-      <div className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-600 shadow-lg shadow-indigo-900/40 text-white ${iconSizes[size]}`}>
-        <Brain className={brainSizes[size]} />
+      <div className={`flex shrink-0 items-center justify-center rounded-xl overflow-hidden bg-black/40 border border-purple-500/30 shadow-lg shadow-purple-900/30 ${iconSizes[size]}`}>
+        <img
+          src="/logo.png"
+          alt="Mind Maze Logo"
+          className="w-full h-full object-contain p-0.5"
+        />
       </div>
 
       {showText && (
@@ -51,3 +47,4 @@ export const Logo: React.FC<LogoProps> = ({
     </div>
   );
 };
+

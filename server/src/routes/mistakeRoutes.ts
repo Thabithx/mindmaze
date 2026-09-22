@@ -16,7 +16,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
 });
 
 // @route   POST /api/mistakes
-// @desc    Save a new mistake from practice quiz
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, topic, questionText, yourAnswer, correctAnswer, explanation } = req.body;
@@ -45,7 +44,6 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
 });
 
 // @route   PUT /api/mistakes/:id
-// @desc    Update review status or master status
 router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mistake = await Mistake.findOne({ _id: req.params.id, user: req.user!._id });

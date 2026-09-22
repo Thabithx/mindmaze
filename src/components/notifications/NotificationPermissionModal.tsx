@@ -19,16 +19,8 @@ export const NotificationPermissionModal: React.FC<NotificationPermissionModalPr
   const handleAllowClick = async () => {
     const perm = await requestBrowserNotificationPermission();
     onPermissionUpdated(perm);
-    // Heal + report for EVERY outcome, not just grants: granted devices
-    // re-verify/create their push subscription, denied devices report
-    // 'denied' (and drop dead rows) so the Admin health view learns the
-    // result immediately instead of waiting for a later background heal.
     void ensureHealthyPushSubscription({ force: true }).catch(() => undefined);
     if (perm === 'granted') {
-      // Register for closed-app Web Push (free, VAPID). The health check
-      // above already heals any stale subscription and reports permission
-      // state; no-op if the public key isn't configured yet — local
-      // reminders still work.
       sendStudyNotification(
         '🔔 Mind Maze Notifications Enabled!',
         'You will now receive timely reminders before your GCE A/L timetable study sessions.'

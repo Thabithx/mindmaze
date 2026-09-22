@@ -34,7 +34,6 @@ interface WeeklyTimetableProps {
   entries: TimetableEntry[];
   syllabusTopics?: SyllabusTopic[];
   stream: StreamType;
-  /** Read-only elective (no picker here; change in Settings → Study Programme). */
   physicalScienceElective?: 'Chemistry' | 'ICT';
   onAddEntry: (
     entry: Omit<TimetableEntry, 'id'> & { syncToDailyPlanner?: boolean }
@@ -79,7 +78,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
   onToggleEntryCompletion,
   onRequestNotificationPermission,
 }) => {
-  // Mobile day tab selection (default to current day of week)
   const todayName = DAYS_OF_WEEK[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayName);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -89,7 +87,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
 
-  // Available subjects for current stream (Physical: Combined Maths + Physics + Chem/ICT; Bio: Biology + Chem + Physics)
   const availableSubjects = getSubjectsForStream(stream, physicalScienceElective);
 
   // Form states
@@ -158,15 +155,11 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
     }
     const matched = syllabusTopics.find((t) => t.id === topicId);
     if (matched) {
-      // Auto-fill the free-text topic title when empty so timetable cards stay readable.
       setFormTopic((prev) => (prev.trim() ? prev : matched.topicTitle));
     }
-    // Drop targets that don't belong to the newly selected topic is handled
-    // by clearing here; the picker only shows subtopics of the current topic.
     setFormTargets([]);
   };
 
-  // Revision is only for already-completed topics.
   const safeTopics = syllabusTopics || [];
   const completedTopicsCount = safeTopics.filter((t) => t && t.status === 'completed').length;
   const completedForSubjectCount = safeTopics.filter(
@@ -177,8 +170,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
   const handleBlockTypeChange = (next: BlockType) => {
     if (next === 'revision' && revisionLockedGlobally) return;
     setFormBlockType(next);
-    // Switching type invalidates the picked topic — Revision only allows
-    // completed topics, Study allows any.
     setFormTopicId('');
     setFormTargets([]);
   };
@@ -187,9 +178,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
     e.preventDefault();
     if (!formTopic.trim()) return;
 
-    // End time must be strictly after start time (same-day ranges only).
-    // Previously an invalid range silently fell back to a fake duration;
-    // now it is rejected with an inline error instead of saving.
     if (!isEndAfterStart(formStartTime, formEndTime)) {
       setFormTimeError(
         `End time (${formatTime12h(formEndTime)}) must be after start time (${formatTime12h(formStartTime)}). Times are 24-hour — e.g. 14:00 = 2:00 PM.`
@@ -300,7 +288,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
 
         {/* Header Actions */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* View Mode Toggle: Day Card vs 7-Day Grid */}
           <div className="flex items-center rounded-xl bg-white/5 p-1 border border-white/10">
             <button
               onClick={() => setViewMode('day')}
@@ -339,7 +326,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
         </div>
       </div>
 
-      {/* Filter and Day Selector Bar (Optimized for Mobile Touch) */}
       <div className="flex flex-col gap-3">
         {/* Horizontal Swipeable Day Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none select-none">
@@ -409,7 +395,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
         </div>
       </div>
 
-      {/* VIEW MODE 1: DAY VIEW (Default & Mobile Friendly) */}
       {viewMode === 'day' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
@@ -461,7 +446,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                     className={`rounded-2xl border ${isRevision ? 'border-teal-400/50' : colorConfig.border} bg-gradient-to-br ${isRevision ? 'from-teal-950/40 via-[#161831]/90 to-[#0F1023]/90' : 'from-[#161831]/90 to-[#0F1023]/90'} p-4 sm:p-5 backdrop-blur-md shadow-lg flex flex-col justify-between group ${isRevision ? 'hover:border-teal-300/70' : 'hover:border-cyan-400/60'} transition-all`}
                   >
                     <div>
-                      {/* Top Meta: Time & Subject Color Badge */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                           <Clock className="w-3.5 h-3.5 text-cyan-400" />
@@ -593,7 +577,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
         </div>
       )}
 
-      {/* VIEW MODE 2: FULL 7-DAY GRID (Scrollable for Small Screens) */}
       {viewMode === 'week' && (
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 backdrop-blur-xl p-4 sm:p-6 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between mb-4">
@@ -750,7 +733,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                 </select>
               </div>
 
-              {/* Block type: Study vs Revision (Revision = completed topics only) */}
               <div>
                 <label className="block text-slate-300 font-semibold mb-1.5">Block Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -828,7 +810,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
                 completedOnly={formBlockType === 'revision'}
               />
 
-              {/* Times: Start and End (24-hour inputs with 12-hour AM/PM preview) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Start Time <span className="text-slate-500 font-normal">(24-hour)</span></label>
@@ -944,7 +925,6 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
 
               </div>
 
-              {/* Submit / Cancel Buttons in Pinned Sticky Footer */}
               <div className="p-3.5 sm:p-4 border-t border-white/10 bg-[#14162e]/95 backdrop-blur-md flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 shrink-0 [&>button]:w-full [&>button]:sm:w-auto">
                 {editingEntry && (
                   <button

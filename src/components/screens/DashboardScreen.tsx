@@ -53,7 +53,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const currentStream = (userProfile.stream || 'Maths') as StreamType;
   const streamInfo = GCE_AL_STREAMS.find((s) => s.id === currentStream) || GCE_AL_STREAMS[0];
 
-  // Local state for study plans & timetable checkoffs to provide instant interactivity
   const [plans, setPlans] = useState(() => ALL_STREAM_STUDY_PLANS[currentStream] || ALL_STREAM_STUDY_PLANS.Maths);
   const [timetable, setTimetable] = useState(() => {
     try {
@@ -63,7 +62,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      // ignore
     }
     return ALL_STREAM_TIMETABLES[currentStream] || ALL_STREAM_TIMETABLES.Maths;
   });
@@ -83,7 +81,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }
       }
     } catch (e) {
-      // ignore
     }
     setTimetable(ALL_STREAM_TIMETABLES[currentStream] || ALL_STREAM_TIMETABLES.Maths);
     setDailyTopics(ALL_STREAM_DAILY_TOPICS[currentStream] || ALL_STREAM_DAILY_TOPICS.Maths);
@@ -94,7 +91,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     try {
       localStorage.setItem(`al_timetable_${currentStream}`, JSON.stringify(timetable));
     } catch (e) {
-      // ignore
     }
   }, [timetable, currentStream]);
 
@@ -112,10 +108,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Active study plan
   const activePlan = plans.find((p) => p.isActive) || plans[0];
 
-  // Today's timetable slots (default to Monday / today)
   const todaySlots = timetable.filter((s) => s.dayOfWeek === 'Monday');
 
-  // Toggle timetable slot completion directly on dashboard
   const handleToggleSlot = (slotId: string) => {
     setTimetable((prev) =>
       prev.map((s) => (s.id === slotId ? { ...s, isCompleted: !s.isCompleted } : s))
@@ -144,7 +138,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     );
   };
 
-  // List of upcoming features & subjects kept as coming soon (including Physics)
   const comingSoonModules = [
     {
       id: 'physics',
@@ -192,7 +185,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   return (
     <div id="mind-maze-dashboard-screen" className="max-w-7xl mx-auto w-full space-y-6 pb-12">
-      {/* 1. Header Hero Banner: Clean, fitted, responsive */}
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7 backdrop-blur-md shadow-xl">
         <div className="absolute top-0 right-0 h-48 w-48 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -left-10 h-40 w-40 bg-[#6B4EFF]/20 rounded-full blur-2xl pointer-events-none" />
@@ -250,9 +242,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* 2. Top 3-Bento Snapshot Cards: Study Plans, Timetable, Daily Topics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        {/* Card 1: Active Study Plan Snapshot */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-purple-500/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -292,7 +282,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
-        {/* Card 2: Today's Timetable Routine Snapshot */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-cyan-400/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -332,7 +321,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
-        {/* Card 3: Today's Cover Topic */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-amber-400/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -365,7 +353,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* 3. Interactive Main Section: Study Plans, Timetable, Daily Topics */}
       <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7 backdrop-blur-md shadow-xl space-y-6">
         {/* Navigation Tab Bar for Live Features */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -416,7 +403,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
-        {/* Tab 1: Study Plans View */}
         {activeTab === 'plans' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -499,7 +485,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         )}
 
-        {/* Tab 2: Timetable View */}
         {activeTab === 'timetable' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -657,7 +642,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </div>
               </div>
             ) : (
-              /* Cards View */
+// /* Cards View
               <div className="space-y-2.5">
                 {todaySlots.map((slot) => (
                   <div
@@ -732,7 +717,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Daily Topics Tracker View */}
         {activeTab === 'topics' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -814,7 +798,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         )}
       </div>
 
-      {/* 4. Coming Soon Section: Clearly labeled as Under Syllabus Verification */}
       <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-5 sm:p-7 backdrop-blur-md space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
           <div>

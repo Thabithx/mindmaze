@@ -1,6 +1,3 @@
-/**
- * Mind Maze - GCE A/L Study Planner Types
- */
 
 export type StreamType =
   | 'Physical Science'
@@ -14,9 +11,8 @@ export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Frida
 
 export type TopicStatus = 'not_started' | 'in_progress' | 'completed';
 
-export type ReminderOffset = 0 | 10 | 15 | 30 | 60; // minutes before, 0 = at time
+export type ReminderOffset = 0 | 10 | 15 | 30 | 60;
 
-/** Study vs Revision block. Revision is ONLY for already-completed topics. */
 export type BlockType = 'study' | 'revision';
 
 export interface StreakData {
@@ -29,7 +25,7 @@ export interface StreakData {
 
 export interface SubtopicTarget {
   subtopic: string;
-  targetProgress: number; // Planned completion % (0 - 100) for this block
+  targetProgress: number;
 }
 
 export interface TimetableEntry {
@@ -37,34 +33,32 @@ export interface TimetableEntry {
   dayOfWeek: DayOfWeek;
   subject: string;
   topic: string;
-  /** 'study' (default) or 'revision' (only for already-completed topics). */
   blockType?: BlockType;
-  topicId?: string;         // Link to SyllabusTopic.id
-  subtopic?: string;        // Specific subtopic name (legacy: first of subtopicTargets)
-  targetProgress?: number;  // Planned completion percentage (0 - 100) for this block (legacy: first target)
-  subtopicTargets?: SubtopicTarget[]; // Per-subtopic plan: each selected subtopic + its 0-100 slider value
-  isCompleted?: boolean;    // Whether this study session is finished
-  startTime: string; // "HH:MM" 24-hr format, e.g. "06:00"
-  endTime: string;   // "HH:MM" 24-hr format, e.g. "08:00"
-  color: string;     // Tailwind color key or hex, e.g. "blue", "cyan", "purple", "emerald", "amber", "rose"
+  topicId?: string;
+  subtopic?: string;
+  targetProgress?: number;
+  subtopicTargets?: SubtopicTarget[];
+  isCompleted?: boolean;
+  startTime: string;
+  endTime: string;
+  color: string;
   reminderEnabled: boolean;
   reminderOffsetMinutes: ReminderOffset;
   notes?: string;
-  fromTaskId?: string; // Optional link to originating daily task
+  fromTaskId?: string;
 }
 
 export interface DailyTask {
   id: string;
-  date: string; // "YYYY-MM-DD"
+  date: string;
   title: string;
   subject: string;
-  /** 'study' (default) or 'revision' (only for already-completed topics). */
   blockType?: BlockType;
-  topicId?: string;         // Link to SyllabusTopic.id
-  topicTitle?: string;      // Cached title of the syllabus topic
-  subtopic?: string;        // Specific subtopic name (legacy: first of subtopicTargets)
-  targetProgress?: number;  // Planned completion percentage (0 - 100) for this block (legacy: first target)
-  subtopicTargets?: SubtopicTarget[]; // Per-subtopic plan: each selected subtopic + its 0-100 slider value
+  topicId?: string;
+  topicTitle?: string;
+  subtopic?: string;
+  targetProgress?: number;
+  subtopicTargets?: SubtopicTarget[];
   isCompleted: boolean;
   completedAt?: string;
   timeSlot?: string;
@@ -72,7 +66,7 @@ export interface DailyTask {
   endTime?: string;
   estimatedMinutes?: number;
   priority: 'High' | 'Medium' | 'Low';
-  fromTimetableId?: string; // Link to originating timetable entry
+  fromTimetableId?: string;
 }
 
 export interface SyllabusTopic {
@@ -82,8 +76,8 @@ export interface SyllabusTopic {
   unitTitle: string;
   topicTitle: string;
   subtopics?: string[];
-  completedSubtopics?: string[]; // Array of completed subtopics (100% finished)
-  subtopicProgress?: Record<string, number>; // Progress percentage (0 - 100) for each subtopic
+  completedSubtopics?: string[];
+  subtopicProgress?: Record<string, number>;
   status: TopicStatus;
   notes?: string;
   isCustom?: boolean;
@@ -94,7 +88,7 @@ export interface SubjectMeta {
   name: string;
   stream: StreamType | 'Both';
   icon: string;
-  color: string; // e.g. 'cyan', 'indigo', 'purple', 'emerald', 'amber', 'rose'
+  color: string;
   badgeBg: string;
   borderColor: string;
   textColor: string;
@@ -105,11 +99,10 @@ export interface UserSettings {
   stream: StreamType;
   physicalScienceElective: 'Chemistry' | 'ICT';
   studentName: string;
-  targetExamYear: string; // e.g. "2027"
-  targetExamDate: string; // Expected A/L date "YYYY-MM-DD", '' when unset
+  targetExamYear: string;
+  targetExamDate: string;
   targetZScore?: string;
-  motivationNote: string; // Personal note echoed in reminders, '' when unset
-  /** Optional contact number (stored info only — never auth/OTP). '' = unset. */
+  motivationNote: string;
   mobileNumber?: string;
   reminderSoundEnabled: boolean;
   notificationsGranted: boolean;

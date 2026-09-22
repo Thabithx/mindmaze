@@ -43,11 +43,8 @@ export type AuthView = 'signin' | 'signup' | 'forgot' | 'check-email' | 'usernam
 interface SupabaseAuthProps {
   view: AuthView;
   onViewChange: (view: AuthView) => void;
-  /** Called when the student is fully authenticated AND has a username. */
   onAuthReady?: (username: string) => void;
-  /** Compact card style for embedding; default is a full-screen gate. */
   variant?: 'fullscreen' | 'card';
-  /** Pre-selected stream (e.g. tapped on the landing page). Empty = must choose. */
   initialStream?: 'Physical Science' | 'Biological Science' | null;
 }
 
@@ -89,12 +86,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
-  // Bumped once per second while any auth cooldown is active so the
-  // "try again in Ns" labels count down live.
   const [cooldownTick, setCooldownTick] = useState(0);
 
-  // Live countdown while a cooldown lock is active. The interval only runs
-  // when at least one action is locked, so idle pages pay nothing.
   useEffect(() => {
     const anyLocked = (
       ['signin', 'signup', 'forgot', 'resend'] as AuthAction[]
@@ -103,9 +96,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     const timer = setTimeout(() => setCooldownTick((t) => t + 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldownTick, busy, errorMsg, infoMsg, view]);
-  // Stream is REQUIRED at sign-up: nothing is pre-selected unless the
-  // student tapped a stream on the landing page (initialStream prop).
-  // Physical Science unlocks the Chemistry / ICT elective choice below.
   const [stream, setStream] = useState<'' | 'Physical Science' | 'Biological Science'>(
     initialStream ?? ''
   );
@@ -117,20 +107,13 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   });
 
-  // Landing-page stream taps arriving after mount are honoured.
   useEffect(() => {
     if (initialStream) setStream(initialStream);
   }, [initialStream]);
-  // Optional extras: expected A/L date (drives the Dashboard countdown)
-  // and topics already completed (seed the Topic Tracker accurately).
-  // Both are skippable — blank means "not set / starting from scratch".
   const [examDate, setExamDate] = useState('');
   const [completedTopicIds, setCompletedTopicIds] = useState<string[]>([]);
-  // Combined Goals step (also optional): Z-score target + motivation note.
   const [targetZScore, setTargetZScore] = useState('');
   const [motivationNote, setMotivationNote] = useState('');
-  // Optional contact number — stored info only, never auth/OTP/verification.
-  // Skippable: blank (or imperfect) input never blocks sign-up.
   const [mobileNumber, setMobileNumber] = useState('');
 
   if (!supabase) {
@@ -147,10 +130,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
       setErrorMsg(err.userMessage);
     } else if (err instanceof Error) {
       if (action && isRateLimitError(err.message)) {
-        // Server-side 429: lock this action so instant retries can't extend
-        // the sliding-window ban, and show a live countdown instead.
         recordRateLimit(action, parseWaitSeconds(err.message) ?? 60);
-        setCooldownTick((t) => t + 1); // restart the countdown ticker
+        setCooldownTick((t) => t + 1);
       }
       setErrorMsg(friendlyAuthError(err.message));
     } else {
@@ -159,7 +140,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setBusy(false);
   };
 
-  /** Client-side guard: block attempts still inside the cooldown window. */
   const blockedByCooldown = (action: AuthAction): boolean => {
     if (getCooldownRemaining(action) > 0) {
       setErrorMsg(cooldownMessage(action));
@@ -175,7 +155,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     } catch {}
   };
 
-  /** Persist the optional A/L exam date locally (profile row gets it too). */
   const persistExamDateChoice = () => {
     const clean = toExamDate(examDate);
     if (!clean) return;
@@ -184,7 +163,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     } catch {}
   };
 
-  /** Persist the optional Goals step locally (profile row gets it too). */
   const persistGoalsChoice = () => {
     try {
       const patch: { targetZScore?: string; motivationNote?: string } = {};
@@ -194,7 +172,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     } catch {}
   };
 
-  /** Persist the optional contact number locally (profile row gets it too). */
   const persistMobileChoice = () => {
     try {
       const clean = toMobileNumber(mobileNumber);
@@ -202,9 +179,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     } catch {}
   };
 
-  // ---------- Sign up: email + password + unique username + stream/elective ----------
-  // Stream is chosen here (Physical Science reveals the Chemistry / ICT
-  // elective). After signing in, stream stays editable in profile Settings.
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -236,7 +210,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setBusy(true);
     recordAttempt('signup');
     try {
-      // 1. Username must be unique — check before creating the auth user.
       const available = await checkUsernameAvailable(username);
       if (!available) {
         setErrorMsg('Username already taken. Please choose another one.');
@@ -244,9 +217,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
         return;
       }
 
-      // 2. Create the auth user. emailRedirectTo sends the verification
-      //    link back to our /confirmed screen (must be allow-listed under
-      //    Authentication → URL Configuration → Redirect URLs).
       const { data, error } = await client.auth.signUp({
         email: email.trim(),
         password,
@@ -260,22 +230,12 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
         return;
       }
 
-      // 3. Store the chosen username linked to the new user id.
-      //    With "Confirm email" OFF, sign-up returns a session immediately,
-      //    so the profile is created right here. (If confirmation is ever
-      //    re-enabled there is no session yet — the profile is created on
-      //    first login instead; see the check-email fallback below and the
-      //    username setup view.)
       persistStreamChoice();
       persistExamDateChoice();
       persistGoalsChoice();
       persistMobileChoice();
       if (data.session) {
         try {
-          // Stream + elective + exam date + goals + contact number are part
-          // of sign-up and go to the Supabase profile row (also saved
-          // locally above). Mobile is optional contact info only — never
-          // auth/OTP — and never blocks sign-up when blank or imperfect.
           await createProfile(
             user.id,
             username,
@@ -286,8 +246,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
             motivationNote.trim() || null,
             toMobileNumber(mobileNumber)
           );
-          // Seed already-completed topics so the Tracker starts accurately.
-          // Non-fatal: sign-up still succeeds if this sync fails.
           if (completedTopicIds.length > 0) {
             try {
               await pushTopics(user.id, buildCompletedTopicsFromIds(completedTopicIds));
@@ -296,8 +254,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
             }
           }
         } catch (profileErr) {
-          // Rare race: someone grabbed the name in between. Sign out so a
-          // clean retry is possible, and explain clearly.
           await client.auth.signOut();
           fail(profileErr, 'signup');
           return;
@@ -305,17 +261,10 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
         setBusy(false);
         onAuthReady?.(username.trim());
       } else if (data.user && (data.user.identities?.length ?? 1) === 0) {
-        // "Confirm email" OFF + this email is already registered: Supabase
-        // returns an empty-identities user with no session instead of an
-        // error (anti-enumeration). Send the student to sign in.
         setBusy(false);
         setErrorMsg('An account with this email already exists. Try signing in instead.');
         onViewChange('signin');
       } else {
-      // Fallback for when "Confirm email" is re-enabled: no session yet.
-      // Keep the pending username + stream + elective + exam date + goals +
-      // mobile number + completed topics so first login can claim them
-      // automatically on this device (see App loadCloudForUser).
       try {
         localStorage.setItem('mindmaze_pending_username', username.trim());
         localStorage.setItem('mindmaze_pending_stream', stream);
@@ -340,7 +289,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
-  // ---------- Sign in: email + password ----------
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -355,7 +303,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     try {
       const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
-      // Session listener in App takes over from here (loads profile + data).
       setBusy(false);
     } catch (err) {
       fail(err, 'signin');
@@ -386,10 +333,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
-  // ---------- Resend verification email (check-email view) ----------
-  // Previously the only way to get another email was to re-submit the whole
-  // sign-up form — every retry burned the server email quota and deepened
-  // the rate-limit ban. A dedicated resend with a 60s cooldown avoids that.
   const handleResend = async () => {
     setErrorMsg(null);
     setInfoMsg(null);
@@ -414,7 +357,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
-  // ---------- Claim username on first login (no profile row yet) ----------
   const handleUsernameSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -478,7 +420,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
-  // ---------- Set new password after reset link (recovery session) ----------
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -593,8 +534,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
   );
 
   const submitButton = (label: string, action?: AuthAction) => {
-    // Re-read on every render; cooldownTick forces a re-render each second
-    // while locked so the countdown stays live.
     void cooldownTick;
     const remaining = action ? getCooldownRemaining(action) : 0;
     const locked = remaining > 0;
@@ -610,10 +549,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     );
   };
 
-  // Shared stream + elective picker used by the sign-up and first-login
-  // username-setup forms (plain JSX, no hooks inside). Choosing Physical
-  // Science reveals the Chemistry / ICT elective choice.
-  // Step eyebrow label used to break the form into a short guided flow.
   const stepBadge = (n: number, title: string, optional: boolean) => (
     <div className="flex items-center gap-2 pt-1">
       <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#6B4EFF]/25 border border-[#6B4EFF]/50 text-cyan-200">
@@ -685,9 +620,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     </div>
   );
 
-  // Optional extras shared by sign-up and username-setup: expected A/L
-  // date (Dashboard countdown) + already-completed topics (Tracker head
-  // start). Both skippable — blank/unchecked means "not set / from scratch".
   const headStartStep = (
     <div className="space-y-3 pt-1">
       {stepBadge(3, 'Head start', true)}
@@ -712,9 +644,6 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     </div>
   );
 
-  // Combined Goals step (Z-score + motivation note + optional contact
-  // number) — one screen, all skippable. Mobile is stored contact info
-  // only: never auth/OTP/verification, never blocks sign-up.
   const goalsStep = (
     <div className="space-y-3 pt-1">
       {stepBadge(4, 'Goals', true)}

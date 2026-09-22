@@ -6,7 +6,6 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 const router = Router();
 
 // @route   GET /api/timetable
-// @desc    Get all timetable slots for authenticated user
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slots = await Timetable.find({ user: req.user!._id }).sort({ startTime: 1 });
@@ -17,7 +16,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
 });
 
 // @route   POST /api/timetable
-// @desc    Create a new timetable study/revision block
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
@@ -74,7 +72,6 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
 });
 
 // @route   PUT /api/timetable/:id
-// @desc    Update a timetable slot or mark completed
 router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = await Timetable.findOne({ _id: req.params.id, user: req.user!._id });
@@ -106,7 +103,6 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
 
     await slot.save();
 
-    // If slot completed today, update user streak
     if (req.body.isCompleted === true) {
       const user = await User.findById(req.user!._id);
       if (user) {
@@ -144,7 +140,6 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
 });
 
 // @route   POST /api/timetable/send-reminder
-// @desc    Send email study reminder to student for active or upcoming study block
 router.post('/send-reminder', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, topic, startTime, notes } = req.body;

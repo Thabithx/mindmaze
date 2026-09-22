@@ -12,7 +12,6 @@ export const SUBJECT_METAS: SubjectMeta[] = [
     borderColor: 'border-indigo-500/40',
     textColor: 'text-indigo-400',
   },
-  // Compulsory in both Physical Science & Biological Science
   {
     id: 'physics',
     name: 'Physics',
@@ -23,7 +22,6 @@ export const SUBJECT_METAS: SubjectMeta[] = [
     borderColor: 'border-cyan-500/40',
     textColor: 'text-cyan-400',
   },
-  // Compulsory in Biological Science; Elective in Physical Science (Chemistry OR ICT)
   {
     id: 'chemistry',
     name: 'Chemistry',
@@ -34,7 +32,6 @@ export const SUBJECT_METAS: SubjectMeta[] = [
     borderColor: 'border-purple-500/40',
     textColor: 'text-purple-400',
   },
-  // Elective option in Physical Science (Chemistry OR ICT)
   {
     id: 'ict',
     name: 'ICT',
@@ -45,7 +42,6 @@ export const SUBJECT_METAS: SubjectMeta[] = [
     borderColor: 'border-pink-500/40',
     textColor: 'text-pink-400',
   },
-  // Biological Science (Compulsory - replaces Combined Maths in Bio stream)
   {
     id: 'biology',
     name: 'Biology',
@@ -58,11 +54,6 @@ export const SUBJECT_METAS: SubjectMeta[] = [
   },
 ];
 
-/**
- * Returns the exact 3 subjects for the selected stream:
- * - Physical Science: Combined Mathematics, Physics, and either Chemistry OR ICT
- * - Biological Science: Biology, Chemistry, Physics (Combined Maths replaced with Biology)
- */
 export function getSubjectsForStream(
   stream: StreamType | string,
   physicalScienceElective: 'Chemistry' | 'ICT' | string = 'Chemistry'
@@ -83,12 +74,6 @@ export function getSubjectsForStream(
   );
 }
 
-/**
- * Combined Mathematics paper split: Units 1–11 = Pure Mathematics
- * (Paper I), Units 12+ = Applied Mathematics (Paper II).
- * Derived from unitNumber so it applies to already-stored progress with no
- * migration — non-Combined-Maths topics return null.
- */
 export function getCombinedMathsGroup(
   topic: Pick<SyllabusTopic, 'subject' | 'unitNumber'>
 ): 'Pure Mathematics' | 'Applied Mathematics' | null {
@@ -98,7 +83,6 @@ export function getCombinedMathsGroup(
 
 export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
   // ================= COMBINED MATHEMATICS =================
-  // PURE MATHEMATICS (PAPER I) — Units 1-11
   {
     id: 'cm-01',
     subject: 'Combined Mathematics',
@@ -255,7 +239,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // APPLIED MATHEMATICS (PAPER II) — Units 12-18
   {
     id: 'cm-13',
     subject: 'Combined Mathematics',
@@ -335,7 +318,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
   },
 
   // ================= PHYSICS =================
-  // UNIT 1: MEASUREMENT (30 periods • Grade 12)
   {
     id: 'phy-01',
     subject: 'Physics',
@@ -352,7 +334,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 2: MECHANICS (110 periods • Grade 12)
   {
     id: 'phy-02',
     subject: 'Physics',
@@ -372,7 +353,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 3: OSCILLATIONS AND WAVES (100 periods • Grade 12)
   {
     id: 'phy-03',
     subject: 'Physics',
@@ -395,7 +375,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 4: THERMAL PHYSICS (60 periods • Grade 12)
   {
     id: 'phy-04',
     subject: 'Physics',
@@ -416,7 +395,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 5: GRAVITATIONAL FIELD (20 periods • Grade 13)
   {
     id: 'phy-05',
     subject: 'Physics',
@@ -430,7 +408,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 6: ELECTRIC FIELD (60 periods • Grade 13)
   {
     id: 'phy-06',
     subject: 'Physics',
@@ -446,7 +423,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 7: MAGNETIC FIELD (40 periods • Grade 13)
   {
     id: 'phy-07',
     subject: 'Physics',
@@ -461,7 +437,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 8: CURRENT ELECTRICITY (70 periods • Grade 13)
   {
     id: 'phy-08',
     subject: 'Physics',
@@ -479,7 +454,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 9: ELECTRONICS (40 periods • Grade 13)
   {
     id: 'phy-09',
     subject: 'Physics',
@@ -495,7 +469,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 10: MECHANICAL PROPERTIES OF MATTER (40 periods • Grade 13)
   {
     id: 'phy-10',
     subject: 'Physics',
@@ -510,7 +483,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     status: 'not_started',
   },
 
-  // UNIT 11: MATTER AND RADIATION (30 periods • Grade 13)
   {
     id: 'phy-11',
     subject: 'Physics',
@@ -530,7 +502,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
   },
 
   // ================= CHEMISTRY =================
-  // UNIT 01 — ATOMIC STRUCTURE (Grade 12)
   {
     id: 'chem-01',
     subject: 'Chemistry',
@@ -546,7 +517,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 02 — BONDING AND STRUCTURE (Grade 12)
   {
     id: 'chem-02',
     subject: 'Chemistry',
@@ -560,7 +530,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 03 — CHEMICAL CALCULATIONS (Grade 12)
   {
     id: 'chem-03',
     subject: 'Chemistry',
@@ -574,7 +543,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 04 — STATE OF MATTER; GASEOUS STATE (Grade 12)
   {
     id: 'chem-04',
     subject: 'Chemistry',
@@ -605,7 +573,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 06 — CHEMISTRY OF S, P AND D BLOCK ELEMENTS (Grade 12)
   {
     id: 'chem-06',
     subject: 'Chemistry',
@@ -622,7 +589,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 07 — BASIC CONCEPTS OF ORGANIC CHEMISTRY (Grade 12)
   {
     id: 'chem-07',
     subject: 'Chemistry',
@@ -637,7 +603,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 08 — HYDROCARBONS AND HALOHYDROCARBONS (Grade 12)
   {
     id: 'chem-08',
     subject: 'Chemistry',
@@ -655,7 +620,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 09 — OXYGEN CONTAINING ORGANIC COMPOUNDS (Grade 12)
   {
     id: 'chem-09',
     subject: 'Chemistry',
@@ -672,7 +636,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 10 — NITROGEN CONTAINING ORGANIC COMPOUNDS (Grade 12)
   {
     id: 'chem-10',
     subject: 'Chemistry',
@@ -686,7 +649,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 11 — CHEMICAL KINETICS (Grade 13)
   {
     id: 'chem-11',
     subject: 'Chemistry',
@@ -734,7 +696,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 14 — INDUSTRIAL CHEMISTRY AND ENVIRONMENTAL POLLUTION (Grade 13)
   {
     id: 'chem-14',
     subject: 'Chemistry',
@@ -754,7 +715,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
   },
 
   // ================= BIOLOGY =================
-  // UNIT 01 — INTRODUCTION TO BIOLOGY (5 periods • Grade 12)
   {
     id: 'bio-01',
     subject: 'Biology',
@@ -767,7 +727,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 02 — CHEMICAL AND CELLULAR BASIS OF LIFE (80 periods • Grade 12)
   {
     id: 'bio-02',
     subject: 'Biology',
@@ -784,7 +743,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 03 — EVOLUTION AND DIVERSITY OF ORGANISMS (60 periods • Grade 12)
   {
     id: 'bio-03',
     subject: 'Biology',
@@ -802,7 +760,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 04 — PLANT FORM AND FUNCTION (80 periods • Grade 12)
   {
     id: 'bio-04',
     subject: 'Biology',
@@ -821,7 +778,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 05 — ANIMAL FORM AND FUNCTION (195 periods • Grade 13)
   {
     id: 'bio-05',
     subject: 'Biology',
@@ -843,7 +799,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 06 — GENETICS (25 periods • Grade 13)
   {
     id: 'bio-06',
     subject: 'Biology',
@@ -859,7 +814,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 07 — MOLECULAR BIOLOGY AND RECOMBINANT DNA TECHNOLOGY (40 periods • Grade 13)
   {
     id: 'bio-07',
     subject: 'Biology',
@@ -875,7 +829,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 08 — ENVIRONMENTAL BIOLOGY (40 periods • Grade 13)
   {
     id: 'bio-08',
     subject: 'Biology',
@@ -891,7 +844,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 09 — MICROBIOLOGY (50 periods • Grade 13)
   {
     id: 'bio-09',
     subject: 'Biology',
@@ -908,7 +860,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 10 — APPLIED BIOLOGY (25 periods • Grade 13)
   {
     id: 'bio-10',
     subject: 'Biology',
@@ -926,7 +877,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
   },
 
   // ================= ICT =================
-  // UNIT 01 — CONCEPT OF ICT (28 periods • Grade 12 & 13)
   {
     id: 'ict-01',
     subject: 'ICT',
@@ -944,7 +894,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 02 — INTRODUCTION TO COMPUTER (22 periods • Grade 12 & 13)
   {
     id: 'ict-02',
     subject: 'ICT',
@@ -959,7 +908,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 03 — DATA REPRESENTATION (18 periods • Grade 12 & 13)
   {
     id: 'ict-03',
     subject: 'ICT',
@@ -973,7 +921,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 04 — FUNDAMENTAL OF DIGITAL CIRCUITS (26 periods • Grade 12 & 13)
   {
     id: 'ict-04',
     subject: 'ICT',
@@ -988,7 +935,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 05 — COMPUTER OPERATING SYSTEM (22 periods • Grade 12 & 13)
   {
     id: 'ict-05',
     subject: 'ICT',
@@ -1003,7 +949,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 06 — DATA COMMUNICATION AND NETWORKING (50 periods • Grade 12 & 13)
   {
     id: 'ict-06',
     subject: 'ICT',
@@ -1026,7 +971,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 07 — SYSTEM ANALYSIS AND DESIGN (68 periods • Grade 12 & 13)
   {
     id: 'ict-07',
     subject: 'ICT',
@@ -1047,7 +991,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 08 — DATABASE MANAGEMENT (50 periods • Grade 12 & 13)
   {
     id: 'ict-08',
     subject: 'ICT',
@@ -1065,7 +1008,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 09 — PROGRAMMING (74 periods • Grade 12 & 13)
   {
     id: 'ict-09',
     subject: 'ICT',
@@ -1081,7 +1023,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 10 — WEB DEVELOPMENT (60 periods • Grade 12 & 13)
   {
     id: 'ict-10',
     subject: 'ICT',
@@ -1098,7 +1039,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 11 — INTERNET OF THINGS (15 periods • Grade 12 & 13)
   {
     id: 'ict-11',
     subject: 'ICT',
@@ -1111,7 +1051,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 12 — ICT IN BUSINESS (12 periods • Grade 12 & 13)
   {
     id: 'ict-12',
     subject: 'ICT',
@@ -1125,7 +1064,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 13 — NEW TRENDS AND FUTURE DIRECTIONS OF ICT (12 periods • Grade 12 & 13)
   {
     id: 'ict-13',
     subject: 'ICT',
@@ -1139,7 +1077,6 @@ export const INITIAL_SYLLABUS_TOPICS: SyllabusTopic[] = [
     ],
     status: 'not_started',
   },
-  // UNIT 14 — PROJECT (30 periods • Grade 12 & 13)
   {
     id: 'ict-14',
     subject: 'ICT',

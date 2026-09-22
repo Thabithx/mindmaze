@@ -1,11 +1,6 @@
 import { DailyTask, SyllabusTopic, TimetableEntry, TopicStatus } from '../types';
 import { supabase } from './supabaseClient';
 
-/**
- * Cloud persistence layer (Supabase).
- * localStorage remains as an offline cache/mirror; when a student is logged
- * in, Supabase is the source of truth and localStorage is kept in sync.
- */
 
 export class CloudError extends Error {
   userMessage: string;
@@ -22,9 +17,6 @@ function requireClient() {
   return supabase;
 }
 
-/** Extract a human-readable message from any Supabase/PostgREST/network error shape.
- *  PostgREST failures are plain objects ({ message, details, hint, code }),
- *  NOT Error instances — reading only err.message produced "Unknown error". */
 function describeError(err: unknown): { message: string; code?: string } {
   if (err instanceof Error) {
     return { message: err.message || 'Unknown error' };
@@ -41,7 +33,6 @@ function describeError(err: unknown): { message: string; code?: string } {
       const json = JSON.stringify(r);
       if (json && json !== '{}') return { message: json, code };
     } catch {
-      // fall through to Unknown error
     }
   } else if (typeof err === 'string' && err.trim()) {
     return { message: err.trim() };
@@ -66,39 +57,26 @@ export type PhysicalElective = 'Chemistry' | 'ICT';
 
 export interface UserProfileRow {
   username: string | null;
-  /** Study stream from the profiles table; null when never set (or column missing). */
   stream: string | null;
-  /** Access role; always 'student' unless the row was promoted in the dashboard. */
   role: UserRole;
-  /** Physical Science 3rd-subject choice; null when never set (or column missing). */
   elective: PhysicalElective | null;
-  /** Expected A/L exam date ('YYYY-MM-DD'); null when never set (or column missing). */
   alExamDate: string | null;
-  /** Optional Z-score goal (free text, e.g. '1.8000'); null when unset. */
   targetZScore: string | null;
-  /** Optional personal motivation note; null when unset. */
   motivationNote: string | null;
-  /** Optional contact number (stored info only — never auth/OTP); null when unset. */
   mobileNumber: string | null;
-  /** Last browser notification permission reported by the student's device;
-   *  null when never reported (never asked, or pre-telemetry app version). */
   pushPermission: PushPermission | null;
 }
 
-/** Browser notification permission as reported by a student's device. */
 export type PushPermission = 'granted' | 'denied' | 'default' | 'unsupported';
 
-/** Normalize a raw permission value; null when missing/invalid. */
 export function toPushPermission(v: unknown): PushPermission | null {
   return v === 'granted' || v === 'denied' || v === 'default' || v === 'unsupported' ? v : null;
 }
 
-/** Normalize a raw elective value; null when missing/invalid. */
 export function toElective(v: unknown): PhysicalElective | null {
   return v === 'ICT' ? 'ICT' : v === 'Chemistry' ? 'Chemistry' : null;
 }
 
-/** Normalize a raw exam-date value; null unless YYYY-MM-DD. */
 export function toExamDate(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim();
@@ -107,30 +85,18 @@ export function toExamDate(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : t;
 }
 
-/**
- * Light sanity check for the optional contact number (stored info only —
- * never auth/OTP/verification). Accepts digits with an optional leading '+'
- * plus common separators (spaces, dashes, parentheses). Returns the trimmed
- * value (max 30 chars) or null when blank. Never throws and never blocks:
- * callers store whatever the student typed; this only trims/caps length.
- */
 export function toMobileNumber(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim().slice(0, 30);
   return t ? t : null;
 }
 
-/** True when a typed number looks plausible (7–15 digits); hint only, never blocking. */
 export function isMobileNumberPlausible(v: string): boolean {
   const digits = v.replace(/\D/g, '');
   if (digits.length < 7 || digits.length > 15) return false;
   return /^[+\d][\d\s\-().]*$/.test(v.trim());
 }
 
-/** True when a Supabase error means "column does not exist" (pre-migration DB).
- *  Covers both raw Postgres errors (code 42703) and PostgREST schema-cache
- *  errors (code PGRST204: "Could not find the 'x' column ... in the schema
- *  cache"), which is what the API actually returns for a missing column. */
 function isMissingColumnError(err: unknown): boolean {
   const code = (err as { code?: string } | null)?.code;
   if (code === '42703' || code === 'PGRST204') return true;
@@ -142,11 +108,8 @@ export async function fetchUsername(userId: string): Promise<string | null> {
   return (await fetchUserProfile(userId)).username;
 }
 
-/** Load the student's profile row (username + stream + role + elective + exam date). */
 export async function fetchUserProfile(userId: string): Promise<UserProfileRow> {
   const toRole = (v: unknown): UserRole => (v === 'admin' ? 'admin' : 'student');
-  // Layered back-compat: each level drops one more column, so any
-  // combination of pre-migration tables still resolves.
   const levels = [
     'username, stream, role, elective, al_exam_date, target_z_score, motivation_note, mobile_number, push_permission',
     'username, stream, role, elective, al_exam_date, target_z_score, motivation_note, mobile_number',
@@ -226,11 +189,6 @@ export async function createProfile(
   motivationNote?: string | null,
   mobileNumber?: string | null
 ): Promise<void> {
-  // NOTE: role is ALWAYS 'student' here. There is intentionally no role
-  // parameter — students can never self-assign another role. The database
-  // additionally enforces this via the profiles_insert_own RLS policy
-  // (WITH CHECK role = 'student') and the force_profiles_role_student
-  // trigger, so even hand-crafted API requests cannot escalate.
   const baseRow: Record<string, unknown> = { id: userId, username: username.trim(), role: 'student' };
   if (stream) baseRow.stream = stream;
   if (elective) baseRow.elective = elective;
@@ -239,13 +197,8 @@ export async function createProfile(
   if (motivationNote && motivationNote.trim()) {
     baseRow.motivation_note = motivationNote.trim().slice(0, 500);
   }
-  // Optional contact number — stored info only, never auth/OTP. Light
-  // trim/cap only; never blocks sign-up when blank or imperfect.
   const cleanMobile = toMobileNumber(mobileNumber);
   if (cleanMobile) baseRow.mobile_number = cleanMobile;
-  // Cast: the generated client types predate the stream/role/elective/exam
-  // columns; the extra keys pass through at runtime and are stripped below
-  // if the DB lacks them (pre-migration databases).
   const row = baseRow as { id: string; username: string };
   try {
     const { error } = await requireClient()
@@ -255,8 +208,6 @@ export async function createProfile(
       if ((error as { code?: string }).code === '23505') {
         throw new CloudError('Username already taken. Please choose another one.');
       }
-      // Back-compat: profiles table missing newer columns yet — retry
-      // without the missing key(s) so sign-up still works pre-migration.
       if (isMissingColumnError(error)) {
         const errMsg = (error as { message?: string }).message ?? '';
         const fallbackRow: Record<string, unknown> = { ...baseRow };
@@ -267,7 +218,6 @@ export async function createProfile(
         if (/target_z_score/i.test(errMsg)) delete fallbackRow.target_z_score;
         if (/motivation_note/i.test(errMsg)) delete fallbackRow.motivation_note;
         if (/mobile_number/i.test(errMsg)) delete fallbackRow.mobile_number;
-        // If nothing was stripped (unrecognized missing column), rethrow.
         if (Object.keys(fallbackRow).length === Object.keys(baseRow).length) throw error;
         const retry = await requireClient()
           .from('profiles')
@@ -288,22 +238,15 @@ export async function createProfile(
   }
 }
 
-/** Admin user-list entry (read-only in the app; roles change in the dashboard). */
 export interface AdminProfileEntry {
   id: string;
   username: string | null;
   stream: string | null;
   role: UserRole;
   createdAt: string | null;
-  /** Last reported browser permission; null = never reported (not asked / old client). */
   pushPermission: PushPermission | null;
 }
 
-/**
- * List every profile row. Only succeeds for admins (see the
- * profiles_admin_read_all RLS policy); everyone else gets an RLS error,
- * which the Admin Panel surfaces as "access denied".
- */
 export async function fetchAllProfiles(): Promise<AdminProfileEntry[]> {
   const mapRows = (rows: Record<string, unknown>[]): AdminProfileEntry[] =>
     rows.map((r) => ({
@@ -323,8 +266,6 @@ export async function fetchAllProfiles(): Promise<AdminProfileEntry[]> {
     if (error) throw error;
     return mapRows((data ?? []) as Record<string, unknown>[]);
   } catch (err) {
-    // Pre-telemetry DBs lack push_permission — retry without it so the user
-    // list still loads (permission shows as "not asked" for everyone).
     if (isMissingColumnError(err)) {
       try {
         const { data, error } = await requireClient()
@@ -344,9 +285,6 @@ export async function fetchAllProfiles(): Promise<AdminProfileEntry[]> {
   }
 }
 
-/** Per-student push subscription summary for the Admin Panel health view.
- *  Aggregated client-side from non-sensitive columns only — key material
- *  (p256dh/auth) and endpoint URLs are never selected. */
 export interface PushDeviceSummary {
   userId: string;
   deviceCount: number;
@@ -354,15 +292,6 @@ export interface PushDeviceSummary {
   userAgent: string | null;
 }
 
-/**
- * Load every student's subscription presence, admin-gated server-side.
- * Primary path is the get_push_admin_overview() RPC (aggregates only — key
- * material and endpoint URLs never leave the database). Unlike a raw table
- * SELECT, a missing setup fails LOUDLY here instead of RLS-filtering to an
- * empty list that the panel would misread as "nobody subscribed".
- * Falls back to the legacy direct select for databases that ran
- * migration_add_push_health.sql but not yet migration_add_push_admin_overview.sql.
- */
 export async function fetchPushAdminOverview(): Promise<PushDeviceSummary[]> {
   try {
     const { data, error } = await requireClient().rpc('get_push_admin_overview');
@@ -376,7 +305,6 @@ export async function fetchPushAdminOverview(): Promise<PushDeviceSummary[]> {
           userId: uid,
           deviceCount: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0,
           latestAt: typeof r.latest_at === 'string' ? r.latest_at : null,
-          // The RPC returns aggregates only (no per-device user agent).
           userAgent: null,
         },
       ];
@@ -384,8 +312,6 @@ export async function fetchPushAdminOverview(): Promise<PushDeviceSummary[]> {
   } catch (err) {
     if (err instanceof CloudError) throw err;
     const { message, code } = describeError(err);
-    // RPC not installed yet → legacy direct-select path (works once the
-    // push_admin_read_all policy exists).
     if (code === 'PGRST202' || /could not find the function|function .* does not exist/i.test(message)) {
       return await fetchPushAdminOverviewDirect();
     }
@@ -401,15 +327,6 @@ export async function fetchPushAdminOverview(): Promise<PushDeviceSummary[]> {
   }
 }
 
-/**
- * Legacy direct-select overview (works once the push_admin_read_all policy
- * exists). Kept as a fallback for databases that ran
- * migration_add_push_health.sql but not the newer overview migration.
- * NOTE: without that policy, RLS silently filters to the viewer's own rows
- * (no error) — an empty result here must never be mistaken for "nobody
- * subscribed", which is exactly the false display this RPC-first ordering
- * plus the Admin Panel migration banner guard against.
- */
 async function fetchPushAdminOverviewDirect(): Promise<PushDeviceSummary[]> {
   try {
     const { data, error } = await requireClient()
@@ -450,24 +367,15 @@ async function fetchPushAdminOverviewDirect(): Promise<PushDeviceSummary[]> {
   }
 }
 
-/** Live send-push pipeline state (dryRun sends NOTHING — diagnostics only). */
 export interface SendPushDryRun {
   slTime: string;
   vapidConfigured: boolean;
   subscriptionRows: number;
   enabledSlotsToday: number;
-  /** Which daily-quiz window is live right now (12:00 / 17:00 SL), if any. */
   quizSlotNow?: 'noon' | 'evening' | null;
   quizWindows?: string[];
 }
 
-/**
- * Ask the deployed send-push Edge Function for its live pipeline state.
- * Admin-gated server-side (403 for non-admins). Tells "subscribed but no
- * push" apart instantly: vapidConfigured=false → set the function secrets;
- * subscriptionRows=0 → nobody has a server row (client-side); both healthy
- * but enabledSlotsToday=0 → simply nothing due today.
- */
 export async function fetchSendPushDryRun(): Promise<SendPushDryRun> {
   try {
     const { data, error } = await requireClient().functions.invoke('send-push', {
@@ -493,12 +401,6 @@ export async function fetchSendPushDryRun(): Promise<SendPushDryRun> {
   }
 }
 
-/**
- * Send one REAL closed-app push to a student's devices via the Edge Function
- * (admin only, 403 otherwise). Returns how many subscriptions accepted it.
- * 0 with subscribed devices = delivery failure (usually a VAPID public-key
- * mismatch between this frontend build and the function secrets).
- */
 export async function invokeSendPushTest(userId: string): Promise<number> {
   try {
     const { data, error } = await requireClient().functions.invoke('send-push', {
@@ -517,13 +419,6 @@ export async function invokeSendPushTest(userId: string): Promise<number> {
   }
 }
 
-/**
- * Probe whether the push-health migration has been applied to this database
- * (profiles.push_permission column present). Used by the Admin Panel to warn
- * instead of silently showing "Not asked" for everyone when telemetry has
- * nowhere to land. Never throws and never false-alarms on network errors:
- * any non-column error resolves to true (assume healthy).
- */
 export async function checkPushHealthMigration(): Promise<{ pushPermissionColumn: boolean }> {
   try {
     const { error } = await requireClient().from('profiles').select('push_permission').limit(1);
@@ -534,9 +429,6 @@ export async function checkPushHealthMigration(): Promise<{ pushPermissionColumn
   }
 }
 
-/** Save the student's study stream to their Supabase profile row.
- *  NOTE: this updates ONLY the stream column — role is never included, so
- *  there is no client path that can modify it. */
 export async function updateProfileStream(userId: string, stream: string): Promise<void> {  try {
     const { error } = await requireClient()
       .from('profiles')
@@ -556,8 +448,6 @@ export async function updateProfileStream(userId: string, stream: string): Promi
   }
 }
 
-/** Save the student's Physical Science elective to their Supabase profile.
- *  Same pattern as the stream: own row only, never touches role. */
 export async function updateProfileElective(userId: string, elective: PhysicalElective): Promise<void> {  try {
     const { error } = await requireClient()
       .from('profiles')
@@ -577,8 +467,6 @@ export async function updateProfileElective(userId: string, elective: PhysicalEl
   }
 }
 
-/** Save (or clear with null) the student's expected A/L exam date.
- *  Same pattern as stream/elective: own row only, never touches role. */
 export async function updateProfileExamDate(userId: string, examDate: string | null): Promise<void> {
   const clean = examDate ? toExamDate(examDate) : null;
   if (examDate && !clean) throw new CloudError('Exam date must look like YYYY-MM-DD.');
@@ -601,8 +489,6 @@ export async function updateProfileExamDate(userId: string, examDate: string | n
   }
 }
 
-/** Save the student's goal fields (Z-score + motivation note) to Supabase.
- *  Own row only, never touches role. Pass null/'' to clear a field. */
 export async function updateProfileGoals(
   userId: string,
   goals: { targetZScore?: string | null; motivationNote?: string | null }
@@ -636,9 +522,6 @@ export async function updateProfileGoals(
   }
 }
 
-/** Save (or clear with null/'') the student's optional contact number.
- *  Stored info only — never auth/OTP/verification. Own row only, never
- *  touches role. Blank clears the field. */
 export async function updateProfileMobileNumber(userId: string, mobileNumber: string | null): Promise<void> {
   const clean = toMobileNumber(mobileNumber);
   try {
@@ -660,13 +543,6 @@ export async function updateProfileMobileNumber(userId: string, mobileNumber: st
   }
 }
 
-/**
- * Silently report this device's live browser notification permission to the
- * student's own profile row (drives the Admin Panel health view). Background
- * telemetry: NEVER throws — returns false when the column is missing
- * (pre-migration DB), offline, or otherwise unsavable. Callers must not
- * surface any UI for this.
- */
 export async function updateProfilePushPermission(userId: string, permission: PushPermission): Promise<boolean> {
   try {
     const { error } = await requireClient()
@@ -692,7 +568,6 @@ export interface CloudStreak {
 export interface CloudData {
   timetable: TimetableEntry[];
   tasks: DailyTask[];
-  /** Null when the student has no topic rows in the cloud yet. */
   topics: SyllabusTopic[] | null;
   streak: CloudStreak | null;
   hasTimetable: boolean;
@@ -816,8 +691,6 @@ async function upsertAndPrune(
     const { error } = await client.from(table).upsert(rows, { onConflict: 'user_id,id' });
     if (error) throw error;
   }
-  // Quote text IDs for the PostgREST `in=(...)` list so hyphens and other
-  // characters in client-generated IDs can never break the prune query.
   const idList = ids.map((id) => `"${String(id).replace(/"/g, '""')}"`).join(',');
   if (ids.length > 0) {
     const { error } = await client.from(table).delete().eq('user_id', userId).not('id', 'in', `(${idList})`);
@@ -851,7 +724,6 @@ export async function pushTimetable(userId: string, entries: TimetableEntry[]): 
   try {
     await upsertAndPrune('timetable_entries', userId, withBlock);
   } catch (err) {
-    // Pre-migration DBs lack block_type — retry without it so sync still works.
     if (isMissingColumnError(err)) {
       const fallback = withBlock.map(({ block_type: _drop, ...rest }) => rest);
       await upsertAndPrune('timetable_entries', userId, fallback);
@@ -887,7 +759,6 @@ export async function pushTasks(userId: string, tasks: DailyTask[]): Promise<voi
   try {
     await upsertAndPrune('daily_tasks', userId, withBlock);
 
-    // Maintain the per-day summary rows (daily_progress table).
     const byDate = new Map<string, { completed: number; total: number }>();
     for (const t of tasks) {
       const agg = byDate.get(t.date) ?? { completed: 0, total: 0 };
@@ -895,7 +766,6 @@ export async function pushTasks(userId: string, tasks: DailyTask[]): Promise<voi
       if (t.isCompleted) agg.completed += 1;
       byDate.set(t.date, agg);
     }
-    // Only keep recent history in the summary table (last 120 days with tasks).
     const recentDates = Array.from(byDate.keys()).sort().slice(-120);
     const summaryRows = recentDates.map((date) => ({
       user_id: userId,
@@ -915,7 +785,6 @@ export async function pushTasks(userId: string, tasks: DailyTask[]): Promise<voi
       await client.from('daily_progress').delete().eq('user_id', userId).in('date', stale);
     }
   } catch (err) {
-    // Pre-migration DBs lack block_type — retry without it so sync still works.
     if (isMissingColumnError(err)) {
       const fallback = withBlock.map(({ block_type: _drop, ...rest }) => rest);
       try {
@@ -982,7 +851,6 @@ export async function pushStreak(
   }
 }
 
-/** Revision habit counter stored on profiles.revision_count (separate stat). */
 export async function fetchRevisionCount(userId: string): Promise<number | null> {
   try {
     const { data, error } = await requireClient()
@@ -991,7 +859,7 @@ export async function fetchRevisionCount(userId: string): Promise<number | null>
       .eq('id', userId)
       .maybeSingle();
     if (error) {
-      if (isMissingColumnError(error)) return null; // pre-migration DB
+      if (isMissingColumnError(error)) return null;
       throw error;
     }
     const v = (data as { revision_count?: unknown } | null)?.revision_count;
@@ -1002,7 +870,6 @@ export async function fetchRevisionCount(userId: string): Promise<number | null>
   }
 }
 
-/** Persist the revision counter (additive only; never blocks the UI). */
 export async function updateProfileRevisionCount(userId: string, count: number): Promise<void> {
   try {
     const { error } = await requireClient()

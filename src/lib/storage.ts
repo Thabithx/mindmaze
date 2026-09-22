@@ -46,11 +46,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   studentName: '',
   targetExamYear: '2027',
   targetExamDate: '',
-  // No fake goal: a fresh account shows no Z-score target until the student
-  // sets one at sign-up or in Settings (the goals strip hides when unset).
   targetZScore: '',
   motivationNote: '',
-  // Optional contact number (stored info only — never auth/OTP).
   mobileNumber: '',
   reminderSoundEnabled: true,
   notificationsGranted: false,
@@ -61,9 +58,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
 };
 
 // ================= TIMETABLE STORAGE =================
-// Fresh accounts start with ZERO blocks: an empty timetable stays empty.
-// (The recommended schedule is only applied on explicit Reset in the
-// Timetable tab via getInitialTimetableForStream — never auto-seeded.)
 export function getStoredTimetable(): TimetableEntry[] {
   try {
     const raw = localStorage.getItem(TIMETABLE_STORAGE_KEY);
@@ -91,7 +85,6 @@ export function getStoredDailyTasks(dateStr?: string): DailyTask[] {
   try {
     const raw = localStorage.getItem(DAILY_TASKS_STORAGE_KEY);
     if (!raw) {
-      // Generate default initial tasks for today from today's timetable
       return [];
     }
     const parsed: DailyTask[] = JSON.parse(raw);
@@ -128,10 +121,6 @@ export function getStoredSyllabusTopics(): SyllabusTopic[] {
       return INITIAL_SYLLABUS_TOPICS;
     }
 
-    // Migrate any stored syllabus to the latest detailed version (Physics 1-11,
-    // Chemistry 1-14, Biology 1-10, ICT 1-14, Combined Maths Pure+Applied 1-18).
-    // Preserves user progress (status / notes) while refreshing subtopic lists.
-    // Custom user topics (isCustom) are always preserved.
     const needsMigration =
       parsed.length !== INITIAL_SYLLABUS_TOPICS.length ||
       (parsed as SyllabusTopic[]).some((t: SyllabusTopic) => t.id === 'phy-12' || t.id === 'phy-17') ||
@@ -152,7 +141,6 @@ export function getStoredSyllabusTopics(): SyllabusTopic[] {
         const existing = (parsed as SyllabusTopic[]).find((p: SyllabusTopic) => p.id === fresh.id);
         if (existing) {
           const freshSubs = fresh.subtopics || [];
-          // Keep only completed subtopics that still exist in the new detailed list
           const keptCompleted = (existing.completedSubtopics || []).filter((s: string) =>
             freshSubs.includes(s)
           );
@@ -209,7 +197,6 @@ export function getUserSettings(): UserSettings {
     const normalizedElective: 'Chemistry' | 'ICT' =
       parsed.physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry';
 
-    // Migrate old weekly-only goal to daily goal (weekly = daily x 7)
     const migratedDaily =
       typeof parsed.dailyHoursGoal === 'number'
         ? parsed.dailyHoursGoal
@@ -286,9 +273,6 @@ export function getFormattedDateDisplay(dateStr: string): string {
   }
 }
 
-/**
- * Returns DayOfWeek (e.g. 'Monday') for a given YYYY-MM-DD date string
- */
 export function getDayOfWeekFromDate(dateStr: string): TimetableEntry['dayOfWeek'] {
   try {
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -308,9 +292,6 @@ export function getDayOfWeekFromDate(dateStr: string): TimetableEntry['dayOfWeek
   }
 }
 
-/**
- * Returns the calendar date (YYYY-MM-DD) for a given DayOfWeek in the current week (Mon-Sun)
- */
 export function getDateForDayOfWeekInCurrentWeek(
   targetDay: TimetableEntry['dayOfWeek'],
   referenceDate: Date = new Date()
@@ -324,7 +305,6 @@ export function getDateForDayOfWeekInCurrentWeek(
     'Saturday',
     'Sunday',
   ];
-  // Calculate relative to Monday as week start
   const currentDayIndex = (referenceDate.getDay() + 6) % 7;
   const targetDayIndex = daysOrder.indexOf(targetDay);
   const diffDays = targetDayIndex - currentDayIndex;
@@ -340,10 +320,6 @@ export function getDateForDayOfWeekInCurrentWeek(
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Parses an "HH:MM" (24-hour) string to minutes since midnight.
- * Returns NaN when the string is not a valid time.
- */
 export function timeToMinutes(t: string): number {
   if (typeof t !== 'string') return NaN;
   const parts = t.trim().split(':');
@@ -355,20 +331,12 @@ export function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-/**
- * True only when both times are valid "HH:MM" values AND end is
- * strictly after start (same-day ranges; overnight spans are rejected).
- */
 export function isEndAfterStart(startTime: string, endTime: string): boolean {
   const s = timeToMinutes(startTime);
   const e = timeToMinutes(endTime);
   return Number.isFinite(s) && Number.isFinite(e) && e > s;
 }
 
-/**
- * Formats "HH:MM" (24-hour) as 12-hour with AM/PM, e.g. "14:05" -> "2:05 PM".
- * Returns the input unchanged when it cannot be parsed.
- */
 export function formatTime12h(t: string): string {
   const mins = timeToMinutes(t);
   if (!Number.isFinite(mins)) return t;
@@ -379,12 +347,6 @@ export function formatTime12h(t: string): string {
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
-/**
- * Calculates duration in minutes between "HH:MM" and "HH:MM".
- * Returns 0 when the range is invalid (end not after start, or
- * unparseable input) so callers can never mistake a bad range for a
- * real duration. Use isEndAfterStart() to show a validation error.
- */
 export function calculateMinutesBetween(startTime: string, endTime: string): number {
   const s = timeToMinutes(startTime);
   const e = timeToMinutes(endTime);
@@ -393,9 +355,6 @@ export function calculateMinutesBetween(startTime: string, endTime: string): num
   return diff > 0 ? diff : 0;
 }
 
-/**
- * Computes an "HH:MM" end time from a start time and duration minutes
- */
 export function computeEndTime(startTime: string, durationMinutes: number = 90): string {
   try {
     const [sh, sm] = startTime.split(':').map(Number);
@@ -408,17 +367,11 @@ export function computeEndTime(startTime: string, durationMinutes: number = 90):
   }
 }
 
-/**
- * Formats minutes since midnight as "HH:MM" (24-hour), wrapping past midnight.
- */
 export function minutesToHHMM(totalMinutes: number): string {
   const wrapped = ((Math.round(totalMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   return `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`;
 }
 
-/**
- * Returns the default color code for a subject
- */
 export function getSubjectColorKey(subjectName: string): string {
   const lower = subjectName.toLowerCase();
   if (lower.includes('math')) return 'indigo';

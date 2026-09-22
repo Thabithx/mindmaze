@@ -37,7 +37,6 @@ interface TopicTrackerProps {
   onUpdateTopicStatus: (topicId: string, status: TopicStatus) => void;
   onToggleSubtopic: (topicId: string, subtopicTitle: string) => void;
   onAddCustomTopic: (topic: Omit<SyllabusTopic, 'id'>) => void;
-  /** Bulk-apply onboarding selections in a single state update */
   onBulkOnboardingComplete: (completedTopicIds: string[], subtopicKeys: string[]) => void;
 }
 
@@ -58,7 +57,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
     availableSubjectMetas[0]?.name || 'Combined Mathematics'
   );
 
-  // Keep selected subject valid when stream or elective changes
   useEffect(() => {
     if (!availableSubjectMetas.some((s) => s.name === selectedSubject)) {
       setSelectedSubject(availableSubjectMetas[0]?.name || 'Physics');
@@ -78,7 +76,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [subtopicsCount, setSubtopicsCount] = useState(3);
   const [subtopicInputs, setSubtopicInputs] = useState<string[]>(['', '', '']);
 
-  // ── One-time onboarding modal (mark pre-existing completed topics) ──────────
   const effectiveUserId = userId || 'default_user';
   const onboardingKey = `mm_syllabus_onboarded_${effectiveUserId}`;
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -121,7 +118,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
       const next = new Set(prev);
       if (next.has(topicId)) {
         next.delete(topicId);
-        // Also clear any individually selected subtopics for this topic
         setOnboardingSubtopicChecked((prevSubs) => {
           const nextSubs = new Set(prevSubs);
           Array.from(nextSubs).forEach((key) => {
@@ -146,7 +142,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
     });
   };
 
-  // ── Task-gating: topic can only be marked if a daily task exists for it ─────
   const topicHasTask = (topicId: string, topicTitle?: string): boolean => {
     const safeTasks = dailyTasks || [];
     const normalizedTopicTitle = (topicTitle || '').trim().toLowerCase();
@@ -181,7 +176,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
     });
   };
 
-  // Current Subject topics & calculation with subtopics breakdown
   const safeTopics = topics || [];
   const currentSubjectTopics = safeTopics.filter((t) => t && t.subject === selectedSubject);
   const subjectProgression = calculateSubjectProgression(selectedSubject, safeTopics);
@@ -282,7 +276,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
         </div>
       </div>
 
-      {/* Subject Tabs Row with + Add Custom Topic Button */}
       <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
         {availableSubjectMetas.map((s) => {
           const isSelected = selectedSubject === s.name;
@@ -319,7 +312,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
           );
         })}
 
-        {/* Add Custom Topic Button placed next to the subjects */}
         <button
           onClick={() => {
             setNewSubject(selectedSubject);
@@ -663,7 +655,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   />
                 </div>
 
-                {/* 4. Subtopics count selector + Dynamic typing boxes */}
                 <div className="space-y-3 pt-2 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <label className="text-slate-300 font-semibold">

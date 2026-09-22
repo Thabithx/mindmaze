@@ -312,7 +312,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
   },
 
   // ==========================================
-  // 2. WAVES & SOUND (Questions 6 to 10)
   // ==========================================
   {
     id: 'q-phy-wave-06',
@@ -559,7 +558,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
   },
 
   // ==========================================
-  // 3. THERMAL PHYSICS (Questions 10 to 14)
   // ==========================================
   {
     id: 'q-phy-therm-10',
@@ -747,7 +745,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
   },
 
   // ==========================================
-  // 4. ELECTRICITY & MAGNETISM (Questions 13 to 18)
   // ==========================================
   {
     id: 'q-phy-elec-13',
@@ -1177,7 +1174,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
   },
 
   // ==========================================
-  // 6. MODERN PHYSICS (Questions 20 to 24)
   // ==========================================
   {
     id: 'q-phy-mod-20',
@@ -1362,7 +1358,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
   },
 
   // ==========================================
-  // 7. PROPERTIES OF MATTER (Questions 23 to 30)
   // ==========================================
   {
     id: 'q-phy-prop-23',

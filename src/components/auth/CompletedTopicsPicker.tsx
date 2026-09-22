@@ -9,11 +9,6 @@ interface CompletedTopicsPickerProps {
   onChange: (ids: string[]) => void;
 }
 
-/**
- * Optional sign-up step: mark topics already completed before joining, so
- * the Topic Tracker starts from real progress instead of zero. Everything
- * unchecked = "starting from scratch" (the step is skippable by design).
- */
 export const CompletedTopicsPicker: React.FC<CompletedTopicsPickerProps> = ({
   stream,
   elective,

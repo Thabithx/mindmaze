@@ -13,9 +13,9 @@ export interface AdaptiveLayoutContextType {
   // Device classifications
   deviceType: DeviceType;
   breakpoint: Breakpoint;
-  isMobile: boolean; // < 768px (smartphones)
-  isTablet: boolean; // 768px - 1023px (iPads / tablets)
-  isDesktop: boolean; // >= 1024px (laptops & desktops)
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
   isTouchDevice: boolean;
   isLandscape: boolean;
   isPortrait: boolean;
@@ -24,7 +24,6 @@ export interface AdaptiveLayoutContextType {
   windowWidth: number;
   windowHeight: number;
 
-  // Future-proof helper for any future feature or component
   adaptiveValue: <T>(config: AdaptiveValueConfig<T>) => T;
 
   // Global mobile navigation states
@@ -104,7 +103,6 @@ export const AdaptiveLayoutProvider: React.FC<AdaptiveLayoutProviderProps> = ({ 
   const isLandscape = width > height;
   const isPortrait = !isLandscape;
 
-  // Universal future-proof helper: adaptively returns values based on viewport
   const adaptiveValue = useMemo(() => {
     return <T,>(config: AdaptiveValueConfig<T>): T => {
       if (isMobile) return config.mobile;
@@ -155,10 +153,6 @@ export const AdaptiveLayoutProvider: React.FC<AdaptiveLayoutProviderProps> = ({ 
   );
 };
 
-/**
- * Custom hook to consume adaptive responsive data in any component.
- * Allows current & future components to seamlessly adapt between smartphone and computer.
- */
 export const useAdaptive = (): AdaptiveLayoutContextType => {
   const context = useContext(AdaptiveLayoutContext);
   if (!context) {

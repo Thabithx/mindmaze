@@ -18,8 +18,6 @@ import {
   LogOut,
   LogIn,
   X,
-  Sparkles,
-  Brain,
   Bell,
 } from 'lucide-react';
 
@@ -97,7 +95,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isOpenMobile ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
       >
-        {/* Sidebar Header (Mobile close only, no duplicate logo) */}
         {isOpenMobile && (
           <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06] shrink-0 lg:hidden">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation Menu</span>

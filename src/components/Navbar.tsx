@@ -69,7 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <PWAInstallButton />
         </div>
 
-        {/* Single Profile Icon Button (Desktop / Tablet only - Mobile uses Settings/Profile) */}
         <div className="relative hidden sm:block">
           {userProfile?.isAuthenticated ? (
             <button
@@ -136,7 +135,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Mobile Sidebar Menu Toggle Button on Right */}
         <button
           onClick={onToggleMobileSidebar}
           className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 border border-white/10"

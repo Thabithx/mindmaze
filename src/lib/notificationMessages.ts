@@ -1,18 +1,14 @@
-/**
- * Mind Maze - Motivational & Contextual Notification Message Templates
- * Sri Lankan GCE A/L Study Planner
- */
 
 export interface StudyReminderContext {
   subject: string;
   topicTitle: string;
   subtopic?: string;
-  timeContext?: string; // e.g. "Starting in 15 mins", "Starting right now", "16:00 - 17:30"
+  timeContext?: string;
   currentStreak: number;
   totalTodayTasks: number;
   completedTodayTasks: number;
   remainingTodayTasks: number;
-  currentHour?: number; // 0 - 23
+  currentHour?: number;
 }
 
 export interface NudgeContext {
@@ -41,7 +37,6 @@ function pickRandom<T>(items: T[]): T {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Completion Celebration Messages (when all of today's topics are done)
 // ---------------------------------------------------------------------------
 const COMPLETION_MESSAGES = [
   (ctx: CompletionContext) => ({
@@ -89,7 +84,6 @@ const ONE_LEFT_MESSAGES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 3. Late & Unstarted (0 completed topics and evening/night)
 // ---------------------------------------------------------------------------
 const LATE_UNSTARTED_MESSAGES = [
   (ctx: StudyReminderContext) => ({
@@ -111,7 +105,6 @@ const LATE_UNSTARTED_MESSAGES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 4. Streak of 3+ Days (Active Streak Protection)
 // ---------------------------------------------------------------------------
 const STREAK_KEEPER_MESSAGES = [
   (ctx: StudyReminderContext) => ({
@@ -133,7 +126,6 @@ const STREAK_KEEPER_MESSAGES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 5. General Friendly Study Reminder (Specific Subject & Topic)
 // ---------------------------------------------------------------------------
 const TOPIC_REMINDER_MESSAGES = [
   (ctx: StudyReminderContext) => ({
@@ -155,7 +147,6 @@ const TOPIC_REMINDER_MESSAGES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 6. Periodic Gentle Nudge Messages (when student hasn't opened app in a few hours)
 // ---------------------------------------------------------------------------
 const NUDGE_MESSAGES = [
   (ctx: NudgeContext) => ({
@@ -176,13 +167,9 @@ const NUDGE_MESSAGES = [
   }),
 ];
 
-/**
- * Generates an intelligent, progress-aware study reminder message
- */
 export function generateSmartStudyReminder(ctx: StudyReminderContext): NotificationMessage {
   const currentHour = ctx.currentHour !== undefined ? ctx.currentHour : new Date().getHours();
 
-  // Rule 1: Exactly 1 topic left today
   if (ctx.remainingTodayTasks === 1 && ctx.totalTodayTasks > 1) {
     const chosen = pickRandom(ONE_LEFT_MESSAGES);
     return {
@@ -191,7 +178,6 @@ export function generateSmartStudyReminder(ctx: StudyReminderContext): Notificat
     };
   }
 
-  // Rule 2: 0 topics completed today and it is getting late (>= 17:00 / 5 PM)
   if (ctx.completedTodayTasks === 0 && currentHour >= 17) {
     const chosen = pickRandom(LATE_UNSTARTED_MESSAGES);
     return {
@@ -200,7 +186,6 @@ export function generateSmartStudyReminder(ctx: StudyReminderContext): Notificat
     };
   }
 
-  // Rule 3: On an active streak of 3+ days
   if (ctx.currentStreak >= 3) {
     const chosen = pickRandom(STREAK_KEEPER_MESSAGES);
     return {
@@ -209,7 +194,6 @@ export function generateSmartStudyReminder(ctx: StudyReminderContext): Notificat
     };
   }
 
-  // Rule 4: Default friendly reminder naming the specific topic & subject
   const chosen = pickRandom(TOPIC_REMINDER_MESSAGES);
   return {
     ...chosen(ctx),
@@ -217,9 +201,6 @@ export function generateSmartStudyReminder(ctx: StudyReminderContext): Notificat
   };
 }
 
-/**
- * Generates a congratulatory completion notification when all of today's topics are done
- */
 export function generateCompletionCelebration(ctx: CompletionContext): NotificationMessage {
   const chosen = pickRandom(COMPLETION_MESSAGES);
   return {
@@ -228,9 +209,6 @@ export function generateCompletionCelebration(ctx: CompletionContext): Notificat
   };
 }
 
-/**
- * Generates a periodic gentle nudge message for uncompleted tasks
- */
 export function generatePeriodicNudge(ctx: NudgeContext): NotificationMessage {
   const chosen = pickRandom(NUDGE_MESSAGES);
   return {
@@ -245,7 +223,6 @@ export interface CountdownContext {
 }
 
 // ---------------------------------------------------------------------------
-// Daily A/L countdown (sent once each morning; varies day to day)
 // ---------------------------------------------------------------------------
 const COUNTDOWN_MESSAGES = [
   (days: number) => `${days} days until your A/Ls — keep going!`,
@@ -256,10 +233,6 @@ const COUNTDOWN_MESSAGES = [
   (days: number) => `Only ${days} days until your A/Ls. Make today matter!`,
 ];
 
-/**
- * Generates the daily morning countdown notification. Returns null when
- * there is nothing to send (no date or exam already passed — caller skips).
- */
 export function generateDailyCountdown(
   ctx: CountdownContext
 ): (NotificationMessage & { kind: 'countdown' | 'exam-day' }) | null {

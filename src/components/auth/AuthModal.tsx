@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
-  const [signUpStep, setSignUpStep] = useState<number>(1); // 1: Credentials, 2: Stream, 3: Subjects & Medium, 4: Goals & Preferences
+  const [signUpStep, setSignUpStep] = useState<number>(1);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -117,12 +117,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     {
       name: 'Zara Riham',
       email: 'zararihamofficial@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+      avatar: 'https:
     },
     {
       name: 'Kasun Perera',
       email: 'kasun.al@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+      avatar: 'https:
     },
   ];
 
@@ -134,7 +134,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setShowGooglePicker(false);
 
     if (mode === 'signin') {
-      // Check if user has an existing account in storage
       const registered = getRegisteredUsers();
       const existing = registered.find((u) => u.email.toLowerCase() === acc.email.toLowerCase());
 
@@ -164,7 +163,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onSuccess(userProfile);
       onClose();
     } else {
-      // Sign Up: Advance to Step 2 (Stream & Preferences)
       setSignUpStep(2);
     }
   };
@@ -208,7 +206,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // Find registered account or create authenticated session
     const registered = getRegisteredUsers();
     const match = registered.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
@@ -281,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       syllabus: syllabus,
       medium: medium,
       currentOnlyFilter: syllabus === 'current',
-      xp: 1500, // +100 bonus for completing signup
+      xp: 1500,
       streakDays: 1,
       streakFreezes: 2,
       dailyGoalMCQs: dailyGoalMCQs,
@@ -300,7 +297,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         colors: ['#6B4EFF', '#00F5FF', '#10B981', '#F59E0B'],
       });
     } catch (e) {
-      // ignore
     }
 
     saveSession(finalProfile);
@@ -325,7 +321,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Glow Header Accent */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-400 via-[#6B4EFF] to-emerald-400 z-20" />
 
-        {/* Pinned Top Header: Mode Switcher Tabs + Close Button */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 sm:pt-5 pb-3 border-b border-white/10 relative z-10 flex items-center justify-between gap-3 bg-[#12142B]/95 backdrop-blur-md">
           {!isCompleted ? (
             <div className="flex rounded-xl bg-white/5 p-1 border border-white/10 w-full max-w-xs">
@@ -380,7 +375,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Body: Ensures entire form & buttons are 100% visible on any screen */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
           {/* ========================================================= */}
           {/* GOOGLE ACCOUNT SELECTION MODAL POPUP                      */}
@@ -445,7 +439,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   handleGoogleAccountSelect({
                     name: customName.charAt(0).toUpperCase() + customName.slice(1),
                     email: fallbackEmail,
-                    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+                    avatar: 'https:
                   });
                 }}
                 className="w-full py-3 px-4 rounded-xl border border-dashed border-white/20 text-xs text-slate-400 hover:text-white hover:border-white/40 text-center transition-colors"
@@ -630,7 +624,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* SIGN UP VIEW (WITH STREAM & PREFERENCES IN THE PROCESS!)  */}
         {/* ========================================================= */}
         {mode === 'signup' && !showGooglePicker && !isCompleted && (
           <div className="p-5 sm:p-7 space-y-5">
@@ -664,7 +657,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* STEP 1: Account Credentials */}
             {signUpStep === 1 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -803,7 +795,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* STEP 2: Stream Selection */}
             {signUpStep === 2 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -892,7 +883,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* STEP 3: Subjects & Medium Preferences */}
             {signUpStep === 3 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -974,7 +964,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* STEP 4: Goals & Study Preferences */}
             {signUpStep === 4 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">

@@ -96,7 +96,6 @@ export const ComingSoonModal: React.FC<ComingSoonModalProps> = ({
           Past paper questions, interactive quiz engines, and verified marking schemes for <strong className="text-white">{subjectName}</strong> are currently undergoing expert teacher verification for the 2027 examination sitting.
         </p>
 
-        {/* Highlight Banner: Study Plans are 100% Live */}
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 mb-6 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
             <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -136,7 +135,7 @@ export const ComingSoonModal: React.FC<ComingSoonModalProps> = ({
           )}
 
           <a
-            href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
+            href="https:
             target="_blank"
             rel="noopener noreferrer"
             id="btn-whatsapp-notify"

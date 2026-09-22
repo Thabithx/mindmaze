@@ -22,13 +22,12 @@ export interface StoredUserAccount {
   createdAt: string;
 }
 
-// Default pre-seeded demo accounts for one-click testing
 export const DEMO_ACCOUNTS: StoredUserAccount[] = [
   {
     id: 'demo-maths-1',
     name: 'Kasun Perera',
     email: 'kasun.al@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    avatar: 'https:
     provider: 'google',
     stream: 'Maths',
     selectedSubjects: ['Combined Maths', 'Physics', 'Chemistry'],
@@ -45,7 +44,7 @@ export const DEMO_ACCOUNTS: StoredUserAccount[] = [
     id: 'demo-bio-2',
     name: 'Nethmi Silva',
     email: 'nethmi.bio@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
+    avatar: 'https:
     provider: 'google',
     stream: 'Bio',
     selectedSubjects: ['Biology', 'Physics', 'Chemistry'],
@@ -131,13 +130,12 @@ export function getStoredSession(): UserProfile {
     console.error('Error reading session', e);
   }
 
-  // Default active user for first time visitors
   return {
     ...INITIAL_USER_PROFILE,
     id: 'demo-maths-1',
     name: 'Kasun Perera',
     email: 'kasun.al@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    avatar: 'https:
     provider: 'google',
     isAuthenticated: true,
     medium: 'English',
@@ -173,7 +171,6 @@ export function saveSession(profile: UserProfile): void {
 
 export function clearSession(): UserProfile {
   try {
-    // Explicitly persist the signed-out guest profile so page refresh maintains signed-out state
     localStorage.setItem(SESSION_KEY, JSON.stringify(GUEST_USER_PROFILE));
   } catch (e) {
     console.error('Error clearing session', e);

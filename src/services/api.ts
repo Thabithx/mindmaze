@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https:
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -41,12 +41,10 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Auto-set Content-Type to application/json unless body is FormData
   if (!(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
-  // Use AbortController with 45s timeout to support Render cold starts
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 45000);
 
@@ -61,7 +59,6 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 
     if (!response.ok) {
       if (response.status === 401 && endpoint !== '/auth/login') {
-        // Invalid/expired token (do not clear on login attempt error)
         removeAuthToken();
         removeStoredUser();
       }

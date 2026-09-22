@@ -29,8 +29,8 @@ const DEFAULT_COURSES: Course[] = [
     description: 'Complete video walkthrough of Pure Mathematics Paper I topics with model questions and solved integrals.',
     subject: 'Combined Mathematics',
     stream: 'Physical Science',
-    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    pdfUrl: 'https:
+    videoUrl: 'https:
     quiz: [
       {
         questionText: 'What is the limit of (sin x) / x as x approaches 0?',
@@ -47,8 +47,8 @@ const DEFAULT_COURSES: Course[] = [
     description: 'Master vectors, momentum, work-energy, and circular motion with step-by-step problem sets.',
     subject: 'Physics',
     stream: 'Physical Science',
-    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    pdfUrl: 'https:
+    videoUrl: 'https:
     quiz: [
       {
         questionText: 'Which law defines force as mass times acceleration (F = ma)?',
@@ -65,8 +65,8 @@ const DEFAULT_COURSES: Course[] = [
     description: 'Comprehensive guide covering alkenes, alcohols, carbonyls, and synthesis paths for A/L Paper II.',
     subject: 'Chemistry',
     stream: 'Physical Science',
-    pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    pdfUrl: 'https:
+    videoUrl: 'https:
     quiz: [],
     createdAt: new Date().toISOString(),
   },
@@ -335,7 +335,7 @@ export const CourseCatalogScreen: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Course Grid */
+// /* Course Grid
         <div>
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">

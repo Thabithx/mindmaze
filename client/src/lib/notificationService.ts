@@ -1,6 +1,3 @@
-/**
- * Mind Maze Notification & Study Reminder Service
- */
 import { TimetableEntry, DailyTask } from '../types';
 import { generateSmartStudyReminder, generateDailyCountdown } from './notificationMessages';
 import { getTodayDateString } from './storage';
@@ -22,13 +19,12 @@ export function playStudyChime(): void {
     }
     if (!audioCtx) return;
 
-    // Synthesize a pleasant two-tone study chime: E5 -> B5
     const now = audioCtx.currentTime;
 
     const osc1 = audioCtx.createOscillator();
     const gain1 = audioCtx.createGain();
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(659.25, now); // E5
+    osc1.frequency.setValueAtTime(659.25, now);
     gain1.gain.setValueAtTime(0.15, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
     osc1.connect(gain1);
@@ -39,7 +35,7 @@ export function playStudyChime(): void {
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(987.77, now + 0.15); // B5
+    osc2.frequency.setValueAtTime(987.77, now + 0.15);
     gain2.gain.setValueAtTime(0.2, now + 0.15);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
     osc2.connect(gain2);
@@ -72,10 +68,6 @@ export async function requestBrowserNotificationPermission(): Promise<Notificati
 }
 
 // ---------------------------------------------------------------------------
-// Real Web Push subscription (free: browser vendor push service + VAPID).
-// Call AFTER permission is granted. Reads the session internally so callers
-// (e.g. NotificationPermissionModal) don't need prop drilling.
-// Requires VITE_VAPID_PUBLIC_KEY in .env.
 // ---------------------------------------------------------------------------
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -89,7 +81,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
-/** Current VAPID public key as bytes; null when unconfigured/invalid. */
 function getVapidKeyBytes(): Uint8Array | null {
   try {
     const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
@@ -108,12 +99,6 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-/**
- * True when the subscription was minted with the CURRENT VAPID public key.
- * Some browsers hide applicationServerKey (null) — that counts as a match:
- * the subscription is kept and its server row is re-verified instead of
- * being destroyed on a guess.
- */
 function subscriptionUsesCurrentKey(sub: PushSubscription, keyBytes: Uint8Array): boolean {
   try {
     const raw = (sub.options as PushSubscriptionOptions | undefined)?.applicationServerKey ?? null;
@@ -134,12 +119,6 @@ export function isPushSupported(): boolean {
   );
 }
 
-/**
- * Wait for the active service worker registration, but never hang forever.
- * `navigator.serviceWorker.ready` never resolves when no worker is
- * registered (e.g. registration failed, or DEV mode unregisters workers),
- * which used to freeze push subscribe/unsubscribe indefinitely.
- */
 async function getReadyRegistration(timeoutMs = 3000): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
   try {
@@ -147,23 +126,12 @@ async function getReadyRegistration(timeoutMs = 3000): Promise<ServiceWorkerRegi
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
     const reg = await Promise.race([ready, timeout]);
     if (reg) return reg;
-    // Fallback: an installed-but-not-yet-controlling registration.
     return (await navigator.serviceWorker.getRegistration().catch(() => null)) ?? null;
   } catch {
     return null;
   }
 }
 
-/**
- * Subscribe this browser/device for closed-app push and save it to Supabase.
- * Safe to call repeatedly: reuses a healthy subscription and upserts.
- *
- * AUTO-HEALING: when the existing subscription was minted under a previous
- * VAPID public key (e.g. the key was rotated), the stale subscription is
- * unsubscribed, its server row deleted, and a fresh subscription created —
- * all silently, with no browser-settings trip for the student.
- * Returns true when a subscription is stored.
- */
 export async function subscribeForPush(): Promise<boolean> {
   try {
     if (!isPushSupported()) return false;
@@ -181,25 +149,17 @@ export async function subscribeForPush(): Promise<boolean> {
     const userId = userData.user?.id;
     if (!userId) return false;
 
-    // Ensure a worker is registered first (subscribe needs one; `ready`
-    // alone hangs forever when registration failed, e.g. /sw.js 404).
     let reg = await getReadyRegistration();
     if (!reg) {
       reg = await registerServiceWorker();
     }
     if (!reg) {
-      // DEV-only note: registerServiceWorker() deliberately stays
-      // unregistered under `vite dev`, so the silent granted-repair below
-      // can never succeed on localhost dev — verify it with a production
-      // build (`npm run build` + `npm run preview`) instead.
       if (import.meta.env.DEV) {
         console.info('[Push] No service worker in DEV; skipping silent re-subscribe (expected — test with vite preview).');
       }
       return false;
     }
 
-    // Drop a stale subscription from before a VAPID key rotation: pushes to
-    // it can never be delivered, and subscribing while it exists throws.
     let sub = await reg.pushManager.getSubscription();
     if (sub && !subscriptionUsesCurrentKey(sub, keyBytes)) {
       const staleEndpoint = sub.endpoint;
@@ -207,8 +167,6 @@ export async function subscribeForPush(): Promise<boolean> {
       try {
         await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', staleEndpoint);
       } catch {
-        // Row cleanup is best-effort; the server also prunes dead
-        // endpoints on 404/410 during sends.
       }
       sub = null;
     }
@@ -220,9 +178,6 @@ export async function subscribeForPush(): Promise<boolean> {
           applicationServerKey: keyBytes,
         });
       } catch (subErr) {
-        // Racy stale state (e.g. InvalidStateError: a subscription exists
-        // that getSubscription didn't see): clear once and retry a single
-        // time before giving up.
         try {
           const ghost = await reg.pushManager.getSubscription();
           if (ghost) {
@@ -231,7 +186,6 @@ export async function subscribeForPush(): Promise<boolean> {
             await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', ghostEndpoint);
           }
         } catch {
-          // Best-effort only — fall through to the single retry below.
         }
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -266,13 +220,6 @@ export async function subscribeForPush(): Promise<boolean> {
   }
 }
 
-/**
- * Best-effort cleanup for revoked/denied permission.
- * If the browser permission is no longer granted but a push subscription for
- * this device still exists (e.g. the student revoked it in browser settings),
- * unsubscribe it and delete its row so the server stops sending dead pushes.
- * No-op when permission is still granted or no subscription exists.
- */
 export async function cleanupStalePushSubscription(): Promise<void> {
   try {
     if (!isPushSupported()) return;
@@ -291,9 +238,6 @@ export async function cleanupStalePushSubscription(): Promise<void> {
   }
 }
 
-/**
- * Remove this device's push subscription (call on logout / settings opt-out).
- */
 export async function unsubscribeFromPush(): Promise<void> {
   try {
     if (!isPushSupported()) return;
@@ -312,12 +256,6 @@ export async function unsubscribeFromPush(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared "ask again later" snooze for every Enable-reminders prompt.
-// The floating PushSubscribeBanner AND the Dashboard banner share ONE snooze
-// key, so dismissing either one silences both for 7 days — students are never
-// double-nagged, and never nagged on every app open. Bumping the key suffix
-// re-prompts everyone exactly once after major notification upgrades.
-// A same-tab window event keeps both banners in sync without a reload.
 // ---------------------------------------------------------------------------
 
 const PUSH_PROMPT_SNOOZE_KEY = 'mindmaze_push_banner_dismissed_v2';
@@ -344,33 +282,23 @@ function writeSnooze(key: string): void {
   } catch {}
 }
 
-/** True when the "turn on reminders" prompt was dismissed in the last 7 days. */
 export function isPushPromptSnoozed(): boolean {
   return readSnooze(PUSH_PROMPT_SNOOZE_KEY);
 }
 
-/** Snooze the "turn on reminders" prompt for 7 days (both banners listen). */
 export function snoozePushPrompt(): void {
   writeSnooze(PUSH_PROMPT_SNOOZE_KEY);
 }
 
-/** True when the "reminders are blocked" prompt was dismissed in the last 7 days. */
 export function isBlockedPromptSnoozed(): boolean {
   return readSnooze(BLOCKED_PROMPT_SNOOZE_KEY);
 }
 
-/** Snooze the "reminders are blocked" prompt for 7 days. */
 export function snoozeBlockedPrompt(): void {
   writeSnooze(BLOCKED_PROMPT_SNOOZE_KEY);
 }
 
 // ---------------------------------------------------------------------------
-// Real per-device push status. Settings used to show "Enabled" from
-// Notification.permission alone — a student could look fully subscribed while
-// having NO push subscription row (VAPID key missing in the production build,
-// service worker failed, silent subscribe failure) and closed-app pushes
-// would never arrive. This reports the actual device state so the UI can show
-// "Not connected — reason + Reconnect" instead of a false green tick.
 // ---------------------------------------------------------------------------
 
 export type LocalPushState =
@@ -383,8 +311,6 @@ export type LocalPushState =
   | 'not-synced'
   | 'unknown';
 
-/** True when a VAPID public key was baked into this build. Missing in a
- *  production build (e.g. Vercel env var unset) = subscribe always fails. */
 export function isVapidKeyConfigured(): boolean {
   try {
     return !!((import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) || '').trim();
@@ -393,10 +319,6 @@ export function isVapidKeyConfigured(): boolean {
   }
 }
 
-/**
- * Inspect this device's real closed-app push state. Never throws.
- * 'active' means a live subscription exists AND its server row is present.
- */
 export async function getLocalPushState(): Promise<LocalPushState> {
   try {
     if (!isPushSupported()) return 'unsupported';
@@ -406,8 +328,6 @@ export async function getLocalPushState(): Promise<LocalPushState> {
     if (!reg) return 'no-service-worker';
     const sub = await reg.pushManager.getSubscription().catch(() => null);
     if (!sub) return 'not-subscribed';
-    // Subscription exists locally — is its row on the server? (Owner RLS
-    // policy lets a signed-in student read their own rows.)
     try {
       const { supabase } = await import('./supabaseClient');
       if (!supabase) return 'unknown';
@@ -430,25 +350,15 @@ export async function getLocalPushState(): Promise<LocalPushState> {
 }
 
 // ---------------------------------------------------------------------------
-// Silent background health check. Runs on app load / sign-in and (throttled)
-// when the tab regains focus. Never shows UI and never throws — students who
-// never granted permission keep seeing the existing Enable prompts as before.
 // ---------------------------------------------------------------------------
 
 export type PushHealthStatus = 'healthy' | 'unavailable' | 'skipped' | 'cleaned' | 'unsupported';
 
-/** Minimum gap between background heal passes (explicit sign-in always heals). */
 const HEAL_THROTTLE_MS = 5 * 60 * 1000;
 let lastHealAt = 0;
 
-/** Last permission value reported to the profile (avoids an UPDATE per load). */
 const PERM_REPORT_KEY = 'mindmaze_push_perm_reported';
 
-/**
- * Report this device's live browser permission to the student's profile row
- * (Admin Panel health view). Silent telemetry: skips when signed out or
- * already reported; never throws.
- */
 async function reportPushPermissionToProfile(perm: 'granted' | 'denied' | 'default' | 'unsupported'): Promise<void> {
   try {
     if (localStorage.getItem(PERM_REPORT_KEY) === perm) return;
@@ -456,22 +366,6 @@ async function reportPushPermissionToProfile(perm: 'granted' | 'denied' | 'defau
   } catch {}
 }
 
-/**
- * Ensure this device can receive closed-app push, healing silently:
- * - permission granted → report 'granted' immediately, then drop
- *   VAPID-stale subscriptions and (re)subscribe when the server row is
- *   missing. Throttled unless forced.
- * - permission denied → report 'denied' immediately, then drop any dead
- *   subscription row.
- * - permission default (never asked) → report 'default' so the Admin Panel
- *   can tell a current client apart from an old/never-reporting one, then
- *   do nothing else; existing Enable prompts keep showing as before.
- * - push unsupported → report 'unsupported', nothing else to do.
- *
- * The permission report always fires BEFORE the slower subscription/SW
- * handshake: the profile UPDATE is cheap and must not wait behind (or be
- * lost with) work that can take seconds or be cut off by a tab close.
- */
 export async function ensureHealthyPushSubscription(options?: { force?: boolean }): Promise<PushHealthStatus> {
   try {
     if (!isPushSupported()) {
@@ -499,11 +393,6 @@ export async function ensureHealthyPushSubscription(options?: { force?: boolean 
   }
 }
 
-/**
- * Listen for subscription-rotation notices from the service worker
- * (pushsubscriptionchange). Re-subscribes so push_subscriptions keeps the
- * fresh endpoint. Call once at app startup.
- */
 export function listenForPushSubscriptionChange(): void {
   try {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -519,12 +408,6 @@ export function listenForPushSubscriptionChange(): void {
   }
 }
 
-/**
- * Register Service Worker if available.
- * Production only: registering during local development would let the worker
- * serve stale cached shells and block Vite's dev server / HMR traffic, so in
- * DEV we unregister any leftover workers and stay unregistered.
- */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
@@ -552,9 +435,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
-/**
- * Trigger a native system notification with fallback to audio chime
- */
 export async function sendStudyNotification(
   title: string,
   body: string,
@@ -570,11 +450,6 @@ export async function sendStudyNotification(
   }
 
   try {
-    // Prefer the service worker so the notification also works when the tab
-    // is backgrounded and so taps route via the worker's notificationclick
-    // handler. NOTE: getRegistration() alone returns null on pages the worker
-    // doesn't control yet (first load after install), so wait on `ready`
-    // (bounded — it never resolves without a registration) instead.
     if ('serviceWorker' in navigator) {
       const reg = await getReadyRegistration();
       if (reg) {
@@ -590,7 +465,6 @@ export async function sendStudyNotification(
           } as NotificationOptions);
           return true;
         } catch (swErr) {
-          // Fall through to the plain Notification fallback below.
           console.warn('Service worker showNotification failed, falling back:', swErr);
         }
       }
@@ -610,16 +484,8 @@ export async function sendStudyNotification(
   }
 }
 
-// Track alerted slot IDs so we don't spam duplicate alerts within the same minute
 const alertedSlotIds = new Set<string>();
 
-/**
- * Send the daily A/L countdown notification once each morning.
- *
- * Respects the existing setup: skipped entirely when notifications aren't
- * granted, outside 8:00–22:00 quiet hours, when no exam date is set, or
- * when the exam has passed. One send per calendar day max.
- */
 export function maybeSendDailyCountdown(
   examDateStr: string | null | undefined,
   motivationNote?: string | null
@@ -633,19 +499,15 @@ export function maybeSendDailyCountdown(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const daysLeft = Math.round((target.getTime() - today.getTime()) / 86400000);
-  // Exam passed (yesterday or earlier) — nothing to count down to.
   if (daysLeft < 0) return { sent: false };
 
-  // Morning send at/after 8 AM, never in quiet hours (10 PM - 8 AM).
   const hour = new Date().getHours();
   if (hour < 8 || hour >= 22) return { sent: false };
 
-  // Permission gate — same requirement as every other notification.
   if (!isNotificationSupported() || Notification.permission !== 'granted') {
     return { sent: false };
   }
 
-  // Once per calendar day.
   const todayStr = getTodayDateString();
   try {
     if (localStorage.getItem(COUNTDOWN_SENT_KEY) === todayStr) {
@@ -665,9 +527,6 @@ export function maybeSendDailyCountdown(
   return { sent: true, message: `${msg.title}: ${msg.body}` };
 }
 
-/**
- * Check timetable entries against current local time and trigger smart contextual reminders
- */
 export function checkTimetableReminders(
   entries: TimetableEntry[],
   currentDay: TimetableEntry['dayOfWeek'],
@@ -698,7 +557,6 @@ export function checkTimetableReminders(
     // Calculate target reminder time in minutes
     const reminderTargetMinutes = startMinutes - (entry.reminderOffsetMinutes || 0);
 
-    // If current time matches within 1-minute window
     if (Math.abs(currentMinutesSinceMidnight - reminderTargetMinutes) <= 1) {
       const alertKey = `${entry.id}-${now.toDateString()}-${reminderTargetMinutes}`;
       if (!alertedSlotIds.has(alertKey)) {

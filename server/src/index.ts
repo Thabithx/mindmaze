@@ -21,7 +21,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB Atlas and ensure Admin
 connectDB().then(() => {
   seedAdminUser();
 });
@@ -54,7 +53,6 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/mistakes', mistakeRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Cron Job: Check timetables every minute for upcoming study session reminders
 cron.schedule('* * * * *', async () => {
   try {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -62,7 +60,6 @@ cron.schedule('* * * * *', async () => {
     const currentDay = days[now.getDay()];
     const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    // Find slots matching today and start time
     const slots = await Timetable.find({
       dayOfWeek: currentDay,
       startTime: currentHHMM,

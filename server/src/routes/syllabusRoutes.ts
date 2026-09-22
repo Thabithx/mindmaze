@@ -6,7 +6,6 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 const router = Router();
 
 // @route   GET /api/syllabus/leaderboard
-// @desc    Fast public leaderboard ranking for active students (No auth required)
 router.get('/leaderboard', async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = Math.min(100, Math.max(5, parseInt(String(req.query.limit || '50'), 10)));
@@ -58,7 +57,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
 });
 
 // @route   POST /api/syllabus/update-subtopic
-// @desc    Update progress slider (0-100%) for a subtopic
 router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { topicId, subject, unitNumber, unitTitle, topicTitle, subtopic, progress } = req.body;
@@ -112,10 +110,9 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
 });
 
 // @route   POST /api/syllabus/completed-picker
-// @desc    Bulk mark topics completed during onboarding picker
 router.post('/completed-picker', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { topics } = req.body; // Array of { topicId, subject, unitNumber, topicTitle, subtopics }
+    const { topics } = req.body;
     if (!Array.isArray(topics)) {
       res.status(400).json({ message: 'topics must be an array' });
       return;

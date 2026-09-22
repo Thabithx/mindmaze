@@ -115,7 +115,6 @@ export function App() {
     saveStoredQuizQuestions(updated);
   };
 
-  // Check auth & record daily streak on mount
   useEffect(() => {
     checkCurrentAuth();
     const streakState = recordDailyVisit();
@@ -230,7 +229,6 @@ export function App() {
     setCurrentScreen('dashboard');
   };
 
-  // Convert Mongoose / State to legacy UserProfile shape for components
   const userProfile: UserProfile = {
     name: user?.name || userSettings.studentName || 'A/L Scholar',
     email: user?.email || '',
@@ -276,11 +274,9 @@ export function App() {
           id: currentBlock.id,
         });
 
-        // Automatically redirect to home page timer when scheduled time arrives
         setCurrentScreen('dashboard');
         setIsPomodoroMinimized(false);
 
-        // Dispatch study block reminder email to user if authenticated
         if (user?.email && !emailedBlockIds.includes(currentBlock.id)) {
           setEmailedBlockIds((prev) => [...prev, currentBlock.id]);
           api.sendTimetableReminder({
@@ -318,7 +314,6 @@ export function App() {
     );
   }
 
-  // Find matching syllabus topic and subtopics for active timer
   const activeSyllabusTopic = activePomodoroTopic
     ? syllabusTopics.find(
         (t) =>
@@ -369,7 +364,6 @@ export function App() {
           {/* Home / Dashboard Screen */}
           {currentScreen === 'dashboard' && (
             <div className="space-y-6">
-              {/* Active Timetable Prompt Banner if block is happening now */}
               {activePomodoroTopic && (
                 <div className="glass-card p-4 rounded-2xl border border-indigo-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gradient-to-r from-indigo-950/50 via-purple-950/30 to-slate-900/70 shadow-2xl">
                   <div className="flex items-center gap-3">
@@ -397,7 +391,6 @@ export function App() {
                 </div>
               )}
 
-              {/* Dashboard with embedded PomodoroTimer slot right after Welcome Banner */}
               <DashboardOverview
                 stream={userSettings?.stream || 'Physical Science'}
                 physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
@@ -510,7 +503,6 @@ export function App() {
                         saveStoredSyllabusTopics(updated);
                       }
 
-                      // Mark timetable entry as completed if it was a timetable block
                       if (activePomodoroTopic?.id) {
                         const updatedTimetable = timetable.map(entry => {
                           if (entry.id === activePomodoroTopic.id) {

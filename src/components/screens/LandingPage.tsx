@@ -48,11 +48,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div id="mind-maze-landing-view" className="relative min-h-screen">
-      {/* Decorative ambient brain-logo backdrop — landing page only, non-interactive */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <div className="landing-brain-glow" />
         <img
-          src="/icon-512.png"
+          src="/logo.png"
           alt=""
           width={512}
           height={512}
@@ -116,7 +115,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* THE 3 CORE MODULES (STUDY PLANS, TIMETABLES, DAILY TOPICS) */}
       <section className="relative z-10 py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="text-center mb-8">
@@ -196,7 +194,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* STREAM EXPLORER (ALL 5 GCE A/L STREAMS) */}
       <section className="relative z-10 py-14 border-t border-white/10 bg-white/[0.02]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-10">
@@ -278,7 +275,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <a
-              href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
+              href="https:
               target="_blank"
               rel="noopener noreferrer"
               id="btn-join-whatsapp-hero"
@@ -291,7 +288,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* Footer strictly showing the 3 core items */}
       <footer className="relative z-10 border-t border-white/10 bg-[#161831]/80 backdrop-blur-md py-10 text-slate-400 text-xs">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -325,7 +321,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <a
-              href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
+              href="https:
               target="_blank"
               rel="noopener noreferrer"
               id="btn-join-whatsapp-footer"

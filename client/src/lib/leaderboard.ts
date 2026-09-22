@@ -105,7 +105,6 @@ export async function fetchLeaderboard(
         };
       }
     } catch {
-      // Endpoint error or timeout: fall back gracefully to cache / fallback
     }
 
     const cached = getCachedLeaderboard(period, limit);

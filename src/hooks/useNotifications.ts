@@ -11,11 +11,6 @@ interface UseNotificationsReturn {
   scheduleNotification: (title: string, body: string, delayMs: number, tag?: string) => void;
 }
 
-/**
- * Registers the Mind Maze service worker and exposes OS-level notification
- * helpers.  Works even when the tab is minimised or the screen is locked
- * (the SW receives the SHOW_NOTIFICATION message and triggers the OS popup).
- */
 export function useNotifications(): UseNotificationsReturn {
   const [permission, setPermission] = useState<NotificationPermissionState>('default');
   const [swRegistered, setSwRegistered] = useState(false);
@@ -26,7 +21,6 @@ export function useNotifications(): UseNotificationsReturn {
     'Notification' in window &&
     'serviceWorker' in navigator;
 
-  // Sync permission state with the real browser state
   useEffect(() => {
     if (!isSupported) {
       setPermission('unsupported');
@@ -35,7 +29,6 @@ export function useNotifications(): UseNotificationsReturn {
     setPermission(Notification.permission);
   }, [isSupported]);
 
-  // Register the service worker once on mount
   useEffect(() => {
     if (!isSupported) return;
 
@@ -58,7 +51,6 @@ export function useNotifications(): UseNotificationsReturn {
     }
 
     try {
-      // Support both modern Promise-based and older callback-based Notification.requestPermission()
       let status: NotificationPermission;
       const maybePromise = Notification.requestPermission((res) => {
         if (res) {
@@ -82,10 +74,6 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, []);
 
-  /**
-   * Show an OS notification immediately.  Routes through the SW when available
-   * so the OS can show it even if the page is in the background.
-   */
   const sendNotification = useCallback(
     (title: string, body: string, tag = 'mind-maze') => {
       if (!isSupported || Notification.permission !== 'granted') return;
@@ -100,7 +88,6 @@ export function useNotifications(): UseNotificationsReturn {
           tag,
         });
       } else {
-        // Fallback: direct Notification (works only when tab is focused)
         try {
           new Notification(title, { body, icon: '/icon-192.png', tag });
         } catch {}
@@ -109,10 +96,6 @@ export function useNotifications(): UseNotificationsReturn {
     [isSupported]
   );
 
-  /**
-   * Schedule a notification after `delayMs` milliseconds.
-   * The SW handles the setTimeout internally so it survives tab minimisation.
-   */
   const scheduleNotification = useCallback(
     (title: string, body: string, delayMs: number, tag = 'scheduled') => {
       if (!isSupported || Notification.permission !== 'granted') return;
@@ -127,7 +110,6 @@ export function useNotifications(): UseNotificationsReturn {
           delay: delayMs,
         });
       } else {
-        // Fallback: in-page setTimeout (only works while tab is open)
         setTimeout(() => {
           try {
             new Notification(title, { body, icon: '/icon-192.png', tag });

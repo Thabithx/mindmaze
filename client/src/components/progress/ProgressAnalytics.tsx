@@ -88,9 +88,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   // Weekday names for week calculations (Mon-Sun)
   const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
-  // Week-to-week analysis from daily tasks (actual logged time per calendar date)
   const [weekOffset, setWeekOffset] = useState(0);
-  // daily = 7 day bars for one week; weekly = 7 days collapse into 1 bar per week for comparison
   const [weekChartMode, setWeekChartMode] = useState<'daily' | 'weekly'>('daily');
 
   const taskMinutesOf = (t: DailyTask): number => {
@@ -115,8 +113,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     return 60;
   };
 
-  // Paging bounds: earliest week with any logged task → current week.
-  // Prev stops at the first week the user worked; Next stops at this week.
   const minWeekOffset = useMemo(() => {
     if (!safeDailyTasks || safeDailyTasks.length === 0) return 0;
     try {
@@ -163,8 +159,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
 
     const taskMinutes = taskMinutesOf;
 
-    // Timetable fallback: if a day has no logged daily tasks, use the recurring
-    // timetable template for that weekday so the chart never shows 0 when a plan exists.
     const planMinutesByDay: Record<string, number> = {
       Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0, Sunday: 0,
     };
@@ -183,7 +177,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       const dayTasks = (safeDailyTasks || []).filter((t) => t && t.date === day.dateStr);
       const taskTotalMins = dayTasks.reduce((sum, t) => sum + taskMinutes(t), 0);
       const doneMins = dayTasks.filter((t) => t.isCompleted).reduce((sum, t) => sum + taskMinutes(t), 0);
-      // Fall back to timetable plan when nothing is logged for that date.
       const totalMins = taskTotalMins > 0 ? taskTotalMins : (planMinutesByDay[day.dayName] || 0);
       const fromPlan = taskTotalMins === 0 && (planMinutesByDay[day.dayName] || 0) > 0;
       return {
@@ -210,8 +203,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     return { days: perDay, weekTotal, weekDone, weekLabel, rangeLabel: `${startLabel} – ${endLabel}`, maxHrs, todayStr };
   }, [dailyTasks, dailyGoal, clampedWeekOffset, safeTimetable]);
 
-  // Weekly comparison: every week from the user's first logged week through the
-  // latest week (current week, or furthest planned-task week if ahead of it).
   const weeklyHistory = useMemo(() => {
     const toMonday = (d: Date) => {
       const m = new Date(d);
@@ -228,8 +219,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     const now = new Date();
     const thisMonday = toMonday(now);
 
-    // Default window: last 8 weeks (as before) so short histories still show
-    // empty runway weeks. Extends back to the first logged week when older.
     let startMonday = new Date(thisMonday);
     startMonday.setDate(thisMonday.getDate() - 7 * 7);
     let endMonday = thisMonday;
@@ -286,15 +275,11 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     return { weeks, maxWk };
   }, [safeDailyTasks, weeklyGoal]);
 
-  // Dynamic drag: leftward drag continuously collapses 7 daily bars into weekly bars.
-  // dragProgress 0 = fully daily, 1 = fully weekly. Live during drag, snaps on release.
   const weekScrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({ down: false, startX: 0, startScroll: 0, pointerId: -1, baseProgress: 0 });
   const [weekScrolled, setWeekScrolled] = useState(false);
   const [dragProgress, setDragProgress] = useState(0);
   const [isDraggingWeeks, setIsDraggingWeeks] = useState(false);
-  // Weekly comparison is hidden behind the morph by default (distracting).
-  // Once combined, user can opt into a clean comparison view with no combined bar in front.
   const [showWeeklyComparison, setShowWeeklyComparison] = useState(false);
   const DRAG_RANGE = 220;
   const targetProgress = isDraggingWeeks ? dragProgress : weekChartMode === 'weekly' ? 1 : 0;
@@ -315,7 +300,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       try {
         el.setPointerCapture(e.pointerId);
       } catch {
-        // ignore if capture unsupported
       }
     }
   };
@@ -326,12 +310,10 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     if (Math.abs(dx) < 4) return;
     if (e.pointerType === 'mouse') {
       e.preventDefault();
-      // Still allow inspecting daily bars with small drags; large leftward drag drives collapse.
       if (Math.abs(dx) < 60 && weekChartMode === 'daily') {
         el.scrollLeft = dragState.current.startScroll - dx;
       }
     }
-    // Continuous progress: drag left -> 1 (weekly), drag right -> 0 (daily)
     const raw = dragState.current.baseProgress - dx / DRAG_RANGE;
     const clamped = Math.max(0, Math.min(1, raw));
     setDragProgress(clamped);
@@ -343,17 +325,14 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       try {
         el.releasePointerCapture(dragState.current.pointerId);
       } catch {
-        // ignore
       }
     }
-    // Snap to nearest mode for a dynamic but stable end state.
     const finalProgress = dragProgress;
     if (dragState.current.down) {
       if (finalProgress > 0.5) {
         setWeekChartMode('weekly');
         setWeekScrolled(true);
       } else {
-        // Stay daily unless already weekly and dragged strongly right
         if (weekChartMode === 'weekly' && finalProgress < 0.5) {
           setWeekChartMode('daily');
           setWeekScrolled(false);
@@ -371,13 +350,11 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const onWeekScroll = () => {
     const el = weekScrollRef.current;
     if (!el) return;
-    // Native scroll fallback also drives the contracted glow.
     if (el.scrollWidth > el.clientWidth + 8) {
       setWeekScrolled(el.scrollLeft > 40);
     }
   };
 
-  // Two progress views: content-wise (what you covered) vs time-wise (how long you studied)
   const [activeView, setActiveView] = useState<'content' | 'time'>('content');
 
   return (
@@ -412,7 +389,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* Progress View Switcher: Content-wise vs Time-wise */}
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#161831]/80 p-1.5 backdrop-blur-md w-full sm:w-fit">
         <button
           onClick={() => setActiveView('content')}
@@ -500,7 +476,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
             </div>
           </div>
 
-          {/* Revision habit stat — additive bonus, separate from syllabus % */}
           <div className="rounded-2xl border border-teal-400/30 bg-teal-500/[0.07] p-5 backdrop-blur-md shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-teal-300">🔁 Revision habit (bonus only)</div>
@@ -573,7 +548,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
             </div>
           </div>
 
-          {/* Week Merge Chart — drag so 7 daily bars join one-by-one into 1 bigger weekly bar */}
           <div className="rounded-2xl border border-white/10 bg-[#161831]/80 p-5 backdrop-blur-md shadow-lg space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -683,11 +657,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 {weekData.days.map((day, i) => {
                   const pctTotal = Math.min(100, Math.round((day.totalHours / weekData.maxHrs) * 100));
                   const pctDone = day.totalHours > 0 ? Math.round((day.doneHours / day.totalHours) * 100) : 0;
-                  // Done-hours vs daily goal: below → red, exactly met → yellow, above → green.
                   const goalState =
                     day.doneHours > dailyGoal ? 'above' : day.doneHours >= dailyGoal ? 'met' : 'below';
                   const isToday = day.dateStr === weekData.todayStr;
-                  // One-by-one join: bar i merges during progress window [i/7,(i+1)/7]
                   const rawLocal = Math.max(0, Math.min(1, targetProgress * 7 - i));
                   const local = rawLocal * rawLocal * (3 - 2 * rawLocal);
                   const slotW = 100 / 7;
@@ -756,7 +728,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                     </div>
                   );
                 })}
-                {/* The one bigger weekly bar they merge into */}
                 <div
                   className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-end gap-1 ${isDraggingWeeks ? '' : 'transition-all duration-300 ease-out'}`}
                   style={{ width: '22%', height: '100%', opacity: targetProgress, zIndex: 20, pointerEvents: targetProgress > 0.5 ? 'auto' : 'none' }}
@@ -841,7 +812,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               </span>
             </div>
 
-            {/* Clean weekly comparison — only after combined, only on demand, no combined bar in front */}
             {isCombined && showWeeklyComparison && (
               <div className="rounded-xl border border-cyan-400/30 bg-white/[0.02] p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -984,7 +954,6 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       </div>
       )}
 
-      {/* 🏆 Weekly / Monthly leaderboard — friendly competition on hours */}
       <Leaderboard currentUserId={currentUserId} />
     </div>
   );

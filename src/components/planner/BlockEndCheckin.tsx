@@ -11,7 +11,6 @@ import {
 
 interface BlockEndCheckinProps {
   task: DailyTask;
-  /** All tasks on the same date (for shift-impact previews). */
   dayTasks: DailyTask[];
   onComplete: () => void;
   onExtend: (minutes: number) => void;
@@ -22,12 +21,6 @@ interface BlockEndCheckinProps {
 
 const EXTEND_OPTIONS = [15, 30, 45, 60];
 
-/**
- * End-of-block check-in: fired when a block's end time passes while it is
- * still incomplete. The student picks Completed / Need more time / Move to
- * another time. Extra minutes from an extension count toward Time Progress
- * because the extend handler grows the task's estimatedMinutes.
- */
 export const BlockEndCheckin: React.FC<BlockEndCheckinProps> = ({
   task,
   dayTasks,
@@ -49,7 +42,6 @@ export const BlockEndCheckin: React.FC<BlockEndCheckinProps> = ({
         ? calculateMinutesBetween(task.startTime, task.endTime)
         : 60;
 
-  // Blocks later today that an extension would push forward.
   const extendShiftCount = oldEnd
     ? dayTasks.filter(
         (t) => t.id !== task.id && t.startTime && timeToMinutes(t.startTime) >= timeToMinutes(oldEnd)
@@ -57,7 +49,6 @@ export const BlockEndCheckin: React.FC<BlockEndCheckinProps> = ({
     : 0;
   const extendedEnd = oldEnd ? computeEndTime(oldEnd, extendMins) : '';
 
-  // Blocks a move would overlap (and push forward).
   const moveEnd = computeEndTime(moveStart, duration);
   const moveOverlapCount = dayTasks.filter((t) => {
     if (t.id === task.id || !t.startTime || !t.endTime) return false;

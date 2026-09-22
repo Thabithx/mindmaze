@@ -1,22 +1,6 @@
-/**
- * Client-side guard against Supabase Auth rate limits (HTTP 429).
- *
- * Why this exists: Supabase enforces per-IP / per-email rate limits on
- * signUp, signInWithPassword, resetPasswordForEmail and resend. Students on
- * shared school Wi-Fi or mobile carrier NAT share an egress IP, so even
- * normal use can hit "rate limit exceeded". Retrying immediately only
- * extends the server-side ban (sliding window), so we:
- *
- *  1. Enforce a small minimum gap between attempts per action.
- *  2. On a 429, lock that action until the server window clears and show a
- *     live countdown so users wait instead of hammering retry.
- *  3. Persist the lock in localStorage so a page refresh can't bypass it
- *     (which would worsen the server ban).
- */
 
 export type AuthAction = 'signin' | 'signup' | 'forgot' | 'resend';
 
-/** Minimum quiet gap between two attempts of the same action (seconds). */
 const MIN_GAP_SECONDS: Record<AuthAction, number> = {
   signin: 8,
   signup: 15,
@@ -24,7 +8,6 @@ const MIN_GAP_SECONDS: Record<AuthAction, number> = {
   resend: 60,
 };
 
-/** Fallback lock after a 429 when the server gives no explicit duration. */
 const DEFAULT_LOCK_SECONDS = 60;
 
 const KEY_PREFIX = 'mindmaze_auth_cooldown_';
@@ -47,7 +30,6 @@ function readExpiry(action: AuthAction): number {
   }
 }
 
-/** Seconds left before this action may be tried again (0 = allowed). */
 export function getCooldownRemaining(action: AuthAction): number {
   const left = Math.ceil((readExpiry(action) - nowMs()) / 1000);
   return left > 0 ? left : 0;
@@ -57,25 +39,20 @@ function setExpiry(action: AuthAction, seconds: number): void {
   try {
     localStorage.setItem(keyFor(action), String(nowMs() + seconds * 1000));
   } catch {
-    // Storage unavailable — cooldown simply won't survive reload.
   }
 }
 
-/** Record a (non-rate-limited) attempt so rapid double-taps are spaced out. */
 export function recordAttempt(action: AuthAction): void {
-  // Don't shorten an existing 429 lock.
   if (getCooldownRemaining(action) <= 0) {
     setExpiry(action, MIN_GAP_SECONDS[action]);
   }
 }
 
-/** Lock an action after the server answered 429. */
 export function recordRateLimit(action: AuthAction, seconds?: number): void {
   const wait = Math.max(1, Math.min(600, Math.round(seconds ?? DEFAULT_LOCK_SECONDS)));
   setExpiry(action, wait);
 }
 
-/** True when the server error looks like a rate-limit / too-many-requests. */
 export function isRateLimitError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -92,7 +69,6 @@ export function isRateLimitError(message: string): boolean {
   );
 }
 
-/** True when the limit is about *sending emails* (signup/resend/recovery). */
 export function isEmailRateLimit(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -103,11 +79,6 @@ export function isEmailRateLimit(message: string): boolean {
   );
 }
 
-/**
- * Pull the "wait N seconds" hint out of Supabase messages such as
- * "For security purposes, you can only request this after 48 seconds."
- * Returns null when no duration is mentioned.
- */
 export function parseWaitSeconds(message: string): number | null {
   const lower = message.toLowerCase();
   const m = lower.match(/after\s+(\d+)\s*second/);
@@ -119,7 +90,6 @@ export function parseWaitSeconds(message: string): number | null {
   return null;
 }
 
-/** User-facing message for a rate-limit error, with the wait baked in. */
 export function rateLimitMessage(message: string, fallbackWait = DEFAULT_LOCK_SECONDS): string {
   const wait = parseWaitSeconds(message) ?? fallbackWait;
   if (isEmailRateLimit(message)) {
@@ -135,7 +105,6 @@ export function rateLimitMessage(message: string, fallbackWait = DEFAULT_LOCK_SE
   );
 }
 
-/** Message shown when the client-side cooldown blocks an attempt. */
 export function cooldownMessage(action: AuthAction): string {
   const left = getCooldownRemaining(action);
   if (action === 'forgot' || action === 'resend') {

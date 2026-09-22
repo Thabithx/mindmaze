@@ -8,7 +8,7 @@ export interface BeforeInstallPromptEvent extends Event {
 const PWA_INSTALLED_KEY = 'mindmaze_pwa_installed';
 const PWA_CARD_DISMISSED_KEY = 'mindmaze_pwa_card_dismissed';
 const IOS_DISMISS_KEY = 'mindmaze_pwa_ios_dismissed_at';
-const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -19,7 +19,6 @@ export function usePWAInstall() {
   const [isIOSDismissed, setIsIOSDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if previously marked as installed in localStorage
     let storedInstalled = false;
     try {
       storedInstalled = localStorage.getItem(PWA_INSTALLED_KEY) === 'true';
@@ -27,15 +26,13 @@ export function usePWAInstall() {
       // Ignore localStorage errors
     }
 
-    // Detect standalone display mode (running as installed PWA)
     const isStandalone =
       storedInstalled ||
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-      document.referrer.includes('android-app://');
+      document.referrer.includes('android-app:
     setIsInstalled(isStandalone);
 
-    // Check if user dismissed the dashboard promo card
     try {
       const cardDismissed = localStorage.getItem(PWA_CARD_DISMISSED_KEY) === 'true';
       setIsCardDismissed(cardDismissed);
@@ -56,7 +53,6 @@ export function usePWAInstall() {
       !/crios|fxios|optios|edgios|chrome/.test(userAgent);
     setIsIOSSafari(isSafariBrowser);
 
-    // Check if user previously dismissed the iOS install banner
     try {
       const storedDismissedTime = localStorage.getItem(IOS_DISMISS_KEY);
       if (storedDismissedTime) {
@@ -69,11 +65,9 @@ export function usePWAInstall() {
         }
       }
     } catch {
-      // localStorage may fail in strict privacy settings
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent standard browser mini-infobar and save prompt event for our custom button
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
@@ -90,7 +84,6 @@ export function usePWAInstall() {
       }
     };
 
-    // Watch for dynamic display-mode changes (e.g. Chrome launches window into standalone)
     const mediaQuery = window.matchMedia('(display-mode: standalone)');
     const handleDisplayModeChange = (e: MediaQueryListEvent) => {
       if (e.matches) {

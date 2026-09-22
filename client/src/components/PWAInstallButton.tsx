@@ -23,12 +23,10 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [showDesktopHelp, setShowDesktopHelp] = useState(false);
 
-  // If already running as an installed PWA, hide the button and bar completely
   if (isInstalled) {
     return null;
   }
 
-  // If the user dismissed the card on the dashboard, hide the card
   if (variant === 'card' && isCardDismissed) {
     return null;
   }
@@ -44,7 +42,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     }
   };
 
-  // If not installable via beforeinstallprompt and not iOS, only show in 'card' variant on Dashboard for user education
   if (!isInstallable && !isIOS && variant !== 'card') {
     return null;
   }
@@ -64,7 +61,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           <span className="sm:hidden">{isIOS ? 'iOS' : 'Install'}</span>
         </button>
 
-        {/* iOS Safari Modal */}
         {showIOSGuide && <IOSGuideModal onClose={() => setShowIOSGuide(false)} />}
       </>
     );

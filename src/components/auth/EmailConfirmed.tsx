@@ -12,13 +12,6 @@ function goTo(path: string) {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-/**
- * Target of the Supabase "Confirm signup" email link (set the template's
- * redirect to `{{ .SiteURL }}/confirmed`). Exchanges the verification code
- * (PKCE ?code=…), verifies ?token_hash=… links, or picks up implicit
- * #access_token links, then shows a clear success state instead of dropping
- * the student back on the sign-up form in a confusing new tab.
- */
 export const EmailConfirmed: React.FC = () => {
   const [status, setStatus] = useState<ConfirmStatus>('verifying');
   const [detail, setDetail] = useState<string | null>(null);
@@ -37,32 +30,25 @@ export const EmailConfirmed: React.FC = () => {
       try {
         const url = new URL(window.location.href);
         const hash = window.location.hash || '';
-        // Surface Supabase error params (expired / used link) instead of
-        // spinning forever.
         const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
         const errorDesc =
           url.searchParams.get('error_description') ||
           hashParams.get('error_description') ||
           url.searchParams.get('error') ||
           hashParams.get('error');
-        // 1) PKCE flow: ?code=… — exchange it for a session.
         if (url.searchParams.has('code')) {
           try {
             const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
             if (error) throw error;
           } catch (err) {
-            // Expired/used link — fall through to the session check below.
             if (err instanceof Error && err.message) setDetail(err.message);
             else if (errorDesc) setDetail(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
           }
-          // Keep the URL clean once the code is consumed.
           try {
             window.history.replaceState({}, '', '/confirmed');
           } catch {}
         } else if (url.searchParams.has('token_hash')) {
           // 2) token_hash flow (?token_hash=…&type=signup|email_change):
-          //    verify directly. Recovery hashes are left to the app's
-          //    PASSWORD_RECOVERY handler (shows the new-password form).
           const tokenHash = url.searchParams.get('token_hash') || '';
           const type = (url.searchParams.get('type') || 'signup').toLowerCase();
           if (type === 'recovery') {
@@ -72,8 +58,6 @@ export const EmailConfirmed: React.FC = () => {
             } catch (err) {
               if (err instanceof Error && err.message) setDetail(err.message);
             }
-            // App's onAuthStateChange will flip to update-password; keep the
-            // URL clean but don't force a confirmed state here.
             try {
               window.history.replaceState({}, '', '/confirmed');
             } catch {}
@@ -96,8 +80,6 @@ export const EmailConfirmed: React.FC = () => {
         } else if (errorDesc) {
           setDetail(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
         }
-        // 3) Implicit flow (#access_token=…): detectSessionInUrl picks it up
-        //    automatically; getSession below then succeeds.
         const { data } = await supabase.auth.getSession();
         finish(!!data.session);
       } catch {
@@ -106,19 +88,14 @@ export const EmailConfirmed: React.FC = () => {
     };
 
     void settle();
-    // The client may finish exchanging the session asynchronously — flip to
-    // confirmed as soon as the SIGNED_IN event arrives. Recovery links flip
-    // the app to the new-password form instead (handled by App).
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         finish(true);
       }
       if (event === 'PASSWORD_RECOVERY') {
-        // Let App render the update-password screen; stop spinning here.
         finish(false);
       }
     });
-    // Safety net: never spin forever on an expired/used link.
     const timer = setTimeout(async () => {
       try {
         const { data } = await supabase.auth.getSession();

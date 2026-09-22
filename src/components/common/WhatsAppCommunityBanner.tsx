@@ -33,7 +33,7 @@ export const WhatsAppCommunityBanner: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href="https://chat.whatsapp.com/invite/mindmaze-al-community"
+            href="https:
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[11px] transition shadow-md shadow-emerald-500/20 hover:scale-105 active:scale-95"

@@ -144,7 +144,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* ⏱️ POMODORO TIMER (Right after Welcome Banner) */}
       {pomodoroSlot && (
         <div className="animate-fadeIn">
           {pomodoroSlot}
@@ -206,9 +205,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </button>
       </div>
 
-      {/* 📊 MAIN WORKSPACE: SYLLABUS PROGRESS & TODAY'S SCHEDULE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Overall Syllabus Progress */}
         <div className="lg:col-span-2 glass-card rounded-3xl p-6 space-y-6 shadow-xl">
           <div className="flex items-center justify-between">
             <div>
@@ -280,7 +277,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Today's Timetable Summary + Install App Card */}
         <div className="lg:col-span-1 space-y-6">
           <div className="glass-card rounded-3xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
             <div className="space-y-4">
@@ -349,7 +345,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </button>
           </div>
 
-          {/* Install App Widget neatly aligned below Today's Schedule */}
           <PWAInstallButton variant="card" />
         </div>
       </div>

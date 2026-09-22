@@ -2,20 +2,15 @@ import { DailyTask } from '../types';
 import { supabase } from './supabaseClient';
 import { calculateMinutesBetween, getTodayDateString } from './storage';
 
-/** Global daily study goal set by an admin (applies to every student). */
 export interface DailyTarget {
-  /** Hours of completed study blocks per day. */
   hours: number;
-  /** Completed tasks per day. */
   tasks: number;
-  /** WhatsApp channel URL for the daily quiz. */
   quizChannelUrl: string;
-  /** True when loaded from the cloud (false = local fallback). */
   fromCloud: boolean;
 }
 
 export const DEFAULT_QUIZ_CHANNEL_URL =
-  'https://whatsapp.com/channel/0029Vb8OnJGCRs1fpYosgU1z';
+  'https:
 
 export const DEFAULT_DAILY_TARGET: DailyTarget = {
   hours: 2,
@@ -33,7 +28,6 @@ function clampTarget(n: unknown, fallback: number): number {
   return Math.max(0, Math.min(24, Math.round(v * 10) / 10));
 }
 
-/** Local mirror of the last-known global target (offline fallback). */
 export function getStoredDailyTarget(): DailyTarget {
   try {
     const raw = localStorage.getItem(TARGET_STORE_KEY);
@@ -60,14 +54,9 @@ export function saveStoredDailyTarget(t: DailyTarget): void {
       JSON.stringify({ hours: t.hours, tasks: t.tasks, quizChannelUrl: t.quizChannelUrl })
     );
   } catch {
-    /* private mode — in-memory behaviour only */
   }
 }
 
-/**
- * Load the admin-set global target. Returns the local mirror when the cloud
- * is unconfigured, offline, or the migration hasn't been run yet.
- */
 export async function fetchDailyTarget(): Promise<DailyTarget> {
   const fallback = getStoredDailyTarget();
   if (!supabase) return fallback;
@@ -90,7 +79,6 @@ export async function fetchDailyTarget(): Promise<DailyTarget> {
   }
 }
 
-/** Admin-only: persist the global daily target (throws for non-admins). */
 export async function updateDailyTarget(hours: number, tasks: number): Promise<DailyTarget> {
   if (!supabase) throw new Error('Cloud sync is not configured on this device.');
   const cleanHours = clampTarget(hours, NaN);
@@ -107,7 +95,6 @@ export async function updateDailyTarget(hours: number, tasks: number): Promise<D
 }
 
 // ---------------------------------------------------------------------------
-// Progress math (shared by the dashboard card + admin panel)
 // ---------------------------------------------------------------------------
 
 export function taskMinutesOf(t: DailyTask): number {
@@ -119,7 +106,7 @@ export function taskMinutesOf(t: DailyTask): number {
       const m = calculateMinutesBetween(t.startTime, t.endTime);
       if (m > 0) return m;
     } catch {
-      /* fall through */
+// /* fall through
     }
   }
   return 60;
@@ -135,7 +122,6 @@ export interface DayProgress {
   targetMet: boolean;
 }
 
-/** Today's completed tasks/minutes vs the global daily target. */
 export function computeDayProgress(
   allTasks: DailyTask[],
   target: DailyTarget,
@@ -160,8 +146,6 @@ export function computeDayProgress(
 }
 
 // ---------------------------------------------------------------------------
-// In-app quiz reminders: 12:00 & 17:00 local time (the closed-app push twin
-// lives in supabase/functions/send-push — same slots, same channel link).
 // ---------------------------------------------------------------------------
 
 export type QuizSlot = 'noon' | 'evening';
@@ -183,10 +167,6 @@ function readQuizSeen(): Record<string, string> {
   }
 }
 
-/**
- * Once-per-slot-per-day check for the open-app quiz reminder. Returns the
- * due slot, or null when outside the windows or already shown today.
- */
 export function checkDueQuizReminder(now: Date = new Date()): { slot: QuizSlot; dateStr: string } | null {
   const slot = currentQuizSlot(now);
   if (!slot) return null;
@@ -204,12 +184,11 @@ export function markQuizReminderSeen(dateStr: string, slot: QuizSlot): void {
     const seen = readQuizSeen();
     const prev = seen[dateStr];
     seen[dateStr] = prev && prev !== slot ? 'both' : slot;
-    // Keep the last 7 days only.
     const keys = Object.keys(seen).sort();
     while (keys.length > 7) delete seen[keys.shift()!];
     localStorage.setItem(QUIZ_SEEN_KEY, JSON.stringify(seen));
   } catch {
-    /* non-fatal */
+// /* non-fatal
   }
 }
 

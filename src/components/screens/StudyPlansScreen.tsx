@@ -103,7 +103,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      // ignore
     }
     return ALL_STREAM_TIMETABLES[s] || ALL_STREAM_TIMETABLES.Maths;
   });
@@ -120,7 +119,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     try {
       localStorage.setItem(`al_timetable_${selectedStream}`, JSON.stringify(timetable));
     } catch (e) {
-      // ignore
     }
   }, [timetable, selectedStream]);
 
@@ -140,7 +138,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
         }
       }
     } catch (e) {
-      // ignore
     }
     setTimetable(streamTimetable);
 
@@ -208,7 +205,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
   const [newTopicTargetMCQs, setNewTopicTargetMCQs] = useState(15);
 
   // Focus Timer / Pomodoro state
-  const [timerDuration, setTimerDuration] = useState<number>(25 * 60); // default 25 min in seconds
+  const [timerDuration, setTimerDuration] = useState<number>(25 * 60);
   const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [activeTimerLabel, setActiveTimerLabel] = useState('25m Focus Sprint');
@@ -300,7 +297,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     );
   };
 
-  // Insert a new row directly into spreadsheet
   const handleInsertRow = (targetDay?: TimetableSlot['dayOfWeek']) => {
     const day = targetDay || (selectedDay === 'All' ? 'Monday' : selectedDay);
     const newSlot: TimetableSlot = {
@@ -350,7 +346,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     try {
       localStorage.removeItem(`al_timetable_${selectedStream}`);
     } catch (e) {
-      // ignore
     }
     setSelectedRowId(defaultTimetable[0]?.id || null);
     setActiveCell({ slotId: defaultTimetable[0]?.id || '', colKey: 'topic' });
@@ -385,7 +380,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Copy table as TSV directly to clipboard (for pasting in Excel / Sheets)
   const handleCopyTSV = () => {
     const headers = ['#', 'Status', 'Day', 'Start Time', 'End Time', 'Subject', 'Topic', 'Activity', 'MCQ Target', 'Notes'];
     const rows = processedSlots.map((s, idx) => [
@@ -450,7 +444,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       prev.map((t) => {
         if (t.id === topicId) {
           const updated = { ...t, [field]: !t[field] };
-          // If all 3 done, status is completed
           if (updated.isTheoryReviewed && updated.isFormulasLocked && updated.isMCQsCompleted) {
             updated.status = 'completed';
           } else {
@@ -503,7 +496,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     if (onUpdateXP) onUpdateXP(15);
   };
 
-  // Filtered and processed timetable slots for Excel spreadsheet & views
   const processedSlots = timetable
     .filter((s) => {
       const matchDay = selectedDay === 'All' || s.dayOfWeek === selectedDay;
@@ -532,10 +524,8 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
         : String(valB).localeCompare(String(valA));
     });
 
-  // Backward compatibility alias for views that use filteredSlots
   const filteredSlots = processedSlots;
 
-  // Active cell coordinate in Excel notation (e.g. F3)
   const getActiveCellCoordinate = () => {
     if (!activeCell) return 'A1';
     const rowIndex = processedSlots.findIndex((s) => s.id === activeCell.slotId);
@@ -595,7 +585,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
 
   return (
     <div id="mind-maze-study-plans-screen" className="space-y-8 pb-16 max-w-6xl mx-auto">
-      {/* Top Banner with Quick Stats & Timer Bar */}
       <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#171936] via-[#1F1E4A] to-[#12142E] p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden shadow-2xl">
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-[#6B4EFF]/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-[#00F5FF]/15 rounded-full blur-3xl pointer-events-none" />
@@ -817,7 +806,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* TAB 1: REVISION STUDY PLANS & PHASES */}
       {/* ========================================================= */}
       {activeTab === 'plans' && (
         <div className="space-y-8 animate-fade-in">
@@ -939,7 +927,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
             </div>
           </div>
 
-          {/* Switch / Explore Other Curated Study Plans */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1010,13 +997,11 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* TAB 2: INTERACTIVE WEEKLY TIMETABLE */}
       {/* ========================================================= */}
       {activeTab === 'timetable' && (
         <div className="space-y-6 animate-fade-in">
           {/* Day Selector & Action Bar */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            {/* Days of Week Pills + All Week (Horizontally scrollable on mobile, flex on desktop) */}
             <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md overflow-x-auto max-w-full">
               <button
                 onClick={() => setSelectedDay('All')}
@@ -1066,7 +1051,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
               })}
             </div>
 
-            {/* View switcher, Subject filter & Add Slot button */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* View Mode Toggle */}
               <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 text-xs">
@@ -1195,7 +1179,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
           ) : (
             <>
               {/* ========================================================= */}
-              {/* OPTION 1: EXCEL SPREADSHEET TABLE VIEW (CONTROLLABLE) */}
               {/* ========================================================= */}
               {timetableViewMode === 'table' && (
                 <div className="rounded-2xl border border-emerald-500/30 bg-[#0F141E] shadow-2xl overflow-hidden backdrop-blur-xl">
@@ -1522,7 +1505,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 {rowNum}
                               </td>
 
-                              {/* Col A: Status (Checkbox / Done Toggle) */}
                               <td className={`${cellStyle('isCompleted')} py-2 px-2 text-center`}>
                                 <button
                                   onClick={(e) => {
@@ -1548,7 +1530,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 </button>
                               </td>
 
-                              {/* Col B: Day (Inline Dropdown) */}
                               <td className={`${cellStyle('dayOfWeek')} py-1.5 px-2`}>
                                 <select
                                   value={slot.dayOfWeek}
@@ -1569,7 +1550,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 </select>
                               </td>
 
-                              {/* Col C: Start Time (Inline Input) */}
                               <td className={`${cellStyle('startTime')} py-1.5 px-2`}>
                                 <input
                                   type="text"
@@ -1586,7 +1566,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 />
                               </td>
 
-                              {/* Col D: End Time (Inline Input) */}
                               <td className={`${cellStyle('endTime')} py-1.5 px-2`}>
                                 <input
                                   type="text"
@@ -1603,7 +1582,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 />
                               </td>
 
-                              {/* Col E: Subject (Inline Dropdown) */}
                               <td className={`${cellStyle('subject')} py-1.5 px-2`}>
                                 <select
                                   value={slot.subject}
@@ -1640,7 +1618,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 </select>
                               </td>
 
-                              {/* Col F: Topic & Syllabus Focus (Direct Editable Input) */}
                               <td className={`${cellStyle('topic')} py-1.5 px-2`}>
                                 <input
                                   type="text"
@@ -1659,7 +1636,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 />
                               </td>
 
-                              {/* Col G: Activity Type (Inline Dropdown) */}
                               <td className={`${cellStyle('activityType')} py-1.5 px-2`}>
                                 <select
                                   value={slot.activityType}
@@ -1697,7 +1673,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 </select>
                               </td>
 
-                              {/* Col H: Target MCQs (Inline Number Input) */}
                               <td className={`${cellStyle('targetMCQCount')} py-1.5 px-2 text-center`}>
                                 <input
                                   type="number"
@@ -1716,7 +1691,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                                 />
                               </td>
 
-                              {/* Col I: Notes / Hints (Inline Input) */}
                               <td className={`${cellStyle('notes')} py-1.5 px-2`}>
                                 <input
                                   type="text"
@@ -1821,7 +1795,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
               )}
 
               {/* ========================================================= */}
-              {/* OPTION 2: WEEKLY 7-DAY TIMETABLE GRID MATRIX */}
               {/* ========================================================= */}
               {timetableViewMode === 'weekly-grid' && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-xl">
@@ -1963,7 +1936,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
               )}
 
               {/* ========================================================= */}
-              {/* OPTION 3: ORIGINAL CARDS VIEW (PRESERVED) */}
               {/* ========================================================= */}
               {timetableViewMode === 'cards' && (
                 <div className="space-y-3">
@@ -2074,7 +2046,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* TAB 3: DAILY COVER TOPICS (SYLLABUS CHECKLIST & DRILLS) */}
       {/* ========================================================= */}
       {activeTab === 'daily-topics' && (
         <div className="space-y-6 animate-fade-in">
@@ -2287,7 +2258,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
                       )}
                     </button>
 
-                    {/* Checkbox 3: Target MCQs */}
                     <button
                       onClick={() => handleToggleTopicItem(topic.id, 'isMCQsCompleted')}
                       className={`p-3 rounded-2xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
@@ -2315,7 +2285,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: ADD CUSTOM TIMETABLE SLOT */}
       {/* ========================================================= */}
       {isAddSlotModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -2459,7 +2428,6 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: ADD CUSTOM DAILY COVER TOPIC */}
       {/* ========================================================= */}
       {isAddTopicModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">

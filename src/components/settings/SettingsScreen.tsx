@@ -102,7 +102,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [testSent, setTestSent] = useState(false);
 
-  // Sync state when currentUser / settings change
   useEffect(() => {
     if (currentUser) {
       setName(currentUser.name || '');
@@ -124,7 +123,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Guard: require sign in to save profile
     if (!currentUser && !userProfile?.isAuthenticated) {
       if (onOpenAuthModal) {
         onOpenAuthModal('signin');
@@ -134,7 +132,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       return;
     }
 
-    // Password validation if attempting to change password
     if (showPasswordSection && newPassword) {
       if (newPassword.length < 6) {
         setErrorMessage('New password must be at least 6 characters long.');
@@ -343,7 +340,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       {/* Main Profile & Settings Form */}
       <form onSubmit={handleSaveProfile} className="space-y-6">
-        {/* Section 1: Personal & Contact Information */}
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-5">
           <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
             <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">
@@ -482,7 +478,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           )}
         </div>
 
-        {/* Section 2: A/L Stream & Subject Choice */}
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-5">
           <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
             <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
@@ -529,7 +524,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
 
-        {/* Section 3: Exam Target & Academic Goals */}
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-5">
           <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
             <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300">
@@ -635,7 +629,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Device & OS Notification Settings */}
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-4">
           <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
             <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">

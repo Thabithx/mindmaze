@@ -8,7 +8,6 @@ import { sendAdminBroadcastEmail, sendTestEmail } from '../services/emailService
 const router = Router();
 
 // @route   GET /api/admin/users
-// @desc    Get all registered users & study stats
 router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
@@ -19,7 +18,6 @@ router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response)
 });
 
 // @route   PUT /api/admin/users/:id/role
-// @desc    Change user role (student <-> admin)
 router.put('/users/:id/role', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { role } = req.body;
@@ -43,7 +41,6 @@ router.put('/users/:id/role', protect, adminOnly, async (req: AuthRequest, res: 
 });
 
 // @route   PUT /api/admin/users/:id/status
-// @desc    Toggle user active status (Active / Blocked)
 router.put('/users/:id/status', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { isActive } = req.body;
@@ -62,7 +59,6 @@ router.put('/users/:id/status', protect, adminOnly, async (req: AuthRequest, res
 });
 
 // @route   POST /api/admin/broadcast-email
-// @desc    Send broadcast email to all or selected users
 router.post('/broadcast-email', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, message, targetRole } = req.body;
@@ -97,7 +93,6 @@ router.post('/broadcast-email', protect, adminOnly, async (req: AuthRequest, res
 });
 
 // @route   POST /api/admin/test-email
-// @desc    Send test verification email to admin or target address
 router.post('/test-email', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const targetEmail = req.body?.email || req.user?.email || 'mowequar@gmail.com';
@@ -133,7 +128,6 @@ router.get('/stats', protect, adminOnly, async (req: AuthRequest, res: Response)
 });
 
 // @route   GET /api/admin/export-csv
-// @desc    Export student progress report in CSV format
 router.get('/export-csv', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });

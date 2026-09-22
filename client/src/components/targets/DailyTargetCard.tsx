@@ -11,16 +11,10 @@ import { getTodayDateString } from '../../lib/storage';
 
 interface DailyTargetCardProps {
   tasks: DailyTask[];
-  /** Student's personal hours goal — shown when no admin target is set. */
   personalHoursGoal?: number;
   onOpenPlanner: () => void;
 }
 
-/**
- * 🎯 Daily Target card: the admin-set global goal (hours + tasks per day)
- * with live progress, plus the daily-quiz channel CTA. Falls back to the
- * student's own Settings goal when the cloud target is unavailable.
- */
 export const DailyTargetCard: React.FC<DailyTargetCardProps> = ({
   tasks,
   personalHoursGoal = 2,

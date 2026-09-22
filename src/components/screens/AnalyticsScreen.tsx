@@ -121,7 +121,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 <span>Switch to Live Physics</span>
               </button>
               <a
-                href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
+                href="https:
                 target="_blank"
                 rel="noopener noreferrer"
                 className="py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
@@ -167,7 +167,6 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
         </div>
       </div>
 
-      {/* Main Section: Interactive Topic Mastery Bar Chart */}
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md space-y-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
           <div>
@@ -277,7 +276,6 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 <span className="text-purple-300 text-xs font-semibold">{item.subject}</span>
               </div>
 
-              {/* Exact user request repeat tracker example format */}
               <div className="rounded-xl bg-white/10 p-3 border border-white/5 text-xs text-slate-300">
                 <div className="text-amber-300 font-semibold mb-1 flex items-center gap-1">
                   <span>📅 Historical Appearance:</span>

@@ -132,7 +132,6 @@ export const FeatureComingSoonScreen: React.FC<FeatureComingSoonScreenProps> = (
             </p>
           </div>
 
-          {/* Live Feature Banner: Promoting Study Plans */}
           <div className="text-left rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5 space-y-3">
             <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-300">
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />

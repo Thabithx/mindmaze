@@ -3,13 +3,12 @@ import { Lock, RotateCw } from 'lucide-react';
 
 type BrowserKind = 'chrome' | 'edge' | 'safari' | 'firefox' | 'other';
 
-/** Best-effort browser detection for tailored re-enable instructions. */
 export function detectBrowserKind(): BrowserKind {
   try {
     const ua = window.navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) return 'safari';
-    if (/edg\//.test(ua)) return 'edge';
+    if (/edg\
     if (/firefox|fxios/.test(ua)) return 'firefox';
     if (/safari/.test(ua) && !/chrome|crios|chromium/.test(ua)) return 'safari';
     if (/chrome|crios|chromium/.test(ua)) return 'chrome';
@@ -69,10 +68,6 @@ interface BrowserReenableStepsProps {
   compact?: boolean;
 }
 
-/**
- * Step-by-step instructions for turning notifications back on after they
- * were blocked at the browser level (where our in-app button can't help).
- */
 export const BrowserReenableSteps: React.FC<BrowserReenableStepsProps> = ({ compact = false }) => {
   const kind = detectBrowserKind();
   const { label, steps } = STEPS[kind];

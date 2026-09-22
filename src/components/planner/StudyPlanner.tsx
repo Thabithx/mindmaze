@@ -88,7 +88,6 @@ const DAYS_OF_WEEK: DayOfWeek[] = [
 ];
 
 
-
 const QUICK_DURATIONS = [30, 60, 90, 120, 180, 240];
 
 const toHHMM = (mins: number) => {
@@ -96,11 +95,6 @@ const toHHMM = (mins: number) => {
   return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
 };
 
-/**
- * Suggests the next free start time: after the day's last block, or the next
- * whole hour when looking at today — clamped to 05:00–22:00. End defaults to
- * +60 min. Keeps the "what time?" decision to zero taps in the common case.
- */
 function suggestSlot(dayBlocks: TimetableEntry[], viewingToday: boolean): { start: string; end: string } {
   const FALLBACK = { start: '16:00', end: '17:00' };
   try {
@@ -186,13 +180,11 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     try {
       localStorage.setItem('mindmaze_planner_view', mode);
     } catch {
-      /* storage unavailable — view toggle still works in-memory */
     }
   };
 
   const availableSubjects = getSubjectsForStream(activeStream, activeElective);
 
-  // ---- Single Add / Edit modal state ----
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
   const [formTitle, setFormTitle] = useState('');
@@ -208,9 +200,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   const [formNotes, setFormNotes] = useState('');
   const [formTimeError, setFormTimeError] = useState('');
   const [formLinkError, setFormLinkError] = useState('');
-  // Link is mandatory only for subjects that exist in the syllabus.
-  // Non-syllabus options (e.g. Self Study & Revision) are exempt — there is
-  // nothing to link them to, and they intentionally don't move progress %.
   const subjectRequiresLink = syllabusTopics.some((t) => t.subject === formSubject);
 
   const completedTopicsCount = syllabusTopics.filter((t) => t.status === 'completed').length;
@@ -301,7 +290,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
     setFormTimeError('');
     setFormLinkError('');
 
-    // Auto-detect topicId if not explicitly selected but matches a syllabus topic
     let effectiveTopicId = formTopicId;
     if (!effectiveTopicId) {
       const match = syllabusTopics.find(
@@ -402,12 +390,11 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   const doneCount = dateTasks.filter((t) => t.isCompleted).length;
   const progress = dateTasks.length === 0 ? 0 : Math.round((doneCount / dateTasks.length) * 100);
 
-  // ---- Whole-week derived data (Mon–Sun containing selectedDate) ----
   const weekDates: { date: string; day: DayOfWeek; label: string; dayNum: string }[] = (() => {
     try {
       const [y, m, d] = selectedDate.split('-').map(Number);
       const ref = new Date(y, m - 1, d);
-      const mondayOffset = (ref.getDay() + 6) % 7; // Mon=0 … Sun=6
+      const mondayOffset = (ref.getDay() + 6) % 7;
       const monday = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - mondayOffset);
       const pad = (n: number) => String(n).padStart(2, '0');
       return DAYS_OF_WEEK.map((day, i) => {
@@ -447,7 +434,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
 
   return (
     <div id="study-planner-view" className="space-y-5 max-w-7xl mx-auto pb-8">
-      {/* Header — one place to add anything */}
       <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -507,7 +493,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         </div>
       </div>
 
-      {/* Date + weekday selector + Day/Week toggle */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center rounded-2xl bg-white/5 border border-white/10 p-1">
@@ -541,7 +526,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          {/* Day / Week view switch — persists via localStorage */}
           <div
             role="group"
             aria-label="Planner view"
@@ -611,7 +595,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
       </div>
 
       {viewMode === 'week' ? (
-        /* Whole-week overview: Mon–Sun grid, each day tappable to open Day view */
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-4 sm:p-5 backdrop-blur-xl shadow-xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -726,9 +709,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
         </div>
       ) : (
       <>
-      {/* Two columns: this date + weekly repeat */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Left: blocks for the selected date */}
         <div className="lg:col-span-3 glass-card rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -834,7 +815,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
           )}
         </div>
 
-        {/* Right: weekly repeating template for this weekday */}
         <div className="lg:col-span-2 glass-card rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -1105,7 +1085,6 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                   )}
                   </section>
 
-                  {/* Step 3 — Link (required for syllabus subjects) */}
                   <section aria-label="Step 3 — Link syllabus and notes" className="space-y-3">
                     <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-400">
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-[10px]">3</span>

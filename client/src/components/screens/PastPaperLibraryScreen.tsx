@@ -39,7 +39,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
-  const [currentOnly, setCurrentOnly] = useState<boolean>(true); // Current Only toggle ON by default
+  const [currentOnly, setCurrentOnly] = useState<boolean>(true);
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedMedium, setSelectedMedium] = useState<string>('All');
   const [selectedYearRange, setSelectedYearRange] = useState<string>('All');
@@ -146,7 +146,6 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         </div>
       </div>
 
-      {/* Quick Subject Tabs with mobile horizontal scroll */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1.5 pt-0.5 -mx-1 px-1">
         <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1">Subject:</span>
         {[
@@ -190,7 +189,6 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         })}
       </div>
 
-      {/* Non-Physics Coming Soon Notice Card if non-physics subject is selected */}
       {selectedSubject !== 'All' && selectedSubject !== 'Physics' && (
         <div className="rounded-3xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 p-4 sm:p-6 backdrop-blur-xl space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -220,7 +218,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 <span>Live Physics</span>
               </button>
               <a
-                href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
+                href="https:
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"

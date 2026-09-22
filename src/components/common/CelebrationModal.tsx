@@ -18,11 +18,6 @@ interface CelebrationModalProps {
   onAction?: () => void;
 }
 
-/**
- * Full-screen celebration modal (day-complete, subject-complete, streak
- * milestone). Fires confetti on open; closes on backdrop click or button.
- * Only one shows at a time — extra celebrations wait in the App queue.
- */
 export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   celebration,
   onClose,

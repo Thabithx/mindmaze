@@ -114,7 +114,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </p>
         </div>
 
-        {/* Step 1: Select Stream */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md mb-8 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6B4EFF] font-bold text-white text-sm shadow-[0_0_10px_rgba(107,78,255,0.4)]">
@@ -164,7 +163,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </div>
         </div>
 
-        {/* Step 2: Subject Picker */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md mb-8 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6B4EFF] font-bold text-white text-sm shadow-[0_0_10px_rgba(107,78,255,0.4)]">
@@ -227,7 +225,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </div>
         </div>
 
-        {/* Step 3: Target Grade & Exam Date & Syllabus Toggle */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
           {/* Target Grade */}
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7 backdrop-blur-md flex flex-col justify-between shadow-sm">
@@ -359,7 +356,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </div>
         </div>
 
-        {/* Step 4: Study Medium & Daily MCQ Goal */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
           {/* Study Medium */}
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-sm">

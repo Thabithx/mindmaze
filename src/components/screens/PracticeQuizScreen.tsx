@@ -76,10 +76,8 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
   const [wrongCount, setWrongCount] = useState(0);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
 
-  // Timer per question (e.g. 90 seconds typical A/L MCQ pace)
   const [secondsRemaining, setSecondsRemaining] = useState(90);
 
-  // Track wrong question IDs in current session for retry
   const [sessionMistakeIds, setSessionMistakeIds] = useState<string[]>([]);
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState(false);
 
@@ -163,7 +161,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
       onSaveMistake(autoMistake);
 
       // Prompt modal specifically requested:
-      // "When the user answers WRONG, open a popup modal titled 'Want to learn how to answer these?'"
       setIsWrongModalOpen(true);
     }
   };
@@ -430,7 +427,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
           </div>
         </>
       ) : (
-        /* QUIZ SCORE SCREEN */
+// /* QUIZ SCORE SCREEN
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10 backdrop-blur-md text-center space-y-8 shadow-xl">
           <div className="inline-flex items-center justify-center p-4 rounded-3xl bg-purple-500/20 border border-purple-400/40 shadow-xl">
             <Award className="w-12 h-12 text-cyan-300" />
@@ -493,7 +490,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
         </div>
       )}
 
-      {/* 📚 WANT TO LEARN HOW TO ANSWER THESE? (POPUP MODAL FOR WRONG/EXPLANATION) */}
       {isWrongModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
           <div className="w-full max-w-2xl my-8 rounded-3xl border border-white/10 bg-[#161831]/95 backdrop-blur-xl p-6 sm:p-8 shadow-2xl space-y-6 text-left relative animate-in fade-in zoom-in-95 duration-200">
@@ -576,7 +572,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
               </ol>
             </div>
 
-            {/* 4. 2 "Try these" Example Question Links */}
             <div className="space-y-2.5">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
                 <Brain className="w-4 h-4 text-amber-400" />
@@ -602,7 +597,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
               </div>
             </div>
 
-            {/* 5. Buttons: [Try Similar Question] & [Save for Later] & [Got It, Continue] */}
             <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
               <button
                 id="btn-save-mistake-for-later"

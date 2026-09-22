@@ -1,11 +1,6 @@
 import { SyllabusTopic, TopicStatus } from '../types';
 import { INITIAL_SYLLABUS_TOPICS } from '../data/alSyllabusData';
 
-/**
- * Build fresh topic rows marked fully completed for the given syllabus topic
- * ids (used by the sign-up "already completed" step). Subtopics are all set
- * to 100% so progress math starts accurately instead of from zero.
- */
 export function buildCompletedTopicsFromIds(topicIds: string[]): SyllabusTopic[] {
   const wanted = new Set(topicIds);
   return INITIAL_SYLLABUS_TOPICS.filter((t) => wanted.has(t.id)).map((t) => {
@@ -24,10 +19,6 @@ export function buildCompletedTopicsFromIds(topicIds: string[]): SyllabusTopic[]
   });
 }
 
-/**
- * Mark the given topic ids as fully completed inside an existing topic list
- * (used when applying pending sign-up selections on first login).
- */
 export function markTopicsCompleted(topics: SyllabusTopic[], topicIds: string[]): SyllabusTopic[] {
   const wanted = new Set(topicIds);
   if (wanted.size === 0) return topics;
@@ -67,9 +58,6 @@ export interface SubjectProgressionDetail {
   percentage: number;
 }
 
-/**
- * Returns current progress percentage (0 - 100) for a given subtopic within a topic
- */
 export function getSubtopicProgressValue(topic: SyllabusTopic, subtopic: string): number {
   if (topic.status === 'completed') return 100;
   if (topic.subtopicProgress && typeof topic.subtopicProgress[subtopic] === 'number') {
@@ -81,9 +69,6 @@ export function getSubtopicProgressValue(topic: SyllabusTopic, subtopic: string)
   return 0;
 }
 
-/**
- * Calculates detailed completion metrics for an individual syllabus topic
- */
 export function calculateTopicProgress(topic: SyllabusTopic): TopicProgressDetail {
   const subtopics = topic.subtopics || [];
   const totalSubtopics = Math.max(subtopics.length, 1);
@@ -99,7 +84,6 @@ export function calculateTopicProgress(topic: SyllabusTopic): TopicProgressDetai
     };
   }
 
-  // Calculate fractional points from subtopics with 0 - 100% progress
   let totalSubtopicPoints = 0;
   let fullyCompletedCount = 0;
 
@@ -131,9 +115,6 @@ export function calculateTopicProgress(topic: SyllabusTopic): TopicProgressDetai
   };
 }
 
-/**
- * Calculates complete syllabus progression for an entire subject
- */
 export function calculateSubjectProgression(
   subjectName: string,
   allTopics: SyllabusTopic[] = []
@@ -201,9 +182,6 @@ export function calculateSubjectProgression(
   };
 }
 
-/**
- * Calculates the overall syllabus progression across all stream subjects
- */
 export function calculateOverallStreamProgression(
   streamSubjects: { name: string }[] = [],
   allTopics: SyllabusTopic[] = []
@@ -243,27 +221,16 @@ export function calculateOverallStreamProgression(
   };
 }
 
-/**
- * Updates topic and subtopic completion when a daily planner task or timetable block is toggled.
- *
- * Each block can target MULTIPLE subtopics, each with its own planned
- * percentage (0 - 100) chosen via a slider in the block form.
- * On completion the syllabus `subtopicProgress[sub]` is raised to at least
- * the planned value (max(existing, planned)) so progress never regresses
- * when a smaller block is completed after a larger one. Topic % is then
- * derived as the mean of all subtopic percentages.
- */
 export function updateSyllabusFromBlockCompletion(
   topics: SyllabusTopic[],
   opts: {
     topicId?: string;
     topicTitle?: string;
     subtopic?: string;
-    targetProgress?: number; // 0 - 100 (legacy single-target)
+    targetProgress?: number;
     subtopicTargets?: { subtopic: string; targetProgress: number }[];
     subject?: string;
     isCompleted: boolean;
-    /** When 'revision', syllabus % is intentionally left untouched. */
     blockType?: 'study' | 'revision';
   }
 ): {
@@ -273,15 +240,10 @@ export function updateSyllabusFromBlockCompletion(
 } {
   const { topicId, topicTitle, subtopic, targetProgress, subtopicTargets, subject, isCompleted, blockType } = opts;
 
-  // Revision sessions never move syllabus percentages (they must not push a
-  // subject beyond 100% or alter first-time completion math). The bonus is
-  // tracked separately via the revision counter.
   if (blockType === 'revision') {
     return { updatedTopics: topics };
   }
 
-  // Normalize to a canonical list of { subtopic, targetProgress }.
-  // Prefers the multi-target array, falls back to the legacy single fields.
   const normalizedTargets: { subtopic: string; targetProgress: number }[] = [];
   if (Array.isArray(subtopicTargets) && subtopicTargets.length > 0) {
     for (const t of subtopicTargets) {
@@ -310,7 +272,6 @@ export function updateSyllabusFromBlockCompletion(
     );
   }
 
-  // If no matching syllabus topic found, return original
   if (targetIndex === -1) {
     return { updatedTopics: topics };
   }
@@ -320,7 +281,6 @@ export function updateSyllabusFromBlockCompletion(
   let currentCompleted = [...(topic.completedSubtopics || [])];
   const currentSubProgress: Record<string, number> = { ...(topic.subtopicProgress || {}) };
 
-  // If the topic had previously been marked 'completed', initialize all subtopics as done
   if (topic.status === 'completed' && currentCompleted.length === 0 && allSubtopics.length > 0) {
     currentCompleted = [...allSubtopics];
     allSubtopics.forEach((s) => {
@@ -331,15 +291,12 @@ export function updateSyllabusFromBlockCompletion(
   let changeMessage = '';
 
   if (normalizedTargets.length > 0) {
-    // Multi-subtopic (or single-subtopic) completion path.
     const appliedSummaries: string[] = [];
     const resetSummaries: string[] = [];
 
     for (const target of normalizedTargets) {
       const trimmedSub = target.subtopic;
-      // Planned % from this block's slider (0 - 100).
       const plannedVal = target.targetProgress;
-      // Existing stored progress so completion never moves progress backwards.
       const existingVal = currentSubProgress[trimmedSub] !== undefined
         ? currentSubProgress[trimmedSub]
         : (currentCompleted.includes(trimmedSub) ? 100 : 0);
@@ -431,10 +388,6 @@ export function updateSyllabusFromBlockCompletion(
   };
 }
 
-/**
- * Normalizes any block's subtopic plan to a canonical target list.
- * Prefers `subtopicTargets`, falls back to legacy `subtopic` + `targetProgress`.
- */
 export function getBlockSubtopicTargets(block: {
   subtopic?: string;
   targetProgress?: number;
@@ -457,9 +410,6 @@ export function getBlockSubtopicTargets(block: {
   return [];
 }
 
-/**
- * Sets specific progress percentage (0 - 100) for a subtopic directly
- */
 export function setSubtopicProgressInTopic(
   topics: SyllabusTopic[],
   topicId: string,
@@ -510,9 +460,6 @@ export function setSubtopicProgressInTopic(
   });
 }
 
-/**
- * Toggles a single subtopic directly from the Topic Tracker checklist (0 <-> 100%)
- */
 export function toggleSubtopicInTopic(
   topics: SyllabusTopic[],
   topicId: string,

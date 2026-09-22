@@ -6,7 +6,6 @@ export const IOSInstallBanner: React.FC = () => {
   const { isIOS, isInstalled, isIOSDismissed, dismissIOSBanner, markAsInstalled } = usePWAInstall();
   const [showFullModal, setShowFullModal] = useState(false);
 
-  // Only show on iOS/iPadOS when not already installed and not dismissed
   if (!isIOS || isInstalled || isIOSDismissed) {
     return null;
   }

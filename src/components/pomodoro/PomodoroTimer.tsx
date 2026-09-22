@@ -73,7 +73,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const totalTime = MODE_CONFIGS[mode].minutes * 60;
   const progressPercent = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100));
 
-  // Synthesize soft audio chime using Web Audio API
   const playChime = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -83,8 +82,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
 
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
@@ -237,7 +236,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         )}
       </div>
 
-      {/* Active Unit Focus Badge / Unit Selector */}
       {activeUnitTitle ? (
         <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm overflow-hidden">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -309,7 +307,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {/* Step 1: Subject Dropdown */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
                   1. Subject
@@ -328,7 +325,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </select>
               </div>
 
-              {/* Step 2: Syllabus Unit Dropdown */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
                   2. Syllabus Unit ({filteredTopics.length})
@@ -357,7 +353,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         )
       )}
 
-      {/* Subtopics Checklist for Active Task / Unit */}
       {subtopics && subtopics.length > 0 && (
         <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">

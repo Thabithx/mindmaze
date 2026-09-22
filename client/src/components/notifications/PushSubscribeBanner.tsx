@@ -8,29 +8,8 @@ import {
   PUSH_PROMPT_SNOOZED_EVENT,
 } from '../../lib/notificationService';
 
-/**
- * Floating tap-to-subscribe banner for EXISTING users.
- *
- * The one-time onboarding explainer modal fires only once per account, so
- * students who dismissed it (or joined before push existed) never get asked
- * again. This banner closes that gap for signed-in users whose browser
- * permission is still undecided ('default'): one tap opens the existing
- * permission explainer modal — the native browser prompt still fires ONLY
- * from an explicit tap inside that modal, never automatically.
- *
- * Anti-nag rules (the reason this file exists in this form):
- * - 'default' only. Blocked ('denied') users get nothing here: they already
- *   see full re-enable steps on the Dashboard + Settings, and a floating nag
- *   they can only fix in browser site settings is pure noise.
- * - 'granted' / 'unsupported' → renders nothing.
- * - Dismissing snoozes for 7 days under a key SHARED with the Dashboard
- *   banner (see notificationService snoozePushPrompt), so dismissing either
- *   prompt silences both — never a nag on every app open.
- */
 interface PushSubscribeBannerProps {
-  /** App-level permission state (re-render trigger); live value is re-read. */
   permission: NotificationPermission | 'unsupported';
-  /** Opens the NotificationPermissionModal (explicit user tap chain). */
   onEnable: () => void;
 }
 
@@ -41,10 +20,6 @@ export const PushSubscribeBanner: React.FC<PushSubscribeBannerProps> = ({
   const [snoozed, setSnoozed] = useState<boolean>(() => isPushPromptSnoozed());
   const [live, setLive] = useState<NotificationPermission | 'unsupported'>(permission);
 
-  // Re-read the real browser permission on focus: the student may have
-  // granted/blocked it in site settings and returned to the tab. Also
-  // re-check the shared snooze (dismissed in another tab, or via the
-  // Dashboard banner in this same tab through the snooze event).
   useEffect(() => {
     const refresh = () => {
       setLive(getNotificationPermissionStatus());
@@ -69,8 +44,6 @@ export const PushSubscribeBanner: React.FC<PushSubscribeBannerProps> = ({
 
   if (!isPushSupported()) return null;
   if (snoozed) return null;
-  // Default-only: granted/unsupported hide silently, denied is handled by the
-  // Dashboard + Settings re-enable steps (a floating nag can't help there).
   if (live !== 'default') return null;
 
   return (

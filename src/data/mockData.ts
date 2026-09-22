@@ -482,7 +482,7 @@ export const MOCK_BADGES: MilestoneBadge[] = [
 export const INITIAL_MISTAKES: MistakeItem[] = [
   {
     id: 'mst-01',
-    question: MOCK_QUESTIONS[0], // Projectile Apex Radius of Curvature
+    question: MOCK_QUESTIONS[0],
     userSelectedOptionId: 'A',
     savedAt: 'Today, 08:30 AM',
     reviewCount: 2,
@@ -491,7 +491,7 @@ export const INITIAL_MISTAKES: MistakeItem[] = [
   },
   {
     id: 'mst-02',
-    question: MOCK_QUESTIONS[1], // Rotational Dynamics Rolling Cylinder
+    question: MOCK_QUESTIONS[1],
     userSelectedOptionId: 'A',
     savedAt: 'Yesterday, 06:15 PM',
     reviewCount: 1,
@@ -500,7 +500,7 @@ export const INITIAL_MISTAKES: MistakeItem[] = [
   },
   {
     id: 'mst-03',
-    question: MOCK_QUESTIONS[5], // Doppler Effect with Moving Source & Cliff
+    question: MOCK_QUESTIONS[5],
     userSelectedOptionId: 'B',
     savedAt: '2 days ago',
     reviewCount: 3,

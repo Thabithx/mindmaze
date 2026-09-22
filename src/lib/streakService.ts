@@ -1,7 +1,3 @@
-/**
- * Mind Maze - Study Streak & Periodic Nudge Tracking Service
- * Sri Lankan GCE A/L Study Planner
- */
 import { DailyTask } from '../types';
 import { getTodayDateString } from './storage';
 import { generatePeriodicNudge } from './notificationMessages';
@@ -19,9 +15,6 @@ const STREAK_STORAGE_KEY = 'mindmaze_study_streak_v2';
 const LAST_ACTIVITY_KEY = 'mindmaze_last_activity_v2';
 const LAST_NUDGE_KEY = 'mindmaze_last_nudge_v2';
 
-/**
- * Returns previous calendar date in YYYY-MM-DD format
- */
 export function getPreviousDateString(dateStr: string): string {
   try {
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -35,9 +28,6 @@ export function getPreviousDateString(dateStr: string): string {
   }
 }
 
-/**
- * Load raw streak records from localStorage
- */
 function getRawStoredStreak(): { bestStreak: number; completedDates: string[]; lastCompletedDate?: string } {
   try {
     const raw = localStorage.getItem(STREAK_STORAGE_KEY);
@@ -53,8 +43,6 @@ function getRawStoredStreak(): { bestStreak: number; completedDates: string[]; l
     console.warn('Failed to parse streak from localStorage:', e);
   }
 
-  // No stored streak: this student has no history yet. Start at zero —
-  // never seed fake demo days (a fresh account must show 0, not 5).
   return {
     bestStreak: 0,
     completedDates: [],
@@ -62,9 +50,6 @@ function getRawStoredStreak(): { bestStreak: number; completedDates: string[]; l
   };
 }
 
-/**
- * Save streak records to localStorage
- */
 function saveRawStoredStreak(data: { bestStreak: number; completedDates: string[]; lastCompletedDate?: string }): void {
   try {
     localStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(data));
@@ -73,26 +58,16 @@ function saveRawStoredStreak(data: { bestStreak: number; completedDates: string[
   }
 }
 
-/**
- * Wipe any stored streak history so a fresh account starts at 0.
- * Needed because localStorage is shared per device across sign-outs —
- * without this, a new signup on the same device would inherit the
- * previous student's streak.
- */
 export function clearStoredStreak(): void {
   try {
     localStorage.removeItem(STREAK_STORAGE_KEY);
   } catch {}
 }
 
-/**
- * Calculate streak state dynamically given the current tasks & storage
- */
 export function calculateStreak(dailyTasks: DailyTask[]): StreakState {
   const todayStr = getTodayDateString();
   const raw = getRawStoredStreak();
 
-  // Combine completed dates from raw storage and any tasks with isCompleted: true
   const dateSet = new Set<string>(raw.completedDates);
 
   dailyTasks.forEach((t) => {
@@ -114,14 +89,12 @@ export function calculateStreak(dailyTasks: DailyTask[]): StreakState {
       checkDate = getPreviousDateString(checkDate);
     }
   } else if (dateSet.has(yesterdayStr)) {
-    // Yesterday was completed; today is not yet completed, but streak is alive!
     let checkDate = yesterdayStr;
     while (dateSet.has(checkDate)) {
       currentStreak++;
       checkDate = getPreviousDateString(checkDate);
     }
   } else {
-    // Both today and yesterday were missed: streak is reset to 0
     currentStreak = 0;
   }
 
@@ -137,9 +110,6 @@ export function calculateStreak(dailyTasks: DailyTask[]): StreakState {
   };
 }
 
-/**
- * Call when tasks change or a task completion is toggled
- */
 export function recordTaskCompletionAndRefreshStreak(
   dailyTasks: DailyTask[],
   justCompletedToday: boolean
@@ -158,7 +128,6 @@ export function recordTaskCompletionAndRefreshStreak(
   if (justCompletedToday) {
     dateSet.add(todayStr);
   } else {
-    // If no tasks today are completed, remove today from completed set
     const hasAnyDoneToday = dailyTasks.some((t) => t.date === todayStr && t.isCompleted);
     if (!hasAnyDoneToday) {
       dateSet.delete(todayStr);
@@ -203,9 +172,6 @@ export function recordTaskCompletionAndRefreshStreak(
   };
 }
 
-/**
- * Record a daily visit to automatically increment the study streak for each active day
- */
 export function recordDailyVisit(): StreakState {
   const todayStr = getTodayDateString();
   const raw = getRawStoredStreak();
@@ -241,9 +207,6 @@ export function recordDailyVisit(): StreakState {
 // Periodic Gentle Nudge Reminders
 // ---------------------------------------------------------------------------
 
-/**
- * Record user activity timestamp to avoid nudging active users
- */
 export function recordAppActivity(): void {
   try {
     localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
@@ -274,14 +237,6 @@ export function setLastNudgeTime(time: number = Date.now()): void {
   } catch {}
 }
 
-/**
- * Check if a gentle nudge should be sent:
- * - Has upcoming incomplete tasks today
- * - All tasks today are NOT completed
- * - Haven't opened the app in a few hours (> 2.5 hours)
- * - Has not sent a nudge in the last 3 hours (max once every few hours)
- * - Between 8:00 AM and 10:00 PM (never after 10 PM cutoff)
- */
 export function checkAndSendPeriodicNudge(
   dailyTasks: DailyTask[],
   currentStreak: number,
@@ -290,7 +245,6 @@ export function checkAndSendPeriodicNudge(
   const now = new Date();
   const currentHour = now.getHours();
 
-  // Reasonable cutoff time: Do not nudge before 8 AM or after 10 PM (22:00)
   if (!force && (currentHour < 8 || currentHour >= 22)) {
     return { sent: false };
   }
@@ -298,7 +252,6 @@ export function checkAndSendPeriodicNudge(
   const todayStr = getTodayDateString();
   const todayTasks = dailyTasks.filter((t) => t.date === todayStr);
 
-  // If no tasks today or all tasks are already completed, do NOT send nudges!
   if (todayTasks.length === 0) {
     return { sent: false };
   }
@@ -315,17 +268,14 @@ export function checkAndSendPeriodicNudge(
   const hoursSinceActivity = (nowMs - lastActivity) / (1000 * 60 * 60);
   const hoursSinceNudge = (nowMs - lastNudge) / (1000 * 60 * 60);
 
-  // Must not have opened app in at least 2 hours (unless forced for testing)
   if (!force && hoursSinceActivity < 2) {
     return { sent: false };
   }
 
-  // Must not have sent a nudge in the last 3 hours (unless forced for testing)
   if (!force && hoursSinceNudge < 3) {
     return { sent: false };
   }
 
-  // Pick the highest priority or first incomplete task
   const nextTask = incompleteTasks.find((t) => t.priority === 'High') || incompleteTasks[0];
 
   const nudge = generatePeriodicNudge({

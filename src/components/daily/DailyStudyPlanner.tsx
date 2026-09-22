@@ -39,7 +39,6 @@ interface DailyStudyPlannerProps {
   timetableEntries: TimetableEntry[];
   syllabusTopics?: SyllabusTopic[];
   stream: StreamType;
-  /** Read-only elective used to resolve subjects (no picker here). */
   physicalScienceElective?: 'Chemistry' | 'ICT';
   onToggleTask: (taskId: string) => void;
   onAddTask: (
@@ -100,7 +99,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
 
   const handleToggle = (taskId: string) => {
     onToggleTask(taskId);
-    // If completing the final pending task, shoot celebration confetti
     const task = dateTasks.find((t) => t.id === taskId);
     if (task && !task.isCompleted && completedTasks + 1 === totalTasks) {
       try {
@@ -193,7 +191,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
   };
 
   const openAddTaskModal = () => {
-    // Fresh form defaults to Study; Revision is opt-in per task.
     setNewBlockType('study');
     setTimeError('');
     setIsAddTaskModalOpen(true);
@@ -327,7 +324,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
         </div>
       </div>
 
-      {/* Filter Tabs (All / Pending / Completed) */}
       <div className="flex items-center gap-2 border-b border-white/10 pb-3">
         <button
           onClick={() => setTaskFilter('all')}
@@ -589,7 +585,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
                   </select>
                 </div>
 
-                {/* Block type: Study vs Revision (Revision = completed topics only) */}
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Task Type</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -651,7 +646,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
                   completedOnly={newBlockType === 'revision'}
                 />
 
-                {/* Schedule (Start & End Time, 24-hour with AM/PM preview) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-300 font-semibold mb-1">Start Time <span className="text-slate-500 font-normal">(24-hour)</span></label>
@@ -679,7 +673,6 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
                   </div>
                 </div>
 
-                {/* Auto-calculated duration from Start - End time */}
                 {timeError ? (
                   <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300">
                     ⚠️ {timeError}
