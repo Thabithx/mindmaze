@@ -88,7 +88,6 @@ export function App() {
 
   // Block lifecycle trackers
   const [dismissedBlockIds, setDismissedBlockIds] = useState<string[]>([]);
-  const [emailedBlockIds, setEmailedBlockIds] = useState<string[]>([]);
   const [streakDays, setStreakDays] = useState<number>(() => calculateStreak(getStoredDailyTasks() || []).currentStreak || 1);
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
@@ -207,6 +206,7 @@ export function App() {
         whatsappNumber: whatsappInput,
         stream: streamInput,
         physicalScienceElective: streamInput === 'Physical Science' ? electiveInput : undefined,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Colombo',
       } as any);
       setAuthToken(res.token);
       setUser(res.user);
@@ -276,18 +276,6 @@ export function App() {
         setCurrentScreen('dashboard');
         setIsPomodoroMinimized(false);
 
-        if (user?.email && !emailedBlockIds.includes(currentBlock.id)) {
-          setEmailedBlockIds((prev) => [...prev, currentBlock.id]);
-          api.sendTimetableReminder({
-            subject: currentBlock.subject,
-            topic: currentBlock.topic,
-            startTime: currentBlock.startTime,
-            notes: currentBlock.notes,
-          }).catch((err) => {
-            console.log('[Email] Background timetable reminder notice:', err?.message || err);
-          });
-        }
-
         if (!hasPromptedActiveBlock) {
           sendNotification(
             'Study Session Starting!',
@@ -302,7 +290,7 @@ export function App() {
     checkActiveBlock();
     const interval = setInterval(checkActiveBlock, 30000);
     return () => clearInterval(interval);
-  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, emailedBlockIds, user?.email, sendNotification]);
+  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, sendNotification]);
 
   if (authLoading) {
     return (

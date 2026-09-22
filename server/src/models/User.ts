@@ -32,6 +32,7 @@ export interface IUser extends Document {
   completedDates: string[];
   badges: string[];
   pushSubscriptions: IPushSubscription[];
+  timezone?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +72,7 @@ const UserSchema = new Schema<IUser>(
     completedDates: [{ type: String }],
     badges: [{ type: String }],
     pushSubscriptions: [PushSubscriptionSchema],
+    timezone: { type: String, default: 'Asia/Colombo' },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

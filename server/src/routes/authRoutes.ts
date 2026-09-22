@@ -58,6 +58,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
       targetExamYear: '2026',
+      timezone: req.body.timezone || 'Asia/Colombo',
     });
 
     const token = generateToken(user._id.toString());
@@ -224,6 +225,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
     if (targetZScore !== undefined) user.targetZScore = String(targetZScore).trim();
     if (mobileNumber !== undefined) user.mobileNumber = String(mobileNumber).trim();
     if (motivationNote !== undefined) user.motivationNote = String(motivationNote).trim();
+    if (req.body.timezone !== undefined) user.timezone = String(req.body.timezone).trim();
 
     if (dailyHoursGoal !== undefined) {
       const val = Number(dailyHoursGoal);

@@ -19,6 +19,7 @@ export interface ITimetable extends Document {
   color: string;
   reminderEnabled: boolean;
   reminderOffsetMinutes: number;
+  lastReminderSentDate?: string;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -51,6 +52,7 @@ const TimetableSchema = new Schema<ITimetable>(
     color: { type: String, default: 'blue' },
     reminderEnabled: { type: Boolean, default: true },
     reminderOffsetMinutes: { type: Number, default: 15 },
+    lastReminderSentDate: { type: String, default: '' },
     notes: { type: String, default: '' },
   },
   { timestamps: true }
