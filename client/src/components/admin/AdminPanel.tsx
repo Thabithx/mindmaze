@@ -831,6 +831,200 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Tab 3: Practice Quiz Manager */}
+      {activeTab === 'quiz' && (
+        <div className="space-y-6">
+          {/* Create Form */}
+          <div className="p-6 rounded-3xl bg-[#161831]/80 border border-white/10 backdrop-blur-xl shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-300" />
+                <span>Add Practice Quiz Question</span>
+              </h3>
+              <span className="text-xs text-slate-400">Pushes directly to student Practice Quiz page</span>
+            </div>
+
+            {quizSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>{quizSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateQuizQuestion} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Question Text */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Question Text <span className="text-rose-400">*</span></label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={quizQuestionText}
+                    onChange={(e) => setQuizQuestionText(e.target.value)}
+                    placeholder="Enter the full MCQ question text..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+
+                {/* Subject */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Subject</label>
+                  <select
+                    value={quizSubject}
+                    onChange={(e) => setQuizSubject(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#1e2042] border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Combined Maths">Combined Maths</option>
+                    <option value="Biology">Biology</option>
+                    <option value="ICT">ICT</option>
+                  </select>
+                </div>
+
+                {/* Topic */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Topic</label>
+                  <input
+                    type="text"
+                    value={quizTopic}
+                    onChange={(e) => setQuizTopic(e.target.value)}
+                    placeholder="e.g. Mechanics, Waves, Organic Chemistry"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* Year */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Paper Year</label>
+                  <input
+                    type="number"
+                    min={2000}
+                    max={2030}
+                    value={quizYear}
+                    onChange={(e) => setQuizYear(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* Correct Answer */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Correct Answer</label>
+                  <select
+                    value={quizCorrectOpt}
+                    onChange={(e) => setQuizCorrectOpt(e.target.value as any)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#1e2042] border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="E">E</option>
+                  </select>
+                </div>
+
+                {/* Options */}
+                {(['A', 'B', 'C', 'D'] as const).map((opt) => (
+                  <div key={opt}>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Option {opt} {['A','B','C','D'].includes(opt) && <span className="text-rose-400">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={opt === 'A' ? quizOptA : opt === 'B' ? quizOptB : opt === 'C' ? quizOptC : quizOptD}
+                      onChange={(e) => {
+                        if (opt === 'A') setQuizOptA(e.target.value);
+                        else if (opt === 'B') setQuizOptB(e.target.value);
+                        else if (opt === 'C') setQuizOptC(e.target.value);
+                        else setQuizOptD(e.target.value);
+                      }}
+                      placeholder={`Enter option ${opt}`}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                ))}
+
+                {/* Option E (optional) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Option E <span className="text-slate-500">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={quizOptE}
+                    onChange={(e) => setQuizOptE(e.target.value)}
+                    placeholder="Enter option E (optional)"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* Explanation */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Explanation / Concept Note</label>
+                  <textarea
+                    rows={2}
+                    value={quizExplanation}
+                    onChange={(e) => setQuizExplanation(e.target.value)}
+                    placeholder="Brief explanation of why the answer is correct..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-white text-xs font-bold transition shadow-lg cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Quiz Question</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Quiz Questions List */}
+          <div className="p-6 rounded-3xl bg-[#161831]/80 border border-white/10 backdrop-blur-xl shadow-xl space-y-4">
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+              <span>Practice Quiz Bank ({quizQuestions.length} questions)</span>
+            </h3>
+
+            {quizQuestions.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 text-xs">No quiz questions added yet. Add your first question above.</div>
+            ) : (
+              <div className="space-y-3">
+                {quizQuestions.map((q, i) => (
+                  <div key={q.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">{q.subject}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px]">{q.topic}</span>
+                          <span className="text-[10px] text-slate-500">{q.paperYear}</span>
+                        </div>
+                        <p className="text-xs text-white font-semibold leading-relaxed">Q{i + 1}. {q.questionText}</p>
+                        <div className="mt-1.5 grid grid-cols-2 gap-1">
+                          {q.options.map((opt) => (
+                            <div key={opt.id} className={`text-[10px] px-2 py-1 rounded-lg ${opt.isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold' : 'text-slate-400 bg-white/5 border border-white/5'}`}>
+                              {opt.id}. {opt.text}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onDeleteQuizQuestion && onDeleteQuizQuestion(q.id)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold transition cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

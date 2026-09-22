@@ -12,9 +12,7 @@ import {
   BookOpen,
   Inbox,
   AlertCircle,
-  ShieldCheck,
   Check,
-  BellRing,
 } from 'lucide-react';
 
 interface NotificationsScreenProps {
@@ -37,6 +35,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   syllabusTopics = [],
 }) => {
   const effectiveSettings = settings || userSettings || {};
+  const isEmailEnabled = effectiveSettings.emailNotificationsEnabled !== false; // Enabled by default
+
   const [testSending, setTestSending] = useState(false);
   const [testStatus, setTestStatus] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
@@ -67,6 +67,10 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     } finally {
       setTestSending(false);
     }
+  };
+
+  const handleToggleEmailNotifications = () => {
+    onUpdateSettings({ emailNotificationsEnabled: !isEmailEnabled });
   };
 
   return (
@@ -115,66 +119,55 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         </div>
       )}
 
-      {/* Email Delivery Guarantee Banner */}
-      <div className="glass-card rounded-3xl p-6 border border-white/10 space-y-4 shadow-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-slate-900/60">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="p-3.5 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">Direct Email Delivery Active</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  Reliable Cloud SMTP
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                {studentEmail ? (
-                  <>
-                    Study session alerts are automatically delivered to{' '}
-                    <strong className="text-indigo-300 font-mono">{studentEmail}</strong> as soon as your scheduled timetable slots arrive. You don't need the browser open to receive them.
-                  </>
-                ) : (
-                  'Sign in with your student account so Mind Maze can dispatch automatic study block reminders and countdowns to your email address.'
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Notification Preferences */}
+      {/* Notification Preferences with Toggle */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Email Notification Master Switch */}
         <div className="glass-card rounded-2xl p-5 border border-white/10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
-              <Clock className="w-5 h-5" />
+            <div className={`p-2.5 rounded-xl shrink-0 transition-colors ${
+              isEmailEnabled ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-500'
+            }`}>
+              <Mail className="w-5 h-5" />
             </div>
             <div>
               <div className="text-sm font-bold text-white">Study Block Email Reminders</div>
-              <div className="text-xs text-slate-400">Receive an email when your scheduled timetable session starts</div>
+              <div className="text-xs text-slate-400">
+                {isEmailEnabled
+                  ? `Active & sending to ${studentEmail || 'your email'}`
+                  : 'Email reminders currently disabled'}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-xs font-bold text-emerald-400">
-            <Check className="w-4 h-4" />
-            <span>Active</span>
-          </div>
+          <button
+            type="button"
+            onClick={handleToggleEmailNotifications}
+            aria-label="Toggle email notifications"
+            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none ${
+              isEmailEnabled ? 'bg-indigo-600' : 'bg-slate-700'
+            }`}
+          >
+            <span
+              className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                isEmailEnabled ? 'left-7' : 'left-1'
+              }`}
+            />
+          </button>
         </div>
 
+        {/* Streak Alerts */}
         <div className="glass-card rounded-2xl p-5 border border-white/10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 shrink-0">
               <Flame className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">Streak & Daily Target Alerts</div>
-              <div className="text-xs text-slate-400">Evening reminders to keep up your daily GCE A/L streak</div>
+              <div className="text-sm font-bold text-white">Daily Streak & Target Alerts</div>
+              <div className="text-xs text-slate-400">Evening nudges to maintain your daily study streak</div>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-xs font-bold text-emerald-400">
-            <Check className="w-4 h-4" />
-            <span>Active</span>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+            <Check className="w-3.5 h-3.5" />
+            <span>Enabled</span>
           </div>
         </div>
       </div>
@@ -223,8 +216,10 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                 </div>
                 <div className="text-right shrink-0">
                   <span className="font-mono text-cyan-300 font-bold block">{entry.startTime} - {entry.endTime}</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 justify-end">
-                    <Mail className="w-3 h-3" /> Email Reminder
+                  <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end ${
+                    isEmailEnabled ? 'text-emerald-400' : 'text-slate-500'
+                  }`}>
+                    <Mail className="w-3 h-3" /> {isEmailEnabled ? 'Email Alert Active' : 'Email Muted'}
                   </span>
                 </div>
               </div>

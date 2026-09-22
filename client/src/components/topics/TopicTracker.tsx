@@ -86,20 +86,34 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [onboardingSubtopicChecked, setOnboardingSubtopicChecked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!localStorage.getItem(onboardingKey)) {
+    const hasAlreadyProgressed = topics.some(
+      (t) => t.status === 'completed' || (t.completedSubtopics && t.completedSubtopics.length > 0)
+    );
+    const isGloballyDone = localStorage.getItem('mm_syllabus_onboarded_global') === 'done';
+    const isUserDone = localStorage.getItem(onboardingKey) === 'done';
+
+    if (!hasAlreadyProgressed && !isGloballyDone && !isUserDone) {
       setShowOnboarding(true);
     }
-  }, [onboardingKey]);
+  }, [onboardingKey, topics]);
+
+  const markOnboardingDone = () => {
+    localStorage.setItem(onboardingKey, 'done');
+    localStorage.setItem('mm_syllabus_onboarded_global', 'done');
+    localStorage.setItem('mm_syllabus_onboarded_default_user', 'done');
+    if (userId) {
+      localStorage.setItem(`mm_syllabus_onboarded_${userId}`, 'done');
+    }
+    setShowOnboarding(false);
+  };
 
   const handleOnboardingSubmit = () => {
-    // Pass all checked data to parent as a single bulk update — avoids stale closure bug
     const topicIds = Array.from(onboardingChecked);
     const subtopicKeys = Array.from(onboardingSubtopicChecked);
     if (topicIds.length > 0 || subtopicKeys.length > 0) {
       onBulkOnboardingComplete(topicIds, subtopicKeys);
     }
-    localStorage.setItem(onboardingKey, 'done');
-    setShowOnboarding(false);
+    markOnboardingDone();
   };
 
   const toggleOnboardingTopic = (topicId: string) => {
@@ -738,6 +752,13 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   Tick any units or subtopics you've already finished. This one-time setup sets your baseline progress.
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={markOnboardingDone}
+                className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Scrollable body */}
@@ -804,10 +825,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onboardingKey) localStorage.setItem(onboardingKey, 'done');
-                    setShowOnboarding(false);
-                  }}
+                  onClick={() => markOnboardingDone()}
                   className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-slate-300 font-semibold transition cursor-pointer min-h-[44px] text-xs"
                 >
                   Skip (Start Fresh)

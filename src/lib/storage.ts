@@ -57,6 +57,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   hasSeenNotificationPrompt: false,
   dailyHoursGoal: 4,
   weeklyHoursGoal: 28,
+  emailNotificationsEnabled: true,
 };
 
 // ================= TIMETABLE STORAGE =================

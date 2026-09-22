@@ -18,9 +18,11 @@ import {
   saveStoredQuizQuestions,
   getDayOfWeekFromDate,
   calculateMinutesBetween,
+  DEFAULT_SETTINGS,
 } from './lib/storage';
 import { getInitialTimetableForStream, INITIAL_SYLLABUS_TOPICS } from './data/alSyllabusData';
 import { MOCK_QUESTIONS } from './data/mockData';
+import { recordDailyVisit, calculateStreak, recordTaskCompletionAndRefreshStreak } from './lib/streakService';
 
 // Layout & Common Components
 import { Navbar } from './components/Navbar';
@@ -87,6 +89,7 @@ export function App() {
   // Block lifecycle trackers
   const [dismissedBlockIds, setDismissedBlockIds] = useState<string[]>([]);
   const [emailedBlockIds, setEmailedBlockIds] = useState<string[]>([]);
+  const [streakDays, setStreakDays] = useState<number>(() => calculateStreak(getStoredDailyTasks() || []).currentStreak || 1);
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
     const updated = [newPaper, ...pastPapers];
@@ -112,9 +115,11 @@ export function App() {
     saveStoredQuizQuestions(updated);
   };
 
-  // Check auth on mount
+  // Check auth & record daily streak on mount
   useEffect(() => {
     checkCurrentAuth();
+    const streakState = recordDailyVisit();
+    setStreakDays(streakState.currentStreak);
   }, []);
 
   const checkCurrentAuth = async () => {
@@ -231,7 +236,7 @@ export function App() {
     email: user?.email || '',
     stream: user?.stream || userSettings.stream || 'Physical Science',
     xp: 0,
-    streakDays: user?.streakDays || 1,
+    streakDays: streakDays || user?.streakDays || 1,
     targetYear: user?.targetExamYear || '2026',
     targetZScore: user?.targetZScore || '',
     examDate: user?.targetExamDate || '',
@@ -471,10 +476,24 @@ export function App() {
                         return;
                       }
 
-                      const currentTopic = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) : null);
+                      // Find matching timetable block if any
+                      const matchedTimetableEntry = activePomodoroTopic?.id
+                        ? timetable.find(e => e.id === activePomodoroTopic.id)
+                        : null;
+
+                      const currentTopic =
+                        activeSyllabusTopic ||
+                        (matchedTimetableEntry?.topicId ? syllabusTopics.find(t => t.id === matchedTimetableEntry.topicId) : null) ||
+                        (activePomodoroTopic?.id ? syllabusTopics.find(t => t.id === activePomodoroTopic.id) : null) ||
+                        (activePomodoroTopic?.title ? syllabusTopics.find(t =>
+                          t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() ||
+                          t.topicTitle.toLowerCase().includes(activePomodoroTopic.title.toLowerCase()) ||
+                          activePomodoroTopic.title.toLowerCase().includes(t.topicTitle.toLowerCase())
+                        ) : null);
+
                       if (currentTopic) {
                         const subs = currentTopic.subtopics || [];
-                        const newMap: Record<string, number> = {};
+                        const newMap: Record<string, number> = { ...(currentTopic.subtopicProgress || {}) };
                         subs.forEach((s) => { newMap[s] = 100; });
                         const updated = syllabusTopics.map((t) => {
                           if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
@@ -491,6 +510,18 @@ export function App() {
                         saveStoredSyllabusTopics(updated);
                       }
 
+                      // Mark timetable entry as completed if it was a timetable block
+                      if (activePomodoroTopic?.id) {
+                        const updatedTimetable = timetable.map(entry => {
+                          if (entry.id === activePomodoroTopic.id) {
+                            return { ...entry, isCompleted: true };
+                          }
+                          return entry;
+                        });
+                        setTimetable(updatedTimetable);
+                        saveStoredTimetable(updatedTimetable);
+                      }
+
                       // Also mark matching daily task completed
                       const updatedTasks = tasks.map((tk) => {
                         if (
@@ -503,6 +534,10 @@ export function App() {
                       });
                       setTasks(updatedTasks);
                       saveStoredDailyTasks(updatedTasks);
+
+                      // Refresh streak
+                      const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
+                      setStreakDays(refreshedStreak.currentStreak);
 
                       setCelebration({
                         title: 'Study Task Completed! 🎉',
@@ -780,6 +815,9 @@ export function App() {
                 const newTasks = tasks.map(t => t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t);
                 setTasks(newTasks);
                 saveStoredDailyTasks(newTasks);
+                const isDone = newTasks.find(t => t.id === taskId)?.isCompleted ?? false;
+                const refreshed = recordTaskCompletionAndRefreshStreak(newTasks, isDone);
+                setStreakDays(refreshed.currentStreak);
               }}
             />
           )}

@@ -116,6 +116,7 @@ export interface UserSettings {
   hasSeenNotificationPrompt: boolean;
   dailyHoursGoal: number;
   weeklyHoursGoal: number;
+  emailNotificationsEnabled?: boolean;
 }
 
 // ================= LEGACY COMPATIBILITY TYPES =================

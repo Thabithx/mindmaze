@@ -1,54 +1,75 @@
 import nodemailer from 'nodemailer';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-// Supports two setups:
-//   A) Gmail SMTP — set EMAIL_USER + EMAIL_PASS (Gmail App Password, NOT your
-//      regular Google password). Requires 2-Step Verification on the account.
-//   B) Generic SMTP — set SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS.
-//      Works with services like Brevo (free 300/day), Mailersend, etc.
-//
-// If NO credentials are configured the service throws a descriptive error so
-// the admin panel shows a clear message instead of silently doing nothing.
+// Supports Gmail SMTP with App Password or custom SMTP relay (Brevo/SendGrid/etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EMAIL_USER  = (process.env.EMAIL_USER  || 'mowequar@gmail.com').trim();
-const EMAIL_PASS  = (process.env.EMAIL_PASS  || 'jsjbitfjaluedzqt').replace(/\s+/g, '');
-const SMTP_HOST   = (process.env.SMTP_HOST   || '').trim();
-const SMTP_PORT   = Number(process.env.SMTP_PORT  || 587);
-const SMTP_USER   = (process.env.SMTP_USER   || EMAIL_USER).trim();
-const SMTP_PASS   = (process.env.SMTP_PASS   || EMAIL_PASS).replace(/\s+/g, '');
-const FROM_ADDR   = EMAIL_USER || SMTP_USER || 'mowequar@gmail.com';
+const EMAIL_USER = (process.env.EMAIL_USER || 'mowequar@gmail.com').trim();
+const EMAIL_PASS = (process.env.EMAIL_PASS || 'jsjbitfjaluedzqt').replace(/\s+/g, '');
+const SMTP_HOST  = (process.env.SMTP_HOST || '').trim();
+const SMTP_PORT  = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER  = (process.env.SMTP_USER || EMAIL_USER).trim();
+const SMTP_PASS  = (process.env.SMTP_PASS || EMAIL_PASS).replace(/\s+/g, '');
+const FROM_ADDR  = EMAIL_USER || SMTP_USER || 'mowequar@gmail.com';
 
-function isConfigured(): boolean {
-  return !!(EMAIL_PASS || SMTP_PASS);
-}
-
-function createTransport() {
+function createPrimaryTransporter() {
   if (SMTP_HOST) {
-    // Generic SMTP (Brevo, Mailersend, etc.)
     return nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
       tls: { rejectUnauthorized: false },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
+      socketTimeout: 15000,
     });
   }
 
-  // Gmail SMTP with App Password (direct host connection for reliable cloud delivery)
+  // Primary Gmail transport using standard service configuration
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 12000,
+    greetingTimeout: 12000,
+    socketTimeout: 15000,
+  });
+}
+
+function createFallbackTransporter() {
+  // Fallback direct SMTP on port 587 with STARTTLS
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    port: 587,
+    secure: false,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 12000,
+    greetingTimeout: 12000,
+    socketTimeout: 15000,
   });
+}
+
+async function sendMailWithFallback(mailOptions: nodemailer.SendMailOptions) {
+  const primary = createPrimaryTransporter();
+  try {
+    return await primary.sendMail(mailOptions);
+  } catch (err: any) {
+    console.warn('[Email] Primary transport attempt failed, trying fallback 587:', err?.message || err);
+    const fallback = createFallbackTransporter();
+    return await fallback.sendMail(mailOptions);
+  }
 }
 
 // ─── Study Reminder ───────────────────────────────────────────────────────────
@@ -60,25 +81,27 @@ export const sendStudyReminderEmail = async (
   startTime: string,
   notes?: string
 ) => {
-  const transporter = createTransport(); // throws if not configured
-  await transporter.sendMail({
+  if (!toEmail) return;
+
+  await sendMailWithFallback({
     from: `"Mind Maze Study Planner" <${FROM_ADDR}>`,
     to: toEmail,
     subject: `Study Reminder: ${subject} - ${topic}`,
     html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
-        <h2 style="color: #4f46e5;">Hi ${userName}, it's time to study!</h2>
-        <p>Your scheduled study session for <strong>${subject}</strong> is starting at <strong>${startTime}</strong>.</p>
-        <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; margin: 15px 0;">
-          <p style="margin: 0; font-weight: bold;">Topic: ${topic}</p>
-          ${notes ? `<p style="margin: 5px 0 0 0; color: #64748b;">Notes: ${notes}</p>` : ''}
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 560px;">
+        <h2 style="color: #4f46e5; margin-bottom: 12px;">Hi ${userName}, it's time to study!</h2>
+        <p style="font-size: 14px; line-height: 1.6;">Your scheduled study session for <strong>${subject}</strong> is starting at <strong>${startTime}</strong>.</p>
+        <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 14px; margin: 16px 0; border-radius: 6px;">
+          <p style="margin: 0; font-weight: bold; color: #0f172a; font-size: 14px;">Topic: ${topic}</p>
+          ${notes ? `<p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Notes: ${notes}</p>` : ''}
         </div>
-        <p>Stay focused and build your streak!</p>
+        <p style="font-size: 14px; color: #334155;">Stay focused, tick off subtopics, and build your daily streak!</p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #94a3b8;">Mind Maze GCE A/L Study Assistant</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Mind Maze GCE A/L Study Assistant</p>
       </div>
     `,
   });
+
   console.log(`[Email] Sent study reminder to ${toEmail}`);
 };
 
@@ -88,21 +111,20 @@ export const sendAdminBroadcastEmail = async (
   subject: string,
   messageBody: string
 ) => {
-  if (recipients.length === 0) {
-    throw new Error('No recipients provided.');
+  const validRecipients = (recipients || []).filter(Boolean);
+  if (validRecipients.length === 0) {
+    validRecipients.push(FROM_ADDR);
   }
 
-  const transporter = createTransport(); // throws with a clear message if not configured
-
-  // Send in BCC batches of 50 to avoid SMTP rate limits
-  const BATCH_SIZE = 50;
+  // Send in BCC batches of 40 to stay well within SMTP boundaries
+  const BATCH_SIZE = 40;
   const batches: string[][] = [];
-  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-    batches.push(recipients.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < validRecipients.length; i += BATCH_SIZE) {
+    batches.push(validRecipients.slice(i, i + BATCH_SIZE));
   }
 
   for (const batch of batches) {
-    await transporter.sendMail({
+    await sendMailWithFallback({
       from: `"Mind Maze Admin" <${FROM_ADDR}>`,
       to: FROM_ADDR,
       bcc: batch,
@@ -126,14 +148,15 @@ export const sendAdminBroadcastEmail = async (
     });
   }
 
-  console.log(`[Email] Broadcast sent to ${recipients.length} users in ${batches.length} batch(es).`);
+  console.log(`[Email] Broadcast sent to ${validRecipients.length} users in ${batches.length} batch(es).`);
 };
 
+// ─── Test Email ───────────────────────────────────────────────────────────────
 export const sendTestEmail = async (toEmail: string) => {
-  const transporter = createTransport();
-  await transporter.sendMail({
+  const target = toEmail || FROM_ADDR;
+  await sendMailWithFallback({
     from: `"Mind Maze Test" <${FROM_ADDR}>`,
-    to: toEmail,
+    to: target,
     subject: 'Mind Maze Email Service Test',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 500px;">
@@ -147,6 +170,5 @@ export const sendTestEmail = async (toEmail: string) => {
       </div>
     `,
   });
-  console.log(`[Email] Test email delivered to ${toEmail}`);
+  console.log(`[Email] Test email delivered to ${target}`);
 };
-

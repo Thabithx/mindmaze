@@ -203,6 +203,40 @@ export function recordTaskCompletionAndRefreshStreak(
   };
 }
 
+/**
+ * Record a daily visit to automatically increment the study streak for each active day
+ */
+export function recordDailyVisit(): StreakState {
+  const todayStr = getTodayDateString();
+  const raw = getRawStoredStreak();
+  const dateSet = new Set<string>(raw.completedDates);
+  dateSet.add(todayStr);
+
+  let currentStreak = 0;
+  let checkDate = todayStr;
+  while (dateSet.has(checkDate)) {
+    currentStreak++;
+    checkDate = getPreviousDateString(checkDate);
+  }
+
+  const bestStreak = Math.max(raw.bestStreak, currentStreak);
+  const sortedCompleted = Array.from(dateSet).sort();
+
+  saveRawStoredStreak({
+    bestStreak,
+    completedDates: sortedCompleted,
+    lastCompletedDate: todayStr,
+  });
+
+  return {
+    currentStreak,
+    bestStreak,
+    lastCompletedDate: todayStr,
+    completedDates: sortedCompleted,
+    isCompletedToday: true,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Periodic Gentle Nudge Reminders
 // ---------------------------------------------------------------------------
