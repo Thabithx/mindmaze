@@ -996,7 +996,7 @@ export function App() {
 
             <div className="flex items-center gap-3 mb-4">
               <div className="shrink-0 flex items-center justify-center bg-transparent">
-                <img src="/logo.png" alt="Mind Maze Logo" className="w-10 h-10 object-cover bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]" />
+                <img src="/logo.png" alt="Mind Maze Logo" className="w-10 h-10 object-contain bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">

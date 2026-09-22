@@ -15,9 +15,9 @@ export const Logo: React.FC<LogoProps> = ({
 }) => {
   const imageSizes = {
     sm: 'w-8 h-8',
-    md: 'w-9 h-9',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16',
+    md: 'w-10 h-10',
+    lg: 'w-14 h-14',
+    xl: 'w-20 h-20',
   };
 
   return (
@@ -30,7 +30,7 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src="/logo.png"
           alt="Mind Maze Logo"
-          className={`${imageSizes[size]} object-cover bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]`}
+          className={`${imageSizes[size]} object-contain bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]`}
         />
       </div>
 
