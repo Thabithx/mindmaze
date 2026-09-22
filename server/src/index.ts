@@ -53,12 +53,40 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/mistakes', mistakeRoutes);
 app.use('/api/admin', adminRoutes);
 
+function parseTimeToMinutes(timeStr: string): number | null {
+  if (!timeStr) return null;
+  const str = String(timeStr).trim();
+
+  // 12-hour format with AM/PM (e.g., "6:30 PM", "06:30 am", "6:30pm")
+  const ampmMatch = str.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const mins = parseInt(ampmMatch[2], 10);
+    const meridian = ampmMatch[3].toLowerCase();
+    if (meridian === 'pm' && hours < 12) hours += 12;
+    if (meridian === 'am' && hours === 12) hours = 0;
+    return hours * 60 + mins;
+  }
+
+  // 24-hour format (e.g., "18:30", "6:30", "06:30")
+  const match24 = str.match(/^(\d{1,2}):(\d{2})/);
+  if (match24) {
+    const hours = parseInt(match24[1], 10);
+    const mins = parseInt(match24[2], 10);
+    return hours * 60 + mins;
+  }
+
+  return null;
+}
+
 cron.schedule('* * * * *', async () => {
   try {
     const slots = await Timetable.find({
       reminderEnabled: true,
       isCompleted: false,
     }).populate('user');
+
+    if (!slots || slots.length === 0) return;
 
     const now = new Date();
 
@@ -99,17 +127,13 @@ cron.schedule('* * * * *', async () => {
       // Check if reminder was already sent today for this slot
       if (slot.lastReminderSentDate === localDate) continue;
 
-      // Calculate time difference in minutes
-      const [curH, curM] = localHHMM.split(':').map(Number);
-      const [startH, startM] = (slot.startTime || '00:00').split(':').map(Number);
-      const [endH, endM] = (slot.endTime || '23:59').split(':').map(Number);
+      const curMins = parseTimeToMinutes(localHHMM);
+      const startMins = parseTimeToMinutes(slot.startTime);
 
-      const curTotalMins = curH * 60 + curM;
-      const startTotalMins = startH * 60 + startM;
-      const endTotalMins = endH * 60 + endM;
+      if (curMins === null || startMins === null) continue;
 
-      // Send reminder when task starts (window: from start time up to 10 mins into the block)
-      const isStartWindow = curTotalMins >= startTotalMins && curTotalMins <= startTotalMins + 10 && curTotalMins <= endTotalMins;
+      // Match window: When task is starting (from 1 min before start up to 10 mins after start)
+      const isStartWindow = curMins >= (startMins - 1) && curMins <= (startMins + 10);
 
       if (isStartWindow) {
         // Mark as sent immediately to prevent any duplicate triggers

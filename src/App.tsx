@@ -153,6 +153,38 @@ export function App() {
             targetZScore: res.user.targetZScore || '',
           }));
         }
+
+        // Sync timetable with backend database
+        try {
+          const ttRes = await api.getTimetable();
+          if (ttRes?.timetable && ttRes.timetable.length > 0) {
+            const mapped: TimetableEntry[] = ttRes.timetable.map((s: any) => ({
+              id: s._id || s.id,
+              dayOfWeek: s.dayOfWeek,
+              subject: s.subject,
+              topic: s.topic,
+              blockType: s.blockType || 'study',
+              topicId: s.topicId || '',
+              subtopicTargets: s.subtopicTargets || [],
+              isCompleted: Boolean(s.isCompleted),
+              startTime: s.startTime,
+              endTime: s.endTime,
+              color: s.color || 'blue',
+              reminderEnabled: s.reminderEnabled !== undefined ? Boolean(s.reminderEnabled) : true,
+              reminderOffsetMinutes: s.reminderOffsetMinutes || 15,
+              notes: s.notes || '',
+            }));
+            setTimetable(mapped);
+            saveStoredTimetable(mapped);
+          } else {
+            const local = getStoredTimetable() || [];
+            if (local.length > 0) {
+              await api.syncTimetable(local);
+            }
+          }
+        } catch (ttErr) {
+          console.warn('[Timetable] Initial fetch/sync notice:', ttErr);
+        }
       }
     } catch (e: any) {
       console.warn('[Auth] checkCurrentAuth warning:', e?.message || e);
@@ -167,6 +199,16 @@ export function App() {
       }
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const syncTimetableToCloud = async (slots: TimetableEntry[]) => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      await api.syncTimetable(slots);
+    } catch (err: any) {
+      console.warn('[Timetable] Cloud sync notice:', err?.message || err);
     }
   };
 
@@ -185,6 +227,11 @@ export function App() {
       setAuthModalMode(null);
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
+      }
+
+      const local = getStoredTimetable() || [];
+      if (local.length > 0) {
+        api.syncTimetable(local).catch(() => {});
       }
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
@@ -214,6 +261,11 @@ export function App() {
       setAuthModalMode(null);
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
+      }
+
+      const local = getStoredTimetable() || [];
+      if (local.length > 0) {
+        api.syncTimetable(local).catch(() => {});
       }
     } catch (err: any) {
       setAuthError(err.message || 'Registration failed.');
@@ -708,6 +760,7 @@ export function App() {
                 }
                 setTimetable(newSlots);
                 saveStoredTimetable(newSlots);
+                syncTimetableToCloud(newSlots);
               }}
               onAddEntry={(entry) => {
                 if (!user) {
@@ -717,6 +770,7 @@ export function App() {
                 const newEntries = [...timetable, { ...entry, id: `tt-${Date.now()}` }];
                 setTimetable(newEntries);
                 saveStoredTimetable(newEntries);
+                syncTimetableToCloud(newEntries);
               }}
               onUpdateEntry={(entry) => {
                 if (!user) {
@@ -726,16 +780,19 @@ export function App() {
                 const updated = timetable.map((e) => (e.id === entry.id ? entry : e));
                 setTimetable(updated);
                 saveStoredTimetable(updated);
+                syncTimetableToCloud(updated);
               }}
               onDeleteEntry={(id) => {
                 const updated = timetable.filter((e) => e.id !== id);
                 setTimetable(updated);
                 saveStoredTimetable(updated);
+                syncTimetableToCloud(updated);
               }}
               onResetTimetable={() => {
                 const reset = getInitialTimetableForStream(userSettings.stream, userSettings.physicalScienceElective);
                 setTimetable(reset);
                 saveStoredTimetable(reset);
+                syncTimetableToCloud(reset);
               }}
               onSyncFromTimetable={(dateStr) => {
                 const dayOfWeek = getDayOfWeekFromDate(dateStr);

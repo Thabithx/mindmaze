@@ -134,6 +134,51 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
   }
 });
 
+router.post('/sync', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { slots } = req.body;
+    if (!Array.isArray(slots)) {
+      res.status(400).json({ message: 'Slots must be an array' });
+      return;
+    }
+
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    const formattedSlots = slots
+      .filter((s: any) => s && s.subject && s.topic && validDays.includes(s.dayOfWeek))
+      .map((s: any) => ({
+        user: req.user!._id,
+        dayOfWeek: s.dayOfWeek,
+        subject: String(s.subject).trim(),
+        topic: String(s.topic).trim(),
+        blockType: s.blockType === 'revision' ? 'revision' : 'study',
+        topicId: s.topicId || '',
+        subtopicTargets: Array.isArray(s.subtopicTargets) ? s.subtopicTargets : [],
+        isCompleted: Boolean(s.isCompleted),
+        startTime: String(s.startTime || '00:00').trim(),
+        endTime: String(s.endTime || '23:59').trim(),
+        color: s.color || 'blue',
+        reminderEnabled: s.reminderEnabled !== undefined ? Boolean(s.reminderEnabled) : true,
+        reminderOffsetMinutes: Number(s.reminderOffsetMinutes) || 15,
+        lastReminderSentDate: s.lastReminderSentDate || '',
+        notes: s.notes ? String(s.notes).trim() : '',
+      }));
+
+    await Timetable.deleteMany({ user: req.user!._id });
+
+    if (formattedSlots.length > 0) {
+      await Timetable.insertMany(formattedSlots);
+    }
+
+    const saved = await Timetable.find({ user: req.user!._id }).sort({ startTime: 1 });
+    console.log(`[Timetable Sync] Synced ${saved.length} slots for user ${req.user!._id}`);
+    res.json({ message: 'Timetable synced successfully', timetable: saved });
+  } catch (error: any) {
+    console.error('[Timetable Sync Error]:', error);
+    res.status(500).json({ message: 'Error syncing timetable', error: error?.message });
+  }
+});
+
 router.post('/send-reminder', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, topic, startTime, notes } = req.body;

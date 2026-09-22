@@ -98,6 +98,7 @@ export const api = {
 
   // Timetable
   getTimetable: () => apiFetch('/timetable'),
+  syncTimetable: (slots: any[]) => apiFetch('/timetable/sync', { method: 'POST', body: JSON.stringify({ slots }) }),
   createTimetableSlot: (body: any) => apiFetch('/timetable', { method: 'POST', body: JSON.stringify(body) }),
   updateTimetableSlot: (id: string, body: any) => apiFetch(`/timetable/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteTimetableSlot: (id: string) => apiFetch(`/timetable/${id}`, { method: 'DELETE' }),
