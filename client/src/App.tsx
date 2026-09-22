@@ -707,7 +707,7 @@ export function App() {
                     }
 
                     if (partialSubtopics && partialSubtopics.size > 0) {
-                      const map = { ...(t.subtopicProgress || {}) };
+                      const map: Record<string, number> = {};
                       const subs = t.subtopics || [];
                       partialSubtopics.forEach((sub) => {
                         map[sub] = 100;
@@ -725,11 +725,20 @@ export function App() {
                       };
                     }
 
-                    return t;
+                    return {
+                      ...t,
+                      status: 'not_started' as const,
+                      subtopicProgress: {},
+                      completedSubtopics: [],
+                    };
                   });
 
                   setSyllabusTopics(updated);
                   saveStoredSyllabusTopics(updated);
+
+                  if (getAuthToken()) {
+                    api.saveCompletedTopicsPicker(updated).catch(() => {});
+                  }
                 }}
                 onAddCustomTopic={(customTopic) => {
                   const newTopic: SyllabusTopic = {
