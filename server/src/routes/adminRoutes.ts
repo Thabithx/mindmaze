@@ -84,7 +84,9 @@ router.post('/broadcast-email', protect, adminOnly, async (req: AuthRequest, res
 
     res.json({ message: `Broadcast email dispatched to ${recipientEmails.length} students` });
   } catch (error: any) {
-    res.status(500).json({ message: 'Failed to send broadcast email', error: error.message });
+    const msg = error?.message || 'Failed to send broadcast email';
+    console.error('[Admin] broadcast-email error:', msg);
+    res.status(500).json({ message: msg });
   }
 });
 

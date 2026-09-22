@@ -1,16 +1,54 @@
 import nodemailer from 'nodemailer';
 
-const userEmail = process.env.EMAIL_USER || 'mowequar@gmail.com';
-const userPass = process.env.EMAIL_PASS || ''; // Optional app password or fallback transporter logging
+// ─── Configuration ────────────────────────────────────────────────────────────
+// Supports two setups:
+//   A) Gmail SMTP — set EMAIL_USER + EMAIL_PASS (Gmail App Password, NOT your
+//      regular Google password). Requires 2-Step Verification on the account.
+//   B) Generic SMTP — set SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS.
+//      Works with services like Brevo (free 300/day), Mailersend, etc.
+//
+// If NO credentials are configured the service throws a descriptive error so
+// the admin panel shows a clear message instead of silently doing nothing.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: userEmail,
-    pass: userPass,
-  },
-});
+const EMAIL_USER  = process.env.EMAIL_USER  || '';
+const EMAIL_PASS  = process.env.EMAIL_PASS  || '';
+const SMTP_HOST   = process.env.SMTP_HOST   || '';
+const SMTP_PORT   = Number(process.env.SMTP_PORT  || 587);
+const SMTP_USER   = process.env.SMTP_USER   || EMAIL_USER;
+const SMTP_PASS   = process.env.SMTP_PASS   || EMAIL_PASS;
+const FROM_ADDR   = EMAIL_USER || SMTP_USER || 'noreply@mindmaze.app';
 
+function isConfigured(): boolean {
+  return !!(EMAIL_PASS || SMTP_PASS);
+}
+
+function createTransport() {
+  if (!isConfigured()) {
+    throw new Error(
+      'Email not configured. Set EMAIL_USER + EMAIL_PASS (Gmail App Password) ' +
+      'or SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS in environment variables on Render.'
+    );
+  }
+
+  if (SMTP_HOST) {
+    // Generic SMTP (Brevo, Mailersend, etc.)
+    return nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+  }
+
+  // Gmail SMTP with App Password
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+  });
+}
+
+// ─── Study Reminder ───────────────────────────────────────────────────────────
 export const sendStudyReminderEmail = async (
   toEmail: string,
   userName: string,
@@ -19,61 +57,71 @@ export const sendStudyReminderEmail = async (
   startTime: string,
   notes?: string
 ) => {
-  if (!userPass) {
-    console.log(`[Email Service Simulation] Reminder to ${toEmail}: ${subject} - ${topic} at ${startTime}`);
-    return;
-  }
-  try {
-    await transporter.sendMail({
-      from: `"Mind Maze Study Planner" <${userEmail}>`,
-      to: toEmail,
-      subject: `📚 Study Reminder: ${subject} - ${topic}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
-          <h2 style="color: #4f46e5;">Hi ${userName}, it's time to study! 🎯</h2>
-          <p>Your scheduled study session for <strong>${subject}</strong> is starting at <strong>${startTime}</strong>.</p>
-          <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; margin: 15px 0;">
-            <p style="margin: 0; font-weight: bold;">Topic: ${topic}</p>
-            ${notes ? `<p style="margin: 5px 0 0 0; color: #64748b;">Notes: ${notes}</p>` : ''}
-          </div>
-          <p>Stay focused and build your streak!</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Mind Maze GCE A/L Study Assistant</p>
+  const transporter = createTransport(); // throws if not configured
+  await transporter.sendMail({
+    from: `"Mind Maze Study Planner" <${FROM_ADDR}>`,
+    to: toEmail,
+    subject: `Study Reminder: ${subject} - ${topic}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+        <h2 style="color: #4f46e5;">Hi ${userName}, it's time to study!</h2>
+        <p>Your scheduled study session for <strong>${subject}</strong> is starting at <strong>${startTime}</strong>.</p>
+        <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; margin: 15px 0;">
+          <p style="margin: 0; font-weight: bold;">Topic: ${topic}</p>
+          ${notes ? `<p style="margin: 5px 0 0 0; color: #64748b;">Notes: ${notes}</p>` : ''}
         </div>
-      `,
-    });
-    console.log(`[Email Service] Sent study reminder email to ${toEmail}`);
-  } catch (error) {
-    console.error(`[Email Service] Failed to send email to ${toEmail}:`, error);
-  }
+        <p>Stay focused and build your streak!</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">Mind Maze GCE A/L Study Assistant</p>
+      </div>
+    `,
+  });
+  console.log(`[Email] Sent study reminder to ${toEmail}`);
 };
 
+// ─── Admin Broadcast ──────────────────────────────────────────────────────────
 export const sendAdminBroadcastEmail = async (
   recipients: string[],
   subject: string,
   messageBody: string
 ) => {
-  if (!userPass) {
-    console.log(`[Email Service Simulation] Broadcast to ${recipients.length} users: ${subject}`);
-    return;
+  if (recipients.length === 0) {
+    throw new Error('No recipients provided.');
   }
-  try {
+
+  const transporter = createTransport(); // throws with a clear message if not configured
+
+  // Send in BCC batches of 50 to avoid SMTP rate limits
+  const BATCH_SIZE = 50;
+  const batches: string[][] = [];
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    batches.push(recipients.slice(i, i + BATCH_SIZE));
+  }
+
+  for (const batch of batches) {
     await transporter.sendMail({
-      from: `"Mind Maze Admin" <${userEmail}>`,
-      bcc: recipients,
-      subject: `📢 ${subject}`,
+      from: `"Mind Maze Admin" <${FROM_ADDR}>`,
+      bcc: batch,
+      subject: subject,
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
-          <h2 style="color: #4f46e5;">Announcement from Mind Maze Admin</h2>
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 15px 0;">
-            ${messageBody.replace(/\n/g, '<br/>')}
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 600px;">
+          <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 20px; border-radius: 12px 12px 0 0;">
+            <h2 style="color: #fff; margin: 0;">Announcement from Mind Maze</h2>
           </div>
-          <p style="font-size: 12px; color: #94a3b8;">Sent via Mind Maze Administration Panel</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 24px;">
+            <div style="font-size: 15px; line-height: 1.7; color: #334155;">
+              ${messageBody.replace(/\n/g, '<br/>')}
+            </div>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+              Sent via Mind Maze Administration Panel &mdash; GCE A/L Study Assistant
+            </p>
+          </div>
         </div>
       `,
     });
-    console.log(`[Email Service] Sent broadcast email to ${recipients.length} users`);
-  } catch (error) {
-    console.error(`[Email Service] Failed to send broadcast email:`, error);
   }
+
+  console.log(`[Email] Broadcast sent to ${recipients.length} users in ${batches.length} batch(es).`);
 };
+

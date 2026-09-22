@@ -390,9 +390,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             )}
 
             {broadcastStatus?.error && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                <span>{broadcastStatus.error}</span>
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <span>{broadcastStatus.error}</span>
+                </div>
+                {broadcastStatus.error.toLowerCase().includes('not configured') && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                    <p className="text-amber-300 text-xs font-bold">Setup Required — Add one of these to Render Environment Variables:</p>
+                    <div className="space-y-1 font-mono text-[10px] text-slate-300">
+                      <p className="text-slate-400 font-bold">Option A — Gmail App Password (recommended):</p>
+                      <p>EMAIL_USER=<span className="text-cyan-300">your@gmail.com</span></p>
+                      <p>EMAIL_PASS=<span className="text-cyan-300">xxxx xxxx xxxx xxxx</span> <span className="text-slate-500">(Gmail App Password)</span></p>
+                      <p className="text-slate-500 mt-1">→ Enable 2FA on Gmail → Google Account → Security → App Passwords</p>
+                      <p className="text-slate-400 font-bold mt-2">Option B — Brevo SMTP (free 300/day):</p>
+                      <p>SMTP_HOST=<span className="text-cyan-300">smtp-relay.brevo.com</span></p>
+                      <p>SMTP_PORT=<span className="text-cyan-300">587</span></p>
+                      <p>SMTP_USER=<span className="text-cyan-300">your@email.com</span></p>
+                      <p>SMTP_PASS=<span className="text-cyan-300">your-brevo-smtp-key</span></p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

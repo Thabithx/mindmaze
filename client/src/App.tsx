@@ -47,6 +47,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { ProfileEditModal } from './components/profile/ProfileEditModal';
 import { NotificationsScreen } from './components/notifications/NotificationsScreen';
 import { LandingPage } from './components/screens/LandingPage';
+import { useNotifications } from './hooks/useNotifications';
 
 import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen } from 'lucide-react';
 
@@ -208,6 +209,9 @@ export function App() {
     isAuthenticated: !!user,
   };
 
+  // ── OS-Level Notification hook ───────────────────────────────────────────────
+  const { permission: notificationPermission, requestPermission, sendNotification } = useNotifications();
+
   // Active timetable session detection
   const [activePomodoroTopic, setActivePomodoroTopic] = useState<{ title: string; subject: string; id?: string } | null>(null);
   const [isPomodoroMinimized, setIsPomodoroMinimized] = useState(false);
@@ -237,17 +241,13 @@ export function App() {
         setCurrentScreen('dashboard');
         setIsPomodoroMinimized(false);
 
-        if (!hasPromptedActiveBlock && typeof Notification !== 'undefined') {
-          if (Notification.permission === 'granted') {
-            try {
-              new Notification(`Study Session Starting!`, {
-                body: `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
-                icon: '/icon-192.png',
-              });
-            } catch {}
-          } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
-          }
+        if (!hasPromptedActiveBlock) {
+          // Use SW-backed OS notification (works even when tab is minimised)
+          sendNotification(
+            'Study Session Starting!',
+            `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
+            `study-block-${currentBlock.id}`
+          );
           setHasPromptedActiveBlock(true);
         }
       }
@@ -256,7 +256,7 @@ export function App() {
     checkActiveBlock();
     const interval = setInterval(checkActiveBlock, 30000);
     return () => clearInterval(interval);
-  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock]);
+  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, sendNotification]);
 
   if (authLoading) {
     return (
@@ -741,6 +741,8 @@ export function App() {
           {currentScreen === 'progress' && (
             <ProgressAnalytics
               userSettings={userSettings}
+              stream={user?.stream || userSettings.stream}
+              physicalScienceElective={user?.physicalScienceElective || userSettings.physicalScienceElective || 'Chemistry'}
               syllabusTopics={syllabusTopics}
               timetable={timetable}
               dailyTasks={tasks}
@@ -769,6 +771,17 @@ export function App() {
                 const merged = { ...userSettings, ...newS };
                 setUserSettingsState(merged);
                 saveUserSettings(merged);
+              }}
+              notificationPermission={notificationPermission}
+              onRequestNotificationPermission={async () => {
+                await requestPermission();
+              }}
+              onSendTestNotification={() => {
+                sendNotification(
+                  'Mind Maze Study Reminder',
+                  'This is a test notification! Your study reminders are working perfectly.',
+                  'test-notification'
+                );
               }}
               onNavigate={setCurrentScreen}
               timetableEntries={timetable}

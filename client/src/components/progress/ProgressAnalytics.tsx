@@ -25,6 +25,7 @@ import { calculateMinutesBetween } from '../../lib/storage';
 
 interface ProgressAnalyticsProps {
   stream?: StreamType;
+  physicalScienceElective?: 'Chemistry' | 'ICT' | string;
   syllabusTopics?: SyllabusTopic[];
   timetableEntries?: TimetableEntry[];
   timetable?: TimetableEntry[];
@@ -37,6 +38,7 @@ interface ProgressAnalyticsProps {
 
 export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   stream,
+  physicalScienceElective,
   syllabusTopics = [],
   timetableEntries,
   timetable,
@@ -47,7 +49,8 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   currentUserId = null,
 }) => {
   const effectiveStream = stream || userSettings?.stream || settings?.stream || 'Physical Science';
-  const effectiveSettings = settings || userSettings || { dailyHoursGoal: 4, weeklyHoursGoal: 28, physicalScienceElective: 'Chemistry' };
+  const effectiveElective = physicalScienceElective || userSettings?.physicalScienceElective || settings?.physicalScienceElective || 'Chemistry';
+  const effectiveSettings = settings || userSettings || { dailyHoursGoal: 4, weeklyHoursGoal: 28, physicalScienceElective: effectiveElective };
   const safeTopics = syllabusTopics || [];
   const safeTimetable = timetableEntries || timetable || [];
   const safeDailyTasks = dailyTasks || [];
@@ -55,7 +58,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const dailyGoal = effectiveSettings.dailyHoursGoal ?? 4;
   const weeklyGoal = Math.round(dailyGoal * 7 * 10) / 10;
 
-  const streamSubjects = getSubjectsForStream(effectiveStream, effectiveSettings.physicalScienceElective);
+  const streamSubjects = getSubjectsForStream(effectiveStream, effectiveElective);
   const streamProgression = calculateOverallStreamProgression(streamSubjects, safeTopics);
 
   const totalTopics = streamProgression.totalTopics;
