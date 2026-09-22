@@ -30,6 +30,15 @@ import {
   RotateCcw,
   LayoutGrid,
   List,
+  X,
+  Bell,
+  BellOff,
+  AlertCircle,
+  Calculator,
+  Zap,
+  FlaskConical,
+  Laptop,
+  Dna,
 } from 'lucide-react';
 import { SUBJECT_METAS, getSubjectsForStream } from '../../data/alSyllabusData';
 import { SubtopicTargetPicker } from '../common/SubtopicTargetPicker';
@@ -915,7 +924,14 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                   <CalendarPlus className="w-5 h-5 text-cyan-400" />
                   <span>{editingEntry ? 'Edit Study Block' : 'Add Study Block'}</span>
                 </div>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer min-w-[40px] min-h-[40px]" aria-label="Close dialog">✕</button>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs overscroll-contain">
@@ -940,13 +956,14 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                     <div role="group" aria-labelledby="study-block-subject-label" className="flex flex-wrap gap-1.5">
                       {(() => {
                         const options = [
-                          ...availableSubjects.map((s) => ({ name: s.name, icon: s.icon })),
+                          ...availableSubjects.map((s) => ({ name: s.name })),
                         ];
                         if (!options.some((o) => o.name === formSubject)) {
-                          options.push({ name: formSubject, icon: '' });
+                          options.push({ name: formSubject });
                         }
                         return options.map((o) => {
                           const active = formSubject === o.name;
+                          const sName = o.name.toLowerCase();
                           return (
                             <button
                               key={o.name}
@@ -958,13 +975,19 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                                 setFormLinkError('');
                                 setFormTargets([]);
                               }}
-                              className={`px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[40px] ${
                                 active
-                                  ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100'
+                                  ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-100 shadow-sm'
                                   : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
                               }`}
                             >
-                              {o.icon} {o.name}
+                              {sName.includes('math') ? <Calculator className="w-3.5 h-3.5 text-indigo-400" /> :
+                               sName.includes('phys') ? <Zap className="w-3.5 h-3.5 text-cyan-400" /> :
+                               sName.includes('chem') ? <FlaskConical className="w-3.5 h-3.5 text-purple-400" /> :
+                               sName.includes('bio') ? <Dna className="w-3.5 h-3.5 text-emerald-400" /> :
+                               sName.includes('ict') ? <Laptop className="w-3.5 h-3.5 text-pink-400" /> :
+                               <BookOpen className="w-3.5 h-3.5 text-cyan-400" />}
+                              <span>{o.name}</span>
                             </button>
                           );
                         });
@@ -976,16 +999,16 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                       <div className="grid grid-cols-2 gap-1.5">
                         <button
                           type="button" onClick={() => { setFormBlockType('study'); setFormTopicId(''); setFormLinkError(''); setFormTargets([]); }}
-                          className={`px-2 py-2.5 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[44px] flex items-center justify-center gap-1 ${formBlockType === 'study' ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                          className={`px-2 py-2.5 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 ${formBlockType === 'study' ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200' : 'bg-white/5 border-white/10 text-slate-400'}`}
                         >
                           <GraduationCap className="w-4 h-4" /><span>Study</span>
                         </button>
                         <button
                           type="button" disabled={revisionLocked} onClick={() => { setFormBlockType('revision'); setFormTopicId(''); setFormLinkError(''); setFormTargets([]); }}
                           title={revisionLocked ? 'Complete a topic first to unlock revision' : 'Only completed topics'}
-                          className={`px-2 py-2.5 rounded-xl border text-xs font-bold transition min-h-[44px] flex items-center justify-center gap-1 ${formBlockType === 'revision' ? 'bg-teal-500/20 border-teal-400/60 text-teal-200' : revisionLocked ? 'bg-white/[0.02] border-white/5 text-slate-600 cursor-not-allowed' : 'bg-white/5 border-white/10 text-slate-400 cursor-pointer'}`}
+                          className={`px-2 py-2.5 rounded-xl border text-xs font-bold transition min-h-[44px] flex items-center justify-center gap-1.5 ${formBlockType === 'revision' ? 'bg-teal-500/20 border-teal-400/60 text-teal-200' : revisionLocked ? 'bg-white/[0.02] border-white/5 text-slate-600 cursor-not-allowed' : 'bg-white/5 border-white/10 text-slate-400 cursor-pointer'}`}
                         >
-                          <RefreshCw className="w-4 h-4" /><span>🔁</span>
+                          <RefreshCw className="w-4 h-4" /><span>Revision</span>
                         </button>
                       </div>
                     </div>
@@ -1025,8 +1048,18 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                     )}
                     <div>
                       <label className="block text-slate-300 font-semibold mb-1">Reminder</label>
-                      <button type="button" onClick={() => setFormReminder(!formReminder)} className={`w-full px-3 py-2.5 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[44px] ${formReminder ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-400'}`}>
-                        {formReminder ? '🔔 On (15m before)' : '🔕 Off'}
+                      <button type="button" onClick={() => setFormReminder(!formReminder)} className={`w-full px-3 py-2.5 rounded-xl border text-xs font-bold transition cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 ${formReminder ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-400'}`}>
+                        {formReminder ? (
+                          <>
+                            <Bell className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>On (15m before)</span>
+                          </>
+                        ) : (
+                          <>
+                            <BellOff className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Off</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1063,7 +1096,10 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                     })}
                   </div>
                   {formTimeError ? (
-                    <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300">⚠️ {formTimeError}</p>
+                    <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{formTimeError}</span>
+                    </p>
                   ) : (
                     <p className="text-[11px] text-slate-400">Duration: <strong className="text-white">{calculateMinutesBetween(formStart, formEnd)} min</strong> • {formatTime12h(formStart)} → {formatTime12h(formEnd)}</p>
                   )}
@@ -1117,7 +1153,10 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                     </div>
                   </details>
                   {formLinkError && (
-                    <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300">⚠️ {formLinkError}</p>
+                    <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{formLinkError}</span>
+                    </p>
                   )}
                   <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5" open={!!editingEntry && !!editingEntry.notes ? true : undefined}>
                     <summary className="text-xs font-bold text-slate-300 cursor-pointer list-none [&::-webkit-details-marker]:hidden min-h-[32px] flex items-center">
@@ -1137,7 +1176,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                       {' '}• {formSubject} •{' '}
                       {editingEntry || formRepeatWeekly ? `every ${formDay}` : getFormattedDateDisplay(selectedDate)}
                       {' '}• {formatTime12h(formStart)} → {formatTime12h(formEnd)} ({calculateMinutesBetween(formStart, formEnd)} min)
-                      {formBlockType === 'revision' ? ' • 🔁 Revision' : ''}
+                      {formBlockType === 'revision' ? ' • Revision' : ''}
                     </p>
                   )}
                   <div className="flex flex-wrap items-center justify-end gap-2.5">

@@ -57,6 +57,18 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [timeLeft, setTimeLeft] = useState<number>(MODE_CONFIGS.work.minutes * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [completedSessions, setCompletedSessions] = useState<number>(0);
+  const [selectedSubject, setSelectedSubject] = useState<string>(() => activeSubject || '');
+
+  useEffect(() => {
+    if (activeSubject) {
+      setSelectedSubject(activeSubject);
+    }
+  }, [activeSubject]);
+
+  const availableSubjects = Array.from(new Set(availableTopics.map((t) => t.subject))).filter(Boolean);
+  const filteredTopics = selectedSubject
+    ? availableTopics.filter((t) => t.subject === selectedSubject)
+    : availableTopics;
 
   const totalTime = MODE_CONFIGS[mode].minutes * 60;
   const progressPercent = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100));
@@ -243,21 +255,34 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap max-w-full">
             {availableTopics && availableTopics.length > 0 && onSelectTopic && (
-              <select
-                onChange={(e) => {
-                  const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
-                  if (found) onSelectTopic(found);
-                }}
-                className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[180px] truncate"
-                defaultValue=""
-              >
-                <option value="" disabled>Switch Unit...</option>
-                {availableTopics.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-[#161831] text-white">
-                    {t.subject}: Unit {t.unitNumber} - {t.topicTitle}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="bg-black/40 border border-white/10 rounded-xl px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none cursor-pointer max-w-[110px] truncate"
+                >
+                  <option value="">All</option>
+                  {availableSubjects.map((s) => (
+                    <option key={s} value={s} className="bg-[#161831] text-white">{s}</option>
+                  ))}
+                </select>
+
+                <select
+                  onChange={(e) => {
+                    const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                    if (found) onSelectTopic(found);
+                  }}
+                  className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[140px] sm:max-w-[170px] truncate"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Switch Unit...</option>
+                  {filteredTopics.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-[#161831] text-white">
+                      Unit {t.unitNumber} - {t.topicTitle}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
 
             {onMarkFinished && (
@@ -274,26 +299,60 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </div>
       ) : (
         availableTopics && availableTopics.length > 0 && onSelectTopic && (
-          <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs overflow-hidden">
-            <div className="flex items-center gap-2 min-w-0">
-              <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="text-slate-300 font-semibold truncate">Select a syllabus unit to study:</span>
+          <div className="mb-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs">
+            <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span className="text-white font-bold">Select Study Topic</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium">1. Choose Subject → 2. Choose Unit</span>
             </div>
-            <select
-              onChange={(e) => {
-                const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
-                if (found) onSelectTopic(found);
-              }}
-              className="bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer w-full sm:w-auto max-w-full sm:max-w-[260px] truncate"
-              defaultValue=""
-            >
-              <option value="" disabled>Choose Syllabus Unit...</option>
-              {availableTopics.map((t) => (
-                <option key={t.id} value={t.id} className="bg-[#161831] text-white">
-                  {t.subject}: Unit {t.unitNumber} - {t.topicTitle}
-                </option>
-              ))}
-            </select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* Step 1: Subject Dropdown */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  1. Subject
+                </label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400 cursor-pointer"
+                >
+                  <option value="">All Subjects</option>
+                  {availableSubjects.map((subj) => (
+                    <option key={subj} value={subj} className="bg-[#161831] text-white">
+                      {subj}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 2: Syllabus Unit Dropdown */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  2. Syllabus Unit ({filteredTopics.length})
+                </label>
+                <select
+                  onChange={(e) => {
+                    const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                    if (found) {
+                      setSelectedSubject(found.subject);
+                      onSelectTopic(found);
+                    }
+                  }}
+                  className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400 cursor-pointer truncate"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Choose Syllabus Unit...</option>
+                  {filteredTopics.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-[#161831] text-white">
+                      Unit {t.unitNumber}: {t.topicTitle} ({t.subject})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         )
       )}

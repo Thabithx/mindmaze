@@ -36,38 +36,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 }) => {
   const effectiveSettings = settings || userSettings || {};
   const isEmailEnabled = effectiveSettings.emailNotificationsEnabled !== false; // Enabled by default
-
-  const [testSending, setTestSending] = useState(false);
-  const [testStatus, setTestStatus] = useState<string | null>(null);
-  const [testError, setTestError] = useState<string | null>(null);
-
   const studentEmail = userProfile?.email || '';
-
-  const handleSendTestEmail = async () => {
-    if (!studentEmail) {
-      setTestError('Please sign in with your email account to receive study alerts.');
-      return;
-    }
-
-    setTestSending(true);
-    setTestStatus(null);
-    setTestError(null);
-
-    try {
-      const firstEntry = timetableEntries[0];
-      await api.sendTimetableReminder({
-        subject: firstEntry?.subject || 'Physics',
-        topic: firstEntry?.topic || 'Mechanics & Vector Calculus',
-        startTime: firstEntry?.startTime || 'Now',
-        notes: 'Test study session reminder from Mind Maze notification center.',
-      });
-      setTestStatus(`Test study alert email dispatched successfully to ${studentEmail}! Check your inbox.`);
-    } catch (err: any) {
-      setTestError(err.message || 'Failed to send test email. Ensure the backend server is reachable.');
-    } finally {
-      setTestSending(false);
-    }
-  };
 
   const handleToggleEmailNotifications = () => {
     onUpdateSettings({ emailNotificationsEnabled: !isEmailEnabled });
@@ -89,35 +58,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             Automated study block alerts, timetable session triggers, and exam reminders sent directly to your email inbox.
           </p>
         </div>
-
-        {studentEmail && (
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handleSendTestEmail}
-              disabled={testSending}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 cursor-pointer hover:scale-105 active:scale-95"
-            >
-              <Send className="w-4 h-4" />
-              <span>{testSending ? 'Sending...' : 'Send Test Alert to My Email'}</span>
-            </button>
-          </div>
-        )}
       </div>
-
-      {/* Test feedback banner */}
-      {testStatus && (
-        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-3 animate-fade-in shadow-lg">
-          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
-          <span>{testStatus}</span>
-        </div>
-      )}
-
-      {testError && (
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-3 animate-fade-in shadow-lg">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
-          <span>{testError}</span>
-        </div>
-      )}
 
       {/* Notification Preferences with Toggle */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
