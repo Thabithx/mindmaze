@@ -60,7 +60,7 @@ export function App() {
 
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | null>(null);
 
   // Auth Inputs
@@ -344,14 +344,6 @@ export function App() {
     return () => clearInterval(interval);
   }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, sendNotification]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-3" />
-        <p className="text-sm text-slate-400 font-medium">Connecting to Mind Maze Server...</p>
-      </div>
-    );
-  }
 
   const activeSyllabusTopic = activePomodoroTopic
     ? syllabusTopics.find(

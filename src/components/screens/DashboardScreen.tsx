@@ -31,6 +31,8 @@ import {
   Table,
   List,
   Lightbulb,
+  ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import { ComingSoonModal } from '../ComingSoonModal';
 
@@ -859,6 +861,51 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* WhatsApp Community */}
+      <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/30 p-5 sm:p-6">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Join Our Community</h3>
+            <p className="text-[11px] text-slate-400">Connect with fellow A/L students</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a
+            href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4&ilr=4"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <MessageCircle className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white">Discussion Group</p>
+              <p className="text-[11px] text-emerald-400/80 truncate">Doubts &amp; Answers</p>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors shrink-0" />
+          </a>
+          <a
+            href="https://whatsapp.com/channel/0029Vb8OnJGCRs1fpYosgU1z"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white">Daily MCQs Channel</p>
+              <p className="text-[11px] text-emerald-400/80 truncate">Practice every day</p>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors shrink-0" />
+          </a>
         </div>
       </div>
 
