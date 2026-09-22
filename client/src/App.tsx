@@ -749,15 +749,47 @@ export function App() {
             />
           )}
 
-          {/* Settings */}
+          {/* Settings / Profile */}
           {currentScreen === 'settings' && (
             <SettingsScreen
               settings={userSettings}
+              userSettings={userSettings}
+              currentUser={user}
+              userProfile={userProfile}
+              userRole={user?.role || 'student'}
               onSaveSettings={(s) => {
                 setUserSettingsState(s);
                 saveUserSettings(s);
               }}
-              userRole={user?.role || 'student'}
+              onProfileUpdated={(updated) => {
+                setUser(updated);
+                setUserSettingsState((prev) => ({
+                  ...prev,
+                  studentName: updated.name,
+                  stream: updated.stream,
+                  physicalScienceElective: updated.physicalScienceElective,
+                  targetExamYear: updated.targetExamYear,
+                  targetExamDate: updated.targetExamDate,
+                  targetZScore: updated.targetZScore,
+                  mobileNumber: updated.mobileNumber,
+                  motivationNote: updated.motivationNote,
+                  dailyHoursGoal: updated.dailyHoursGoal,
+                  weeklyHoursGoal: updated.weeklyHoursGoal,
+                }));
+              }}
+              onSignOut={handleSignOut}
+              notificationPermission={notificationPermission}
+              onRequestNotificationPermission={async () => {
+                await requestPermission();
+              }}
+              onSendTestNotification={() => {
+                sendNotification(
+                  'Mind Maze Study Reminder',
+                  'This is a test notification! Your study reminders are working perfectly.',
+                  'test-notification'
+                );
+              }}
+              onNavigate={setCurrentScreen}
               onOpenProfileEdit={() => setIsProfileEditOpen(true)}
             />
           )}

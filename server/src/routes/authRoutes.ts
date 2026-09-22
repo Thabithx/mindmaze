@@ -166,6 +166,9 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
 
     const {
       name,
+      email,
+      currentPassword,
+      newPassword,
       stream,
       physicalScienceElective,
       targetExamYear,
@@ -183,6 +186,36 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         return;
       }
       user.name = name.trim();
+    }
+
+    if (email !== undefined && email.trim().toLowerCase() !== user.email) {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!EMAIL_REGEX.test(cleanEmail)) {
+        res.status(400).json({ message: 'Please provide a valid email address' });
+        return;
+      }
+      const existing = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } });
+      if (existing) {
+        res.status(400).json({ message: 'This email is already in use by another account' });
+        return;
+      }
+      user.email = cleanEmail;
+    }
+
+    if (newPassword) {
+      if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        res.status(400).json({ message: 'New password must be at least 6 characters long' });
+        return;
+      }
+      if (user.passwordHash && currentPassword) {
+        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isMatch) {
+          res.status(400).json({ message: 'Current password does not match' });
+          return;
+        }
+      }
+      const salt = await bcrypt.genSalt(10);
+      user.passwordHash = await bcrypt.hash(newPassword, salt);
     }
 
     if (stream !== undefined) {

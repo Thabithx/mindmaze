@@ -65,10 +65,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
         </button>
 
-        <PWAInstallButton />
+        <div className="hidden sm:flex items-center">
+          <PWAInstallButton />
+        </div>
 
-        {/* Single Profile Icon Button */}
-        <div className="relative">
+        {/* Single Profile Icon Button (Desktop / Tablet only - Mobile uses Settings/Profile) */}
+        <div className="relative hidden sm:block">
           {userProfile?.isAuthenticated ? (
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}

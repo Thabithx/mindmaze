@@ -11,13 +11,13 @@ import nodemailer from 'nodemailer';
 // the admin panel shows a clear message instead of silently doing nothing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EMAIL_USER  = process.env.EMAIL_USER  || '';
-const EMAIL_PASS  = process.env.EMAIL_PASS  || '';
-const SMTP_HOST   = process.env.SMTP_HOST   || '';
+const EMAIL_USER  = (process.env.EMAIL_USER  || '').trim();
+const EMAIL_PASS  = (process.env.EMAIL_PASS  || '').replace(/\s+/g, '');
+const SMTP_HOST   = (process.env.SMTP_HOST   || '').trim();
 const SMTP_PORT   = Number(process.env.SMTP_PORT  || 587);
-const SMTP_USER   = process.env.SMTP_USER   || EMAIL_USER;
-const SMTP_PASS   = process.env.SMTP_PASS   || EMAIL_PASS;
-const FROM_ADDR   = EMAIL_USER || SMTP_USER || 'noreply@mindmaze.app';
+const SMTP_USER   = (process.env.SMTP_USER   || EMAIL_USER).trim();
+const SMTP_PASS   = (process.env.SMTP_PASS   || EMAIL_PASS).replace(/\s+/g, '');
+const FROM_ADDR   = EMAIL_USER || SMTP_USER || 'mowequar@gmail.com';
 
 function isConfigured(): boolean {
   return !!(EMAIL_PASS || SMTP_PASS);

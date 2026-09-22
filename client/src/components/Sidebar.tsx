@@ -11,6 +11,7 @@ import {
   Trophy,
   BarChart3,
   Settings,
+  User,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -192,8 +193,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {currentScreen === 'settings' && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-slate-400" />
               )}
-              <Settings className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'settings' ? 'text-slate-300' : 'text-slate-500 group-hover:text-slate-300'}`} />
-              {!isCollapsed && <span className="text-[13px]">Settings</span>}
+              <User className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'settings' ? 'text-cyan-300' : 'text-slate-500 group-hover:text-slate-300'}`} />
+              {!isCollapsed && <span className="text-[13px]">Profile & Settings</span>}
             </button>
 
             {onSignOut && (
