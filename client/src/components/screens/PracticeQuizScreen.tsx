@@ -427,7 +427,7 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
           </div>
         </>
       ) : (
-// /* QUIZ SCORE SCREEN
+        /* QUIZ SCORE SCREEN */
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10 backdrop-blur-md text-center space-y-8 shadow-xl">
           <div className="inline-flex items-center justify-center p-4 rounded-3xl bg-purple-500/20 border border-purple-400/40 shadow-xl">
             <Award className="w-12 h-12 text-cyan-300" />
@@ -523,7 +523,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
               </button>
             </div>
 
-            {/* 1. Correct Answer Banner */}
             <div className="rounded-2xl bg-emerald-500/20 border border-emerald-500/40 p-4 flex items-center justify-between">
               <div>
                 <span className="text-xs text-emerald-400 font-semibold block">Correct Answer:</span>
@@ -534,7 +533,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
               <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
             </div>
 
-            {/* 2. Short Concept Note (3-4 lines) */}
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4.5 space-y-2 backdrop-blur-sm">
               <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 uppercase tracking-wider">
                 <Lightbulb className="w-4 h-4 text-amber-400" />
@@ -551,7 +549,6 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
               )}
             </div>
 
-            {/* 3. Step-by-Step Method (Numbered List) */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs font-bold text-purple-300 uppercase tracking-wider">
                 <ListOrdered className="w-4 h-4 text-purple-400" />

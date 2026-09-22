@@ -4,8 +4,6 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// @route   GET /api/mistakes
-// @desc    Get user's logged mistakes
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mistakes = await Mistake.find({ user: req.user!._id }).sort({ createdAt: -1 });
@@ -15,7 +13,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-// @route   POST /api/mistakes
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, topic, questionText, yourAnswer, correctAnswer, explanation } = req.body;
@@ -43,7 +40,6 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
   }
 });
 
-// @route   PUT /api/mistakes/:id
 router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mistake = await Mistake.findOne({ _id: req.params.id, user: req.user!._id });
@@ -67,8 +63,6 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
   }
 });
 
-// @route   DELETE /api/mistakes/:id
-// @desc    Delete mistake item
 router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await Mistake.findOneAndDelete({ _id: req.params.id, user: req.user!._id });

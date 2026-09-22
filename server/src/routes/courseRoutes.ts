@@ -9,7 +9,7 @@ const router = Router();
 // Configure multer memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB max PDF size
 });
 
 const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string = 'courses'): Promise<any> => {
@@ -29,7 +29,6 @@ const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string
   });
 };
 
-// @route   GET /api/courses
 router.get('/', async (req: any, res: Response): Promise<void> => {
   try {
     const { stream, subject } = req.query;
@@ -44,8 +43,6 @@ router.get('/', async (req: any, res: Response): Promise<void> => {
   }
 });
 
-// @route   GET /api/courses/:id
-// @desc    Get single course
 router.get('/:id', async (req: any, res: Response): Promise<void> => {
   try {
     const course = await Course.findById(req.params.id);
@@ -59,7 +56,6 @@ router.get('/:id', async (req: any, res: Response): Promise<void> => {
   }
 });
 
-// @route   POST /api/courses
 router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { title, description, subject, stream, videoUrl, thumbnailUrl, quizJson } = req.body;
@@ -110,8 +106,6 @@ router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthR
   }
 });
 
-// @route   DELETE /api/courses/:id
-// @desc    Delete course (Admin only)
 router.delete('/:id', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const course = await Course.findById(req.params.id);

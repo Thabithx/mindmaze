@@ -5,7 +5,6 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// @route   GET /api/timetable
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slots = await Timetable.find({ user: req.user!._id }).sort({ startTime: 1 });
@@ -15,7 +14,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-// @route   POST /api/timetable
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
@@ -71,7 +69,6 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
   }
 });
 
-// @route   PUT /api/timetable/:id
 router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = await Timetable.findOne({ _id: req.params.id, user: req.user!._id });
@@ -124,8 +121,6 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
   }
 });
 
-// @route   DELETE /api/timetable/:id
-// @desc    Delete timetable entry
 router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = await Timetable.findOneAndDelete({ _id: req.params.id, user: req.user!._id });
@@ -139,7 +134,6 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
   }
 });
 
-// @route   POST /api/timetable/send-reminder
 router.post('/send-reminder', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, topic, startTime, notes } = req.body;

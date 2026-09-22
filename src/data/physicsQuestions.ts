@@ -1,9 +1,6 @@
 import { Question } from '../types';
 
 export const PHYSICS_QUESTIONS: Question[] = [
-  // ==========================================
-  // 1. MECHANICS (Questions 1 to 6)
-  // ==========================================
   {
     id: 'q-phy-mech-01',
     subject: 'Physics',
@@ -311,8 +308,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // ==========================================
   {
     id: 'q-phy-wave-06',
     subject: 'Physics',
@@ -557,8 +552,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // ==========================================
   {
     id: 'q-phy-therm-10',
     subject: 'Physics',
@@ -744,8 +737,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // ==========================================
   {
     id: 'q-phy-elec-13',
     subject: 'Physics',
@@ -989,9 +980,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // 5. ELECTRONICS (Questions 17 to 21)
-  // ==========================================
   {
     id: 'q-phy-electr-17',
     subject: 'Physics',
@@ -1173,8 +1161,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // ==========================================
   {
     id: 'q-phy-mod-20',
     subject: 'Physics',
@@ -1357,8 +1343,6 @@ export const PHYSICS_QUESTIONS: Question[] = [
     },
   },
 
-  // ==========================================
-  // ==========================================
   {
     id: 'q-phy-prop-23',
     subject: 'Physics',

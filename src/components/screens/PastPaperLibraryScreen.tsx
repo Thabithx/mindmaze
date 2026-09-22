@@ -39,7 +39,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
-  const [currentOnly, setCurrentOnly] = useState<boolean>(true);
+  const [currentOnly, setCurrentOnly] = useState<boolean>(true); // Current Only toggle ON by default
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedMedium, setSelectedMedium] = useState<string>('All');
   const [selectedYearRange, setSelectedYearRange] = useState<string>('All');
@@ -218,7 +218,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 <span>Live Physics</span>
               </button>
               <a
-                href="https:
+                href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"

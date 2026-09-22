@@ -28,6 +28,7 @@ export function getPreviousDateString(dateStr: string): string {
   }
 }
 
+/* * * Load raw streak records from localStorage */
 function getRawStoredStreak(): { bestStreak: number; completedDates: string[]; lastCompletedDate?: string } {
   try {
     const raw = localStorage.getItem(STREAK_STORAGE_KEY);
@@ -50,6 +51,7 @@ function getRawStoredStreak(): { bestStreak: number; completedDates: string[]; l
   };
 }
 
+/* * * Save streak records to localStorage */
 function saveRawStoredStreak(data: { bestStreak: number; completedDates: string[]; lastCompletedDate?: string }): void {
   try {
     localStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(data));
@@ -203,9 +205,7 @@ export function recordDailyVisit(): StreakState {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Periodic Gentle Nudge Reminders
-// ---------------------------------------------------------------------------
 
 export function recordAppActivity(): void {
   try {

@@ -13,9 +13,9 @@ export interface AdaptiveLayoutContextType {
   // Device classifications
   deviceType: DeviceType;
   breakpoint: Breakpoint;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
+  isMobile: boolean; // < 768px (smartphones)
+  isTablet: boolean; // 768px - 1023px (iPads / tablets)
+  isDesktop: boolean; // >= 1024px (laptops & desktops)
   isTouchDevice: boolean;
   isLandscape: boolean;
   isPortrait: boolean;

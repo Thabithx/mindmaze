@@ -131,7 +131,7 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     } else if (err instanceof Error) {
       if (action && isRateLimitError(err.message)) {
         recordRateLimit(action, parseWaitSeconds(err.message) ?? 60);
-        setCooldownTick((t) => t + 1);
+        setCooldownTick((t) => t + 1); // restart the countdown ticker
       }
       setErrorMsg(friendlyAuthError(err.message));
     } else {
@@ -289,6 +289,7 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
+  // ---------- Sign in: email + password ----------
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -333,6 +334,7 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     }
   };
 
+  // ---------- Resend verification email (check-email view) ----------
   const handleResend = async () => {
     setErrorMsg(null);
     setInfoMsg(null);

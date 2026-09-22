@@ -859,7 +859,7 @@ export async function fetchRevisionCount(userId: string): Promise<number | null>
       .eq('id', userId)
       .maybeSingle();
     if (error) {
-      if (isMissingColumnError(error)) return null;
+      if (isMissingColumnError(error)) return null; // pre-migration DB
       throw error;
     }
     const v = (data as { revision_count?: unknown } | null)?.revision_count;

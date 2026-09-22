@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https:
+const API_BASE = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');

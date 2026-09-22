@@ -3,12 +3,12 @@ export interface StudyReminderContext {
   subject: string;
   topicTitle: string;
   subtopic?: string;
-  timeContext?: string;
+  timeContext?: string; // e.g. "Starting in 15 mins", "Starting right now", "16:00 - 17:30"
   currentStreak: number;
   totalTodayTasks: number;
   completedTodayTasks: number;
   remainingTodayTasks: number;
-  currentHour?: number;
+  currentHour?: number; // 0 - 23
 }
 
 export interface NudgeContext {
@@ -36,8 +36,6 @@ function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const COMPLETION_MESSAGES = [
   (ctx: CompletionContext) => ({
     title: 'All done for today!',
@@ -61,9 +59,6 @@ const COMPLETION_MESSAGES = [
   }),
 ];
 
-// ---------------------------------------------------------------------------
-// 2. Exactly 1 Topic Left Today
-// ---------------------------------------------------------------------------
 const ONE_LEFT_MESSAGES = [
   (ctx: StudyReminderContext) => ({
     title: 'Just one more topic to go today!',
@@ -83,8 +78,6 @@ const ONE_LEFT_MESSAGES = [
   }),
 ];
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const LATE_UNSTARTED_MESSAGES = [
   (ctx: StudyReminderContext) => ({
     title: "Quick win time?",
@@ -104,8 +97,6 @@ const LATE_UNSTARTED_MESSAGES = [
   }),
 ];
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const STREAK_KEEPER_MESSAGES = [
   (ctx: StudyReminderContext) => ({
     title: `Keep the streak alive! Day ${ctx.currentStreak}`,
@@ -125,8 +116,6 @@ const STREAK_KEEPER_MESSAGES = [
   }),
 ];
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const TOPIC_REMINDER_MESSAGES = [
   (ctx: StudyReminderContext) => ({
     title: `Study Time: ${ctx.subject}`,
@@ -146,8 +135,6 @@ const TOPIC_REMINDER_MESSAGES = [
   }),
 ];
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const NUDGE_MESSAGES = [
   (ctx: NudgeContext) => ({
     title: 'Friendly Study Nudge',
@@ -222,8 +209,6 @@ export interface CountdownContext {
   motivationNote?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 const COUNTDOWN_MESSAGES = [
   (days: number) => `${days} days until your A/Ls — keep going!`,
   (days: number) => `${days} days left. Every topic counts.`,

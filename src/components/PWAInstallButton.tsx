@@ -46,7 +46,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     return null;
   }
 
-  // 1. Navbar specific variant
   if (variant === 'nav') {
     return (
       <>
@@ -66,7 +65,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     );
   }
 
-  // 2. Compact icon-only variant
   if (variant === 'compact') {
     return (
       <>
@@ -84,7 +82,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     );
   }
 
-  // 3. Card variant for Dashboard
   if (variant === 'card') {
     return (
       <>
@@ -174,7 +171,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     );
   }
 
-  // 4. Default standard button variant
   return (
     <>
       <button

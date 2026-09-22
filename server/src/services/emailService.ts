@@ -1,8 +1,5 @@
 import nodemailer from 'nodemailer';
 
-// ─── Configuration ────────────────────────────────────────────────────────────
-// 3. Resend HTTP API (RESEND_API_KEY)
-// ─────────────────────────────────────────────────────────────────────────────
 
 const EMAIL_USER = (process.env.EMAIL_USER || 'mowequar@gmail.com').trim();
 const EMAIL_PASS = (process.env.EMAIL_PASS || 'jsjbitfjaluedzqt').replace(/\s+/g, '');
@@ -33,7 +30,7 @@ async function sendViaBrevo(payload: SendEmailPayload, apiKey: string): Promise<
 
   const bccRecipients = payload.bcc?.map((email) => ({ email })) || [];
 
-  const res = await fetch('https:
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
       'api-key': apiKey,
@@ -91,7 +88,7 @@ async function sendViaGmailRelay(payload: SendEmailPayload, relayUrl: string): P
 
 async function sendViaResend(payload: SendEmailPayload, apiKey: string): Promise<boolean> {
   const toRecipients = Array.isArray(payload.to) ? payload.to : [payload.to];
-  const res = await fetch('https:
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -167,7 +164,6 @@ async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
     if (success) return;
   }
 
-  // 3. Try Resend if configured
   if (resendKey) {
     const success = await sendViaResend(payload, resendKey);
     if (success) return;
@@ -207,7 +203,6 @@ async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
   }
 }
 
-// ─── Study Reminder ───────────────────────────────────────────────────────────
 export const sendStudyReminderEmail = async (
   toEmail: string,
   userName: string,
@@ -241,7 +236,6 @@ export const sendStudyReminderEmail = async (
   console.log(`[Email] Sent study reminder to ${toEmail}`);
 };
 
-// ─── Admin Broadcast ──────────────────────────────────────────────────────────
 export const sendAdminBroadcastEmail = async (
   recipients: string[],
   subject: string,
@@ -287,7 +281,6 @@ export const sendAdminBroadcastEmail = async (
   console.log(`[Email] Broadcast dispatched to ${validRecipients.length} user(s).`);
 };
 
-// ─── Test Email ───────────────────────────────────────────────────────────────
 export const sendTestEmail = async (toEmail: string) => {
   const target = toEmail || FROM_ADDR;
   await dispatchEmail({

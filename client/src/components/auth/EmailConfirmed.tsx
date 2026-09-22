@@ -48,7 +48,6 @@ export const EmailConfirmed: React.FC = () => {
             window.history.replaceState({}, '', '/confirmed');
           } catch {}
         } else if (url.searchParams.has('token_hash')) {
-          // 2) token_hash flow (?token_hash=…&type=signup|email_change):
           const tokenHash = url.searchParams.get('token_hash') || '';
           const type = (url.searchParams.get('type') || 'signup').toLowerCase();
           if (type === 'recovery') {

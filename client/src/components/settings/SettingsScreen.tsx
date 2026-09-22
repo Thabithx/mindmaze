@@ -164,13 +164,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         payload.newPassword = newPassword;
       }
 
-      // 1. Sync to server backend
       const res = await api.updateProfile(payload);
       if (onProfileUpdated && res?.user) {
         onProfileUpdated(res.user);
       }
 
-      // 2. Update local settings state
       const updatedLocal: UserSettings = {
         ...effectiveSettings,
         studentName: name.trim(),
@@ -340,6 +338,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       {/* Main Profile & Settings Form */}
       <form onSubmit={handleSaveProfile} className="space-y-6">
+        {/* Section 1: Personal & Contact Information */}
         <div className="rounded-3xl border border-white/10 bg-[#161831]/80 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-5">
           <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
             <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">

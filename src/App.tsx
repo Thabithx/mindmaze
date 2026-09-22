@@ -242,7 +242,6 @@ export function App() {
     isAuthenticated: !!user,
   };
 
-  // ── OS-Level Notification hook ───────────────────────────────────────────────
   const { permission: notificationPermission, requestPermission, sendNotification } = useNotifications();
 
   // Active timetable session detection

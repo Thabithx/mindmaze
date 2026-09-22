@@ -275,7 +275,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <a
-              href="https:
+              href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
               target="_blank"
               rel="noopener noreferrer"
               id="btn-join-whatsapp-hero"
@@ -321,7 +321,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <a
-              href="https:
+              href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
               target="_blank"
               rel="noopener noreferrer"
               id="btn-join-whatsapp-footer"

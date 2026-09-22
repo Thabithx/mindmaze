@@ -389,6 +389,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         </div>
       </div>
 
+      {/* Progress View Switcher: Content-wise vs Time-wise */}
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#161831]/80 p-1.5 backdrop-blur-md w-full sm:w-fit">
         <button
           onClick={() => setActiveView('content')}

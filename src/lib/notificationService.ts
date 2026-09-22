@@ -24,7 +24,7 @@ export function playStudyChime(): void {
     const osc1 = audioCtx.createOscillator();
     const gain1 = audioCtx.createGain();
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(659.25, now);
+    osc1.frequency.setValueAtTime(659.25, now); // E5
     gain1.gain.setValueAtTime(0.15, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
     osc1.connect(gain1);
@@ -35,7 +35,7 @@ export function playStudyChime(): void {
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(987.77, now + 0.15);
+    osc2.frequency.setValueAtTime(987.77, now + 0.15); // B5
     gain2.gain.setValueAtTime(0.2, now + 0.15);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
     osc2.connect(gain2);
@@ -67,8 +67,6 @@ export async function requestBrowserNotificationPermission(): Promise<Notificati
   }
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -154,6 +152,7 @@ export async function subscribeForPush(): Promise<boolean> {
       reg = await registerServiceWorker();
     }
     if (!reg) {
+      // DEV-only note: registerServiceWorker() deliberately stays
       if (import.meta.env.DEV) {
         console.info('[Push] No service worker in DEV; skipping silent re-subscribe (expected — test with vite preview).');
       }
@@ -255,8 +254,6 @@ export async function unsubscribeFromPush(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 const PUSH_PROMPT_SNOOZE_KEY = 'mindmaze_push_banner_dismissed_v2';
 const BLOCKED_PROMPT_SNOOZE_KEY = 'mindmaze_blocked_banner_dismissed_v1';
@@ -298,8 +295,6 @@ export function snoozeBlockedPrompt(): void {
   writeSnooze(BLOCKED_PROMPT_SNOOZE_KEY);
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export type LocalPushState =
   | 'active'
@@ -349,8 +344,6 @@ export async function getLocalPushState(): Promise<LocalPushState> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export type PushHealthStatus = 'healthy' | 'unavailable' | 'skipped' | 'cleaned' | 'unsupported';
 

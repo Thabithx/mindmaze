@@ -27,7 +27,7 @@ export const DEMO_ACCOUNTS: StoredUserAccount[] = [
     id: 'demo-maths-1',
     name: 'Kasun Perera',
     email: 'kasun.al@gmail.com',
-    avatar: 'https:
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
     provider: 'google',
     stream: 'Maths',
     selectedSubjects: ['Combined Maths', 'Physics', 'Chemistry'],
@@ -44,7 +44,7 @@ export const DEMO_ACCOUNTS: StoredUserAccount[] = [
     id: 'demo-bio-2',
     name: 'Nethmi Silva',
     email: 'nethmi.bio@gmail.com',
-    avatar: 'https:
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
     provider: 'google',
     stream: 'Bio',
     selectedSubjects: ['Biology', 'Physics', 'Chemistry'],
@@ -135,7 +135,7 @@ export function getStoredSession(): UserProfile {
     id: 'demo-maths-1',
     name: 'Kasun Perera',
     email: 'kasun.al@gmail.com',
-    avatar: 'https:
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
     provider: 'google',
     isAuthenticated: true,
     medium: 'English',

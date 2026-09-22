@@ -135,7 +135,7 @@ export const ComingSoonModal: React.FC<ComingSoonModalProps> = ({
           )}
 
           <a
-            href="https:
+            href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
             target="_blank"
             rel="noopener noreferrer"
             id="btn-whatsapp-notify"

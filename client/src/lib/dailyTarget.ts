@@ -10,7 +10,7 @@ export interface DailyTarget {
 }
 
 export const DEFAULT_QUIZ_CHANNEL_URL =
-  'https:
+  'https://whatsapp.com/channel/0029Vb8OnJGCRs1fpYosgU1z';
 
 export const DEFAULT_DAILY_TARGET: DailyTarget = {
   hours: 2,
@@ -94,8 +94,6 @@ export async function updateDailyTarget(hours: number, tasks: number): Promise<D
   return next;
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export function taskMinutesOf(t: DailyTask): number {
   if (typeof t.estimatedMinutes === 'number' && t.estimatedMinutes > 0) {
@@ -106,7 +104,6 @@ export function taskMinutesOf(t: DailyTask): number {
       const m = calculateMinutesBetween(t.startTime, t.endTime);
       if (m > 0) return m;
     } catch {
-// /* fall through
     }
   }
   return 60;
@@ -145,8 +142,6 @@ export function computeDayProgress(
   };
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export type QuizSlot = 'noon' | 'evening';
 
@@ -188,7 +183,6 @@ export function markQuizReminderSeen(dateStr: string, slot: QuizSlot): void {
     while (keys.length > 7) delete seen[keys.shift()!];
     localStorage.setItem(QUIZ_SEEN_KEY, JSON.stringify(seen));
   } catch {
-// /* non-fatal
   }
 }
 

@@ -88,6 +88,7 @@ const DAYS_OF_WEEK: DayOfWeek[] = [
 ];
 
 
+
 const QUICK_DURATIONS = [30, 60, 90, 120, 180, 240];
 
 const toHHMM = (mins: number) => {
@@ -185,6 +186,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
 
   const availableSubjects = getSubjectsForStream(activeStream, activeElective);
 
+  // ---- Single Add / Edit modal state ----
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
   const [formTitle, setFormTitle] = useState('');
@@ -390,11 +392,12 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   const doneCount = dateTasks.filter((t) => t.isCompleted).length;
   const progress = dateTasks.length === 0 ? 0 : Math.round((doneCount / dateTasks.length) * 100);
 
+  // ---- Whole-week derived data (Mon–Sun containing selectedDate) ----
   const weekDates: { date: string; day: DayOfWeek; label: string; dayNum: string }[] = (() => {
     try {
       const [y, m, d] = selectedDate.split('-').map(Number);
       const ref = new Date(y, m - 1, d);
-      const mondayOffset = (ref.getDay() + 6) % 7;
+      const mondayOffset = (ref.getDay() + 6) % 7; // Mon=0 … Sun=6
       const monday = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - mondayOffset);
       const pad = (n: number) => String(n).padStart(2, '0');
       return DAYS_OF_WEEK.map((day, i) => {
@@ -710,6 +713,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
       ) : (
       <>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Left: blocks for the selected date */}
         <div className="lg:col-span-3 glass-card rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">

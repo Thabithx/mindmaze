@@ -8,7 +8,7 @@ export interface BeforeInstallPromptEvent extends Event {
 const PWA_INSTALLED_KEY = 'mindmaze_pwa_installed';
 const PWA_CARD_DISMISSED_KEY = 'mindmaze_pwa_card_dismissed';
 const IOS_DISMISS_KEY = 'mindmaze_pwa_ios_dismissed_at';
-const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -30,7 +30,7 @@ export function usePWAInstall() {
       storedInstalled ||
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-      document.referrer.includes('android-app:
+      document.referrer.includes('android-app://');
     setIsInstalled(isStandalone);
 
     try {

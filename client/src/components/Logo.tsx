@@ -24,14 +24,10 @@ export const Logo: React.FC<LogoProps> = ({
     <div
       id="mind-maze-brand-logo"
       onClick={onClick}
-      className={`inline-flex items-center gap-2.5 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`inline-flex items-center gap-3 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
-      <div className={`flex shrink-0 items-center justify-center rounded-xl overflow-hidden bg-black/40 border border-purple-500/30 shadow-lg shadow-purple-900/30 ${iconSizes[size]}`}>
-        <img
-          src="/logo.png"
-          alt="Mind Maze Logo"
-          className="w-full h-full object-contain p-0.5"
-        />
+      <div className={`flex shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-indigo-900/40 ${iconSizes[size]}`}>
+        <img src="/logo.png" alt="Mind Maze" className="w-full h-full object-cover" />
       </div>
 
       {showText && (
@@ -47,4 +43,3 @@ export const Logo: React.FC<LogoProps> = ({
     </div>
   );
 };
-

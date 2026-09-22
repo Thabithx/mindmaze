@@ -243,6 +243,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {/* Card 1: Active Study Plan Snapshot */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-purple-500/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -282,6 +283,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
+        {/* Card 2: Today's Timetable Routine Snapshot */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-cyan-400/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -321,6 +323,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
+        {/* Card 3: Today's Cover Topic */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-lg flex flex-col justify-between space-y-4 hover:border-amber-400/40 transition-colors">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -403,6 +406,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
 
+        {/* Tab 1: Study Plans View */}
         {activeTab === 'plans' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -485,6 +489,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         )}
 
+        {/* Tab 2: Timetable View */}
         {activeTab === 'timetable' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -642,7 +647,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </div>
               </div>
             ) : (
-// /* Cards View
+              /* Cards View */
               <div className="space-y-2.5">
                 {todaySlots.map((slot) => (
                   <div
@@ -717,6 +722,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         )}
 
+        {/* Tab 3: Daily Topics Tracker View */}
         {activeTab === 'topics' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -762,7 +768,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     ))}
                   </div>
 
-                  {/* 3-Step Completion Checklist */}
                   <div className="pt-2 border-t border-white/10 space-y-2">
                     <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       Daily 3-Step Milestone Checklist:

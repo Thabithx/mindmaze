@@ -13,8 +13,6 @@ const generateToken = (id: string): string => {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @route   POST /api/auth/register
-// @desc    Register a new student/user
 router.post('/register', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     let { name, email, password, stream, physicalScienceElective } = req.body;
@@ -90,8 +88,6 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get token
 router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     let { email, password } = req.body;
@@ -148,13 +144,10 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
   }
 });
 
-// @route   GET /api/auth/profile
-// @desc    Get logged in user profile
 router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   res.json({ user: req.user });
 });
 
-// @route   PUT /api/auth/profile
 router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.user!._id);
@@ -275,8 +268,6 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
   }
 });
 
-// @route   POST /api/auth/push-subscription
-// @desc    Subscribe to push notifications
 router.post('/push-subscription', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subscription } = req.body;

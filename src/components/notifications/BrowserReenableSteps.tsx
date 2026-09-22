@@ -8,7 +8,7 @@ export function detectBrowserKind(): BrowserKind {
     const ua = window.navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) return 'safari';
-    if (/edg\
+    if (/edg\//.test(ua)) return 'edge';
     if (/firefox|fxios/.test(ua)) return 'firefox';
     if (/safari/.test(ua) && !/chrome|crios|chromium/.test(ua)) return 'safari';
     if (/chrome|crios|chromium/.test(ua)) return 'chrome';

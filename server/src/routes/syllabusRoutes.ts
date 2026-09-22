@@ -5,7 +5,6 @@ import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// @route   GET /api/syllabus/leaderboard
 router.get('/leaderboard', async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = Math.min(100, Math.max(5, parseInt(String(req.query.limit || '50'), 10)));
@@ -45,8 +44,6 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// @route   GET /api/syllabus
-// @desc    Get user's syllabus progress
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const progressList = await SyllabusProgress.find({ user: req.user!._id });
@@ -56,7 +53,6 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
-// @route   POST /api/syllabus/update-subtopic
 router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { topicId, subject, unitNumber, unitTitle, topicTitle, subtopic, progress } = req.body;
@@ -109,10 +105,9 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
   }
 });
 
-// @route   POST /api/syllabus/completed-picker
 router.post('/completed-picker', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { topics } = req.body;
+    const { topics } = req.body; // Array of { topicId, subject, unitNumber, topicTitle, subtopics }
     if (!Array.isArray(topics)) {
       res.status(400).json({ message: 'topics must be an array' });
       return;

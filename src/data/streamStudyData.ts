@@ -40,8 +40,6 @@ export const GCE_AL_STREAMS: StreamInfo[] = [
   },
 ];
 
-// ============================================================================
-// ============================================================================
 export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = {
   Maths: [
     {
@@ -348,8 +346,6 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
   ],
 };
 
-// ============================================================================
-// ============================================================================
 export const ALL_STREAM_DAILY_TOPICS: Partial<Record<StreamType, DailyCoverTopic[]>> = {
   Maths: [
     {
@@ -550,8 +546,6 @@ export const ALL_STREAM_DAILY_TOPICS: Partial<Record<StreamType, DailyCoverTopic
   ],
 };
 
-// ============================================================================
-// ============================================================================
 export const ALL_STREAM_TIMETABLES: Partial<Record<StreamType, TimetableSlot[]>> = {
   Maths: [
     // Monday

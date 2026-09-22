@@ -596,7 +596,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
             {/* Scrollable Form Body */}
             <form onSubmit={handleAddSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs overscroll-contain">
-                {/* 1. Select Subject First */}
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
                     Select Subject <span className="text-rose-400">*</span>
@@ -614,7 +613,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   </select>
                 </div>
 
-                {/* 2. Unit Number & Unit Name */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-300 font-semibold mb-1">Unit Number</label>
@@ -640,7 +638,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Topic Title */}
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
                     Topic / Lesson Title <span className="text-rose-400">*</span>
@@ -723,7 +720,6 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
         document.body
       )}
 
-      {/* ── One-Time Onboarding Modal ─────────────────────────────────────── */}
       {showOnboarding && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[110] overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4"

@@ -227,7 +227,7 @@ export function updateSyllabusFromBlockCompletion(
     topicId?: string;
     topicTitle?: string;
     subtopic?: string;
-    targetProgress?: number;
+    targetProgress?: number; // 0 - 100 (legacy single-target)
     subtopicTargets?: { subtopic: string; targetProgress: number }[];
     subject?: string;
     isCompleted: boolean;

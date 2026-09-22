@@ -35,7 +35,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   syllabusTopics = [],
 }) => {
   const effectiveSettings = settings || userSettings || {};
-  const isEmailEnabled = effectiveSettings.emailNotificationsEnabled !== false;
+  const isEmailEnabled = effectiveSettings.emailNotificationsEnabled !== false; // Enabled by default
   const studentEmail = userProfile?.email || '';
 
   const handleToggleEmailNotifications = () => {

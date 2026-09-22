@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
-  const [signUpStep, setSignUpStep] = useState<number>(1);
+  const [signUpStep, setSignUpStep] = useState<number>(1); // 1: Credentials, 2: Stream, 3: Subjects & Medium, 4: Goals & Preferences
 
   // Form Fields
   const [name, setName] = useState('');
@@ -117,12 +117,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     {
       name: 'Zara Riham',
       email: 'zararihamofficial@gmail.com',
-      avatar: 'https:
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
     },
     {
       name: 'Kasun Perera',
       email: 'kasun.al@gmail.com',
-      avatar: 'https:
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
     },
   ];
 
@@ -278,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       syllabus: syllabus,
       medium: medium,
       currentOnlyFilter: syllabus === 'current',
-      xp: 1500,
+      xp: 1500, // +100 bonus for completing signup
       streakDays: 1,
       streakFreezes: 2,
       dailyGoalMCQs: dailyGoalMCQs,
@@ -376,9 +376,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          {/* ========================================================= */}
           {/* GOOGLE ACCOUNT SELECTION MODAL POPUP                      */}
-          {/* ========================================================= */}
           {showGooglePicker && (
             <div className="p-5 sm:p-7 space-y-5">
             <div className="text-center space-y-2">
@@ -439,7 +437,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   handleGoogleAccountSelect({
                     name: customName.charAt(0).toUpperCase() + customName.slice(1),
                     email: fallbackEmail,
-                    avatar: 'https:
+                    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
                   });
                 }}
                 className="w-full py-3 px-4 rounded-xl border border-dashed border-white/20 text-xs text-slate-400 hover:text-white hover:border-white/40 text-center transition-colors"
@@ -458,9 +456,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
         {/* SIGN IN VIEW                                              */}
-        {/* ========================================================= */}
         {mode === 'signin' && !showGooglePicker && (
           <div className="p-5 sm:p-7 space-y-5">
             <div className="text-center space-y-1.5">
@@ -623,8 +619,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* ========================================================= */}
         {mode === 'signup' && !showGooglePicker && !isCompleted && (
           <div className="p-5 sm:p-7 space-y-5">
             {/* Multi-Step Wizard Indicator */}
@@ -657,6 +651,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
+            {/* STEP 1: Account Credentials */}
             {signUpStep === 1 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -795,6 +790,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
+            {/* STEP 2: Stream Selection */}
             {signUpStep === 2 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -883,6 +879,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
+            {/* STEP 3: Subjects & Medium Preferences */}
             {signUpStep === 3 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -964,6 +961,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
+            {/* STEP 4: Goals & Study Preferences */}
             {signUpStep === 4 && (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
@@ -1105,9 +1103,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
         {/* CELEBRATION / SUCCESS STATE                               */}
-        {/* ========================================================= */}
         {isCompleted && (
           <div className="p-6 sm:p-8 text-center space-y-4 animate-scale-up">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.4)]">

@@ -121,7 +121,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 <span>Switch to Live Physics</span>
               </button>
               <a
-                href="https:
+                href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"

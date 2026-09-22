@@ -104,7 +104,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div id="dashboard-overview-view" className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
-      {/* 🌟 HERO CARD */}
       <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -150,7 +149,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
-      {/* 🚀 QUICK ACCESS TOOLS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           onClick={() => onNavigate('planner')}
@@ -206,6 +204,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Overall Syllabus Progress */}
         <div className="lg:col-span-2 glass-card rounded-3xl p-6 space-y-6 shadow-xl">
           <div className="flex items-center justify-between">
             <div>

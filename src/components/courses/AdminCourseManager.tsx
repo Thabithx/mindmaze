@@ -238,7 +238,7 @@ export const AdminCourseManager: React.FC = () => {
               type="url"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https:
+              placeholder="https://www.youtube.com/watch?v=..."
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none"
             />
           </div>

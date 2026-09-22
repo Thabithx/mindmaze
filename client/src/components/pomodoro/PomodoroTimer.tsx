@@ -82,8 +82,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
 
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
@@ -307,6 +307,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* Step 1: Subject Dropdown */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
                   1. Subject
@@ -325,6 +326,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </select>
               </div>
 
+              {/* Step 2: Syllabus Unit Dropdown */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
                   2. Syllabus Unit ({filteredTopics.length})
