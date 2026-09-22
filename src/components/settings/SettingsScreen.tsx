@@ -364,10 +364,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <input
                   type="text"
                   required
+                  disabled={isGuest}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Kasun Perera"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400"
+                  placeholder={isGuest ? 'Sign in to edit' : 'e.g. Kasun Perera'}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -380,11 +381,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <input
                   type="email"
                   required
+                  disabled={isGuest}
                   autoComplete="username email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@example.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400"
+                  placeholder={isGuest ? 'Sign in to view' : 'student@example.com'}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -396,10 +398,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <div className="relative">
                 <input
                   type="tel"
+                  disabled={isGuest}
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value)}
-                  placeholder="0771234567 or +94 77 123 4567"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400"
+                  placeholder={isGuest ? 'Sign in to edit' : '0771234567 or +94 77 123 4567'}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -410,20 +413,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </label>
               <button
                 type="button"
+                disabled={isGuest}
                 onClick={() => setShowPasswordSection(!showPasswordSection)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold transition flex items-center justify-between cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold transition flex items-center justify-between cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5 text-purple-400" />
-                  <span>{showPasswordSection ? 'Hide Password Fields' : 'Change Account Password'}</span>
+                  <span>{isGuest ? 'Sign in to change password' : showPasswordSection ? 'Hide Password Fields' : 'Change Account Password'}</span>
                 </span>
-                <ChevronRight className={`w-4 h-4 transition-transform ${showPasswordSection ? 'rotate-90' : ''}`} />
+                {!isGuest && <ChevronRight className={`w-4 h-4 transition-transform ${showPasswordSection ? 'rotate-90' : ''}`} />}
               </button>
             </div>
           </div>
 
           {/* Change Password Dropdown */}
-          {showPasswordSection && (
+          {!isGuest && showPasswordSection && (
             <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-3 mt-3 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-purple-300">Set New Password</span>
@@ -496,9 +500,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 Selected Stream <span className="text-rose-400">*</span>
               </label>
               <select
+                disabled={isGuest}
                 value={stream}
                 onChange={(e) => setStream(e.target.value as StreamType)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="Physical Science" className="bg-slate-900 text-white">Physical Science (Maths)</option>
                 <option value="Biological Science" className="bg-slate-900 text-white">Biological Science (Bio)</option>
@@ -511,9 +516,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   Physical Science Elective
                 </label>
                 <select
+                  disabled={isGuest}
                   value={elective}
                   onChange={(e) => setElective(e.target.value as 'Chemistry' | 'ICT')}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="Chemistry" className="bg-slate-900 text-white">Chemistry</option>
                   <option value="ICT" className="bg-slate-900 text-white">ICT (Information & Communication Tech)</option>
@@ -542,10 +548,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </label>
               <input
                 type="text"
+                disabled={isGuest}
                 value={targetExamYear}
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 placeholder="2026"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -555,9 +562,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </label>
               <input
                 type="date"
+                disabled={isGuest}
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -567,10 +575,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </label>
               <input
                 type="text"
+                disabled={isGuest}
                 value={targetZScore}
                 onChange={(e) => setTargetZScore(e.target.value)}
                 placeholder="e.g. 2.1500"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -584,13 +593,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 type="number"
                 min={1}
                 max={24}
+                disabled={isGuest}
                 value={dailyHoursGoal}
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setDailyHoursGoal(val);
                   setWeeklyHoursGoal(Math.round(val * 7 * 10) / 10);
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -602,9 +612,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 type="number"
                 min={1}
                 max={168}
+                disabled={isGuest}
                 value={weeklyHoursGoal}
                 onChange={(e) => setWeeklyHoursGoal(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -615,10 +626,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </label>
             <input
               type="text"
+              disabled={isGuest}
               value={motivationNote}
               onChange={(e) => setMotivationNote(e.target.value)}
               placeholder="e.g. Aiming for University of Moratuwa Engineering / Medical Faculty!"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -687,23 +699,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Submit Save Button */}
         <div className="sticky bottom-4 z-20 flex items-center justify-end gap-3 p-4 rounded-2xl bg-[#0F1123]/95 border border-white/15 backdrop-blur-2xl shadow-2xl">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-purple-500/30 transition cursor-pointer disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving Profile...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save All Changes</span>
-              </>
-            )}
-          </button>
+          {isGuest ? (
+            <button
+              type="button"
+              onClick={() => onOpenAuthModal?.('signin')}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-purple-500/30 transition cursor-pointer"
+            >
+              <User className="w-4 h-4" />
+              <span>Sign In to Edit Profile</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-purple-500/30 transition cursor-pointer disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving Profile...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save All Changes</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </div>

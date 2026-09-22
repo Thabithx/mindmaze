@@ -27,9 +27,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     headers['Content-Type'] = 'application/json';
   }
 
-  // Use AbortController with 8s timeout to prevent hanging on cold starts
+  // Use AbortController with 25s timeout to support Render cold starts
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -41,14 +41,19 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      if (response.status === 401) {
-        // Invalid/expired token
+      if (response.status === 401 && endpoint !== '/auth/login') {
+        // Invalid/expired token (do not clear on login attempt error)
         removeAuthToken();
       }
       throw new Error(data.message || `Request failed with status ${response.status}`);
     }
 
     return data;
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Server connection timed out. The backend is waking up, please try again in a few seconds.');
+    }
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }

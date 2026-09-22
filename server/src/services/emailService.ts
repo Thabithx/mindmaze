@@ -38,13 +38,17 @@ function createTransport() {
       port: SMTP_PORT,
       secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false },
     });
   }
 
-  // Gmail SMTP with App Password
+  // Gmail SMTP with App Password (direct host connection for reliable cloud delivery)
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    tls: { rejectUnauthorized: false },
   });
 }
 
@@ -101,6 +105,7 @@ export const sendAdminBroadcastEmail = async (
   for (const batch of batches) {
     await transporter.sendMail({
       from: `"Mind Maze Admin" <${FROM_ADDR}>`,
+      to: FROM_ADDR,
       bcc: batch,
       subject: subject,
       html: `

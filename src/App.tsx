@@ -146,10 +146,13 @@ export function App() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError(null);
     try {
-      setAuthSubmitting(true);
-      setAuthError(null);
-      const res = await api.login({ email: emailInput, password: passwordInput });
+      const res = await api.login({ email: emailInput.trim(), password: passwordInput });
+      if (!res?.token) {
+        throw new Error(res?.message || 'Invalid credentials');
+      }
       setAuthToken(res.token);
       setUser(res.user);
       setAuthModalMode(null);
@@ -157,7 +160,8 @@ export function App() {
         setCurrentScreen('admin');
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Login failed. Check your email and password.');
+      console.error('[Auth] Login error:', err);
+      setAuthError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -420,7 +424,12 @@ export function App() {
                       }
                     }}
                     onMarkFinished={() => {
-                      const currentTopic = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
+                      const title = activePomodoroTopic?.title || activeSyllabusTopic?.topicTitle || 'this study unit';
+                      if (!window.confirm(`Are you sure you want to mark "${title}" as finished?`)) {
+                        return;
+                      }
+
+                      const currentTopic = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() || t.id === activePomodoroTopic.id) : null);
                       if (currentTopic) {
                         const subs = currentTopic.subtopics || [];
                         const newMap: Record<string, number> = {};
@@ -438,23 +447,26 @@ export function App() {
                         });
                         setSyllabusTopics(updated);
                         saveStoredSyllabusTopics(updated);
-
-                        // Also mark matching daily task completed
-                        const updatedTasks = tasks.map((tk) => {
-                          if (tk.topicId === currentTopic.id || (tk.title && tk.title.toLowerCase().includes(currentTopic.topicTitle.toLowerCase()))) {
-                            return { ...tk, isCompleted: true };
-                          }
-                          return tk;
-                        });
-                        setTasks(updatedTasks);
-                        saveStoredDailyTasks(updatedTasks);
-
-                        setCelebration({
-                          title: 'Unit Completed!',
-                          message: `Awesome job! You finished "${currentTopic.topicTitle}". Keep up the great streak!`,
-                        });
-                        setActivePomodoroTopic(null);
                       }
+
+                      // Also mark matching daily task completed
+                      const updatedTasks = tasks.map((tk) => {
+                        if (
+                          (currentTopic && tk.topicId === currentTopic.id) ||
+                          (activePomodoroTopic && tk.title && tk.title.toLowerCase().includes(activePomodoroTopic.title.toLowerCase()))
+                        ) {
+                          return { ...tk, isCompleted: true };
+                        }
+                        return tk;
+                      });
+                      setTasks(updatedTasks);
+                      saveStoredDailyTasks(updatedTasks);
+
+                      setCelebration({
+                        title: 'Study Task Completed! 🎉',
+                        message: `Awesome job! You finished "${title}". Keep up the great streak!`,
+                      });
+                      setActivePomodoroTopic(null);
                     }}
                     onSessionComplete={(type, mins) => {
                       if (type === 'work') {
