@@ -33,111 +33,100 @@ export interface SendEmailPayload {
 /**
  * 1. Brevo HTTPS API Engine (Port 443 — Never blocked by Render firewall)
  */
-async function sendViaBrevo(payload: SendEmailPayload): Promise<boolean> {
-  if (!BREVO_API_KEY) return false;
-  try {
-    const toRecipients = Array.isArray(payload.to)
-      ? payload.to.map((email) => ({ email }))
-      : [{ email: payload.to }];
+async function sendViaBrevo(payload: SendEmailPayload, apiKey: string): Promise<boolean> {
+  const senderEmail = (process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER || FROM_ADDR).trim();
+  const toRecipients = Array.isArray(payload.to)
+    ? payload.to.map((email) => ({ email }))
+    : [{ email: payload.to }];
 
-    const bccRecipients = payload.bcc?.map((email) => ({ email })) || [];
+  const bccRecipients = payload.bcc?.map((email) => ({ email })) || [];
 
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': BREVO_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: {
+        name: payload.fromName || 'Mind Maze Study Planner',
+        email: senderEmail,
       },
-      body: JSON.stringify({
-        sender: {
-          name: payload.fromName || 'Mind Maze Study Planner',
-          email: payload.fromEmail || FROM_ADDR,
-        },
-        to: toRecipients,
-        ...(bccRecipients.length > 0 ? { bcc: bccRecipients } : {}),
-        subject: payload.subject,
-        htmlContent: payload.html,
-      }),
-    });
+      to: toRecipients,
+      ...(bccRecipients.length > 0 ? { bcc: bccRecipients } : {}),
+      subject: payload.subject,
+      htmlContent: payload.html,
+    }),
+  });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[Email:Brevo] Error sending email:', res.status, errorText);
-      return false;
-    }
-    console.log('[Email:Brevo] Successfully sent email via Brevo HTTPS API');
-    return true;
-  } catch (err: any) {
-    console.error('[Email:Brevo] Network error:', err?.message || err);
-    return false;
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMsg = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      errorMsg = parsed.message || errorText;
+    } catch {}
+    console.error('[Email:Brevo] Error sending email:', res.status, errorMsg);
+    throw new Error(`Brevo API Error (${res.status}): ${errorMsg}`);
   }
+
+  console.log('[Email:Brevo] Successfully sent email via Brevo HTTPS API');
+  return true;
 }
 
 /**
  * 2. Google Apps Script Webhook Relay (Port 443 — Sends directly from Gmail)
  */
-async function sendViaGmailRelay(payload: SendEmailPayload): Promise<boolean> {
-  if (!GMAIL_RELAY_URL) return false;
-  try {
-    const res = await fetch(GMAIL_RELAY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: payload.to,
-        bcc: payload.bcc,
-        subject: payload.subject,
-        html: payload.html,
-        fromName: payload.fromName || 'Mind Maze Study Planner',
-      }),
-    });
+async function sendViaGmailRelay(payload: SendEmailPayload, relayUrl: string): Promise<boolean> {
+  const res = await fetch(relayUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: payload.to,
+      bcc: payload.bcc,
+      subject: payload.subject,
+      html: payload.html,
+      fromName: payload.fromName || 'Mind Maze Study Planner',
+    }),
+  });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[Email:GmailRelay] Error response:', res.status, errorText);
-      return false;
-    }
-    console.log('[Email:GmailRelay] Successfully delivered email via Google Webhook Relay');
-    return true;
-  } catch (err: any) {
-    console.error('[Email:GmailRelay] Error:', err?.message || err);
-    return false;
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[Email:GmailRelay] Error response:', res.status, errorText);
+    throw new Error(`Gmail Relay Error (${res.status}): ${errorText}`);
   }
+  console.log('[Email:GmailRelay] Successfully delivered email via Google Webhook Relay');
+  return true;
 }
 
 /**
  * 3. Resend HTTPS API Engine (Port 443)
  */
-async function sendViaResend(payload: SendEmailPayload): Promise<boolean> {
-  if (!RESEND_API_KEY) return false;
-  try {
-    const toRecipients = Array.isArray(payload.to) ? payload.to : [payload.to];
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${payload.fromName || 'Mind Maze'} <${payload.fromEmail || 'onboarding@resend.dev'}>`,
-        to: toRecipients,
-        bcc: payload.bcc,
-        subject: payload.subject,
-        html: payload.html,
-      }),
-    });
+async function sendViaResend(payload: SendEmailPayload, apiKey: string): Promise<boolean> {
+  const toRecipients = Array.isArray(payload.to) ? payload.to : [payload.to];
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: `${payload.fromName || 'Mind Maze'} <${payload.fromEmail || 'onboarding@resend.dev'}>`,
+      to: toRecipients,
+      bcc: payload.bcc,
+      subject: payload.subject,
+      html: payload.html,
+    }),
+  });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[Email:Resend] Error:', res.status, errorText);
-      return false;
-    }
-    console.log('[Email:Resend] Successfully sent email via Resend API');
-    return true;
-  } catch (err: any) {
-    console.error('[Email:Resend] Error:', err?.message || err);
-    return false;
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[Email:Resend] Error:', res.status, errorText);
+    throw new Error(`Resend API Error (${res.status}): ${errorText}`);
   }
+  console.log('[Email:Resend] Successfully sent email via Resend API');
+  return true;
 }
 
 /**
@@ -184,21 +173,25 @@ function createFallbackTransporter() {
  * Universal dispatcher: Tries HTTPS APIs first (Render-proof), then falls back to SMTP
  */
 async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
+  const brevoKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || BREVO_API_KEY || '').trim();
+  const gmailRelay = (process.env.GMAIL_RELAY_URL || process.env.EMAIL_RELAY_URL || GMAIL_RELAY_URL || '').trim();
+  const resendKey = (process.env.RESEND_API_KEY || RESEND_API_KEY || '').trim();
+
   // 1. Try Brevo HTTPS API if configured
-  if (BREVO_API_KEY) {
-    const success = await sendViaBrevo(payload);
+  if (brevoKey) {
+    const success = await sendViaBrevo(payload, brevoKey);
     if (success) return;
   }
 
   // 2. Try Google Webhook Relay if configured
-  if (GMAIL_RELAY_URL) {
-    const success = await sendViaGmailRelay(payload);
+  if (gmailRelay) {
+    const success = await sendViaGmailRelay(payload, gmailRelay);
     if (success) return;
   }
 
   // 3. Try Resend if configured
-  if (RESEND_API_KEY) {
-    const success = await sendViaResend(payload);
+  if (resendKey) {
+    const success = await sendViaResend(payload, resendKey);
     if (success) return;
   }
 
