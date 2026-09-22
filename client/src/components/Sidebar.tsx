@@ -18,6 +18,8 @@ import {
   LogOut,
   LogIn,
   X,
+  Sparkles,
+  Brain,
   Bell,
 } from 'lucide-react';
 

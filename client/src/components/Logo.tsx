@@ -13,21 +13,25 @@ export const Logo: React.FC<LogoProps> = ({
   className = '',
   onClick,
 }) => {
-  const iconSizes = {
+  const imageSizes = {
     sm: 'w-8 h-8',
     md: 'w-9 h-9',
     lg: 'w-12 h-12',
-    xl: 'w-14 h-14',
+    xl: 'w-16 h-16',
   };
 
   return (
     <div
       id="mind-maze-brand-logo"
       onClick={onClick}
-      className={`inline-flex items-center gap-3 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`inline-flex items-center gap-2.5 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
-      <div className={`flex shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-indigo-900/40 ${iconSizes[size]}`}>
-        <img src="/logo.png" alt="Mind Maze" className="w-full h-full object-cover" />
+      <div className="shrink-0 flex items-center justify-center bg-transparent">
+        <img
+          src="/logo.png"
+          alt="Mind Maze Logo"
+          className={`${imageSizes[size]} object-cover bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]`}
+        />
       </div>
 
       {showText && (

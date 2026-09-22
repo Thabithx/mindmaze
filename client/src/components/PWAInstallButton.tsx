@@ -112,9 +112,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                   <h3 className="text-sm sm:text-base font-bold text-white">
                     Install Mind Maze App
                   </h3>
-                  <span className="text-[10px] bg-cyan-400/20 text-cyan-300 font-bold px-2 py-0.5 rounded-full border border-cyan-400/30 uppercase tracking-wider">
-                    PWA Fast
-                  </span>
+                  
                 </div>
                 <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                   Fast offline access, fullscreen mode, and instant home screen launch on your phone, tablet, or desktop.
