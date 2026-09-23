@@ -51,6 +51,7 @@ import { ProfileEditModal } from './components/profile/ProfileEditModal';
 import { NotificationsScreen } from './components/notifications/NotificationsScreen';
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
+import { isValidEmail, isValidPhoneNumber } from './lib/validators';
 
 import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap } from 'lucide-react';
 
@@ -219,10 +220,21 @@ export function App() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthSubmitting(true);
     setAuthError(null);
+
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+    if (!passwordInput || passwordInput.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setAuthSubmitting(true);
     try {
-      const res = await api.login({ email: emailInput.trim(), password: passwordInput });
+      const res = await api.login({ email: cleanEmail, password: passwordInput });
       if (!res?.token) {
         throw new Error(res?.message || 'Invalid credentials');
       }
@@ -248,14 +260,44 @@ export function App() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
+
+    const cleanName = nameInput.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setAuthError('Please enter your full name (minimum 2 characters).');
+      return;
+    }
+
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
+    const cleanPhone = whatsappInput.trim();
+    if (!cleanPhone || !isValidPhoneNumber(cleanPhone)) {
+      setAuthError('Please enter a valid WhatsApp / mobile number (e.g. 0771234567 or +94771234567).');
+      return;
+    }
+
+    if (!passwordInput || passwordInput.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (!streamInput) {
+      setAuthError('Please select your A/L stream.');
+      return;
+    }
+
     try {
       setAuthSubmitting(true);
-      setAuthError(null);
       const res = await api.register({
-        name: nameInput,
-        email: emailInput,
+        name: cleanName,
+        email: cleanEmail,
         password: passwordInput,
-        whatsappNumber: whatsappInput,
+        whatsappNumber: cleanPhone,
+        mobileNumber: cleanPhone,
         stream: streamInput,
         physicalScienceElective: streamInput === 'Physical Science' ? electiveInput : undefined,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Colombo',
@@ -273,7 +315,7 @@ export function App() {
         api.syncTimetable(local).catch(() => {});
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Registration failed.');
+      setAuthError(err.message || 'Registration failed. Please try again.');
     } finally {
       setAuthSubmitting(false);
     }

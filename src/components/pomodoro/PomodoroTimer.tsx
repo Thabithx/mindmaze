@@ -164,31 +164,31 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Curated soothing Lo-Fi & Study Music tracks (100% verified streams, no emojis in names)
+  // Curated soothing Lo-Fi & Study Music tracks
   const LOFI_TRACKS = [
     {
-      id: 'lofi-1',
-      title: 'Chill Study Beats',
+      id: 'sound-1',
+      title: 'Sound 1',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     },
     {
-      id: 'lofi-2',
-      title: 'Midnight Lo-Fi',
+      id: 'sound-2',
+      title: 'Sound 2',
       src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
     },
     {
-      id: 'lofi-3',
-      title: 'Ambient Piano Flow',
+      id: 'sound-3',
+      title: 'Sound 3',
       src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
     },
     {
-      id: 'lofi-4',
-      title: 'Deep Focus Ambient',
+      id: 'sound-4',
+      title: 'Sound 4',
       src: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3?filename=chill-abstract-intention-12099.mp3',
     },
     {
-      id: 'lofi-5',
-      title: 'Soft Rain Sounds',
+      id: 'sound-5',
+      title: 'Sound 5',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
     },
   ];

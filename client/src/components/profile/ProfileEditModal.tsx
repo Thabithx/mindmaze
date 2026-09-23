@@ -3,6 +3,8 @@ import { api } from '../../services/api';
 import { User, StreamType } from '../../types';
 import { X, Save, User as UserIcon, Calendar, Target, Phone, Clock, Award, Loader2 } from 'lucide-react';
 
+import { isValidPhoneNumber, isValidExamYear, isValidZScore, isValidDateString } from '../../lib/validators';
+
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +26,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [targetExamYear, setTargetExamYear] = useState(currentUser?.targetExamYear || '2026');
   const [targetExamDate, setTargetExamDate] = useState(currentUser?.targetExamDate || '');
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || '');
-  const [mobileNumber, setMobileNumber] = useState(currentUser?.mobileNumber || '');
+  const [mobileNumber, setMobileNumber] = useState(currentUser?.mobileNumber || currentUser?.whatsappNumber || currentUser?.phoneNumber || '');
   const [motivationNote, setMotivationNote] = useState(currentUser?.motivationNote || '');
   const [dailyHoursGoal, setDailyHoursGoal] = useState<number>(currentUser?.dailyHoursGoal || 4);
   const [weeklyHoursGoal, setWeeklyHoursGoal] = useState<number>(currentUser?.weeklyHoursGoal || 28);
@@ -34,21 +36,66 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // Validation
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setError('Please enter a valid full name (minimum 2 characters).');
+      return;
+    }
+
+    const cleanMobile = mobileNumber.trim();
+    if (cleanMobile && !isValidPhoneNumber(cleanMobile)) {
+      setError('Please enter a valid mobile / WhatsApp number (e.g. 0771234567 or +94771234567).');
+      return;
+    }
+
+    const cleanYear = targetExamYear.trim();
+    if (cleanYear && !isValidExamYear(cleanYear)) {
+      setError('Target exam year must be a valid 4-digit year (e.g. 2025 - 2035).');
+      return;
+    }
+
+    const cleanDate = targetExamDate.trim();
+    if (cleanDate && !isValidDateString(cleanDate)) {
+      setError('Please select a valid expected exam date.');
+      return;
+    }
+
+    const cleanZ = targetZScore.trim();
+    if (cleanZ && !isValidZScore(cleanZ)) {
+      setError('Target Z-Score must be a valid number between -1.0 and 4.0.');
+      return;
+    }
+
+    const daily = Number(dailyHoursGoal);
+    if (Number.isNaN(daily) || daily < 1 || daily > 24) {
+      setError('Daily study goal must be between 1 and 24 hours.');
+      return;
+    }
+
+    const weekly = Number(weeklyHoursGoal);
+    if (Number.isNaN(weekly) || weekly < 1 || weekly > 168) {
+      setError('Weekly study goal must be between 1 and 168 hours.');
+      return;
+    }
+
     try {
       setSaving(true);
-      setError(null);
 
       const res = await api.updateProfile({
-        name,
+        name: cleanName,
         stream,
-        physicalScienceElective: elective,
-        targetExamYear,
-        targetExamDate,
-        targetZScore,
-        mobileNumber,
-        motivationNote,
-        dailyHoursGoal,
-        weeklyHoursGoal,
+        physicalScienceElective: stream === 'Physical Science' ? elective : undefined,
+        targetExamYear: cleanYear,
+        targetExamDate: cleanDate,
+        targetZScore: cleanZ,
+        mobileNumber: cleanMobile,
+        whatsappNumber: cleanMobile,
+        motivationNote: motivationNote.trim(),
+        dailyHoursGoal: daily,
+        weeklyHoursGoal: weekly,
       });
 
       onProfileUpdated(res.user);
@@ -136,10 +183,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Expected Exam Date</label>
               <input
+                id="target-exam-date-input"
                 type="date"
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none transition-all"
               />
             </div>
           </div>

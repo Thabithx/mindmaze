@@ -26,6 +26,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { BrowserReenableSteps } from '../notifications/BrowserReenableSteps';
+import { isValidEmail, isValidPhoneNumber, isValidExamYear, isValidZScore, isValidDateString } from '../../lib/validators';
 
 interface SettingsScreenProps {
   settings: UserSettings;
@@ -132,6 +133,54 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       return;
     }
 
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setErrorMessage('Please enter a valid full name (minimum 2 characters).');
+      return;
+    }
+
+    const cleanEmail = email.trim();
+    if (cleanEmail && !isValidEmail(cleanEmail)) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+
+    const cleanMobile = mobileNumber.trim();
+    if (cleanMobile && !isValidPhoneNumber(cleanMobile)) {
+      setErrorMessage('Please enter a valid mobile / WhatsApp number (e.g. 0771234567 or +94771234567).');
+      return;
+    }
+
+    const cleanYear = targetExamYear.trim();
+    if (cleanYear && !isValidExamYear(cleanYear)) {
+      setErrorMessage('Target exam year must be a valid 4-digit year (e.g. 2025 - 2035).');
+      return;
+    }
+
+    const cleanDate = targetExamDate.trim();
+    if (cleanDate && !isValidDateString(cleanDate)) {
+      setErrorMessage('Please enter a valid expected exam date (YYYY-MM-DD).');
+      return;
+    }
+
+    const cleanZ = targetZScore.trim();
+    if (cleanZ && !isValidZScore(cleanZ)) {
+      setErrorMessage('Target Z-Score must be a valid number between -1.0 and 4.0.');
+      return;
+    }
+
+    const dailyHours = Number(dailyHoursGoal);
+    if (Number.isNaN(dailyHours) || dailyHours < 1 || dailyHours > 24) {
+      setErrorMessage('Daily study goal must be between 1 and 24 hours.');
+      return;
+    }
+
+    const weeklyHours = Number(weeklyHoursGoal);
+    if (Number.isNaN(weeklyHours) || weeklyHours < 1 || weeklyHours > 168) {
+      setErrorMessage('Weekly study goal must be between 1 and 168 hours.');
+      return;
+    }
+
     if (showPasswordSection && newPassword) {
       if (newPassword.length < 6) {
         setErrorMessage('New password must be at least 6 characters long.');
@@ -146,17 +195,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setSaving(true);
     try {
       const payload: any = {
-        name: name.trim(),
-        email: email.trim(),
-        mobileNumber: mobileNumber.trim(),
+        name: cleanName,
+        email: cleanEmail,
+        mobileNumber: cleanMobile,
+        whatsappNumber: cleanMobile,
         stream,
         physicalScienceElective: stream === 'Physical Science' ? elective : undefined,
-        targetExamYear: targetExamYear.trim(),
-        targetExamDate: targetExamDate.trim(),
-        targetZScore: targetZScore.trim(),
+        targetExamYear: cleanYear,
+        targetExamDate: cleanDate,
+        targetZScore: cleanZ,
         motivationNote: motivationNote.trim(),
-        dailyHoursGoal: Number(dailyHoursGoal) || 4,
-        weeklyHoursGoal: Number(weeklyHoursGoal) || 28,
+        dailyHoursGoal: dailyHours,
+        weeklyHoursGoal: weeklyHours,
       };
 
       if (showPasswordSection && newPassword) {
@@ -554,11 +604,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 Expected Exam Date
               </label>
               <input
+                id="settings-exam-date-input"
                 type="date"
                 disabled={isGuest}
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               />
             </div>
 

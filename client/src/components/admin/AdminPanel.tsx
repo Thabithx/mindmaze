@@ -161,14 +161,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailSubject.trim() || !emailMessage.trim()) return;
+    const cleanSub = emailSubject.trim();
+    const cleanMsg = emailMessage.trim();
+    if (cleanSub.length < 3) {
+      setBroadcastStatus({ error: 'Please enter a valid email subject (minimum 3 characters).' });
+      return;
+    }
+    if (cleanMsg.length < 10) {
+      setBroadcastStatus({ error: 'Please enter a valid message content (minimum 10 characters).' });
+      return;
+    }
 
     setSendingEmail(true);
     setBroadcastStatus(null);
     try {
       const res = await api.sendBroadcastEmail({
-        subject: emailSubject,
-        message: emailMessage,
+        subject: cleanSub,
+        message: cleanMsg,
       });
       setBroadcastStatus({ success: res.message || 'Broadcast email dispatched successfully!' });
       setEmailSubject('');
@@ -195,14 +204,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreatePastPaper = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paperTitle.trim()) return;
+    const cleanTitle = paperTitle.trim();
+    if (cleanTitle.length < 3) {
+      alert('Please enter a valid past paper title (minimum 3 characters).');
+      return;
+    }
+    const yearNum = Number(paperYear);
+    if (!yearNum || yearNum < 2000 || yearNum > 2035) {
+      alert('Please enter a valid examination year between 2000 and 2035.');
+      return;
+    }
+    if (!selectedPdfFile) {
+      alert('Please choose or drag-and-drop a PDF file for this past paper.');
+      return;
+    }
 
     const newPaper: PastPaper = {
       id: `pp-${Date.now()}`,
-      title: paperTitle.trim(),
+      title: cleanTitle,
       subject: paperSubject,
       stream: paperStream,
-      year: Number(paperYear) || 2026,
+      year: yearNum,
       syllabus: paperSyllabus,
       type: paperType,
       medium: paperMedium,
@@ -223,14 +245,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateQuizQuestion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quizQuestionText.trim() || !quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim() || !quizOptE.trim()) return;
+    const cleanQ = quizQuestionText.trim();
+    if (cleanQ.length < 5) {
+      alert('Please enter a valid question text (minimum 5 characters).');
+      return;
+    }
+    if (!quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim() || !quizOptE.trim()) {
+      alert('All 5 options (A, B, C, D, E) are required for G.C.E. A/L questions.');
+      return;
+    }
 
     const newQuestion: Question = {
       id: `q-admin-${Date.now()}`,
       subject: quizSubject,
       topic: quizTopic.trim() || 'General',
       paperYear: Number(quizYear) || 2026,
-      questionText: quizQuestionText.trim(),
+      questionText: cleanQ,
       options: [
         { id: 'A', text: quizOptA.trim(), isCorrect: quizCorrectOpt === 'A' },
         { id: 'B', text: quizOptB.trim(), isCorrect: quizCorrectOpt === 'B' },

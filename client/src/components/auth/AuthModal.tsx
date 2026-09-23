@@ -8,6 +8,7 @@ import {
   DEMO_ACCOUNTS,
   StoredUserAccount,
 } from '../../lib/authService';
+import { isValidEmail } from '../../lib/validators';
 import {
   X,
   Mail,
@@ -201,18 +202,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!email || !password) {
-      setErrorMsg('Please enter both your email and password.');
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
       return;
     }
 
     const registered = getRegisteredUsers();
-    const match = registered.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    const match = registered.find((u) => u.email.toLowerCase() === cleanEmail.toLowerCase());
 
     const profile: UserProfile = {
       id: match?.id || `usr-email-${Date.now()}`,
-      name: match?.name || email.split('@')[0],
-      email: email,
+      name: match?.name || cleanEmail.split('@')[0],
+      email: cleanEmail,
       avatar: match?.avatar,
       provider: 'email',
       isAuthenticated: true,
@@ -241,16 +247,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!name.trim()) {
-      setErrorMsg('Please enter your full name.');
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setErrorMsg('Please enter your full name (minimum 2 characters).');
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
       setErrorMsg('Please enter a valid email address.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+    if (!password || password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
       return;
     }
     if (password !== confirmPassword) {
