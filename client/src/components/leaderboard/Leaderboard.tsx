@@ -70,8 +70,25 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     Math.round(((liveStudyMinutes / 60) + completedTaskCount * 0.75) * 10) / 10
   );
 
-  const myUsername = currentUserProfile?.name || currentUserProfile?.username || 'A/L Scholar';
-  const myUserId = currentUserId || currentUserProfile?.id || currentUserProfile?.email || 'current-user';
+  const storedStudentName = (() => {
+    try {
+      const storedSettings = localStorage.getItem('mindmaze_user_settings');
+      if (storedSettings) {
+        const parsed = JSON.parse(storedSettings);
+        if (parsed?.studentName) return parsed.studentName;
+      }
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.name) return parsed.name;
+        if (parsed?.username) return parsed.username;
+      }
+    } catch {}
+    return null;
+  })();
+
+  const myUsername = currentUserProfile?.name || currentUserProfile?.username || storedStudentName || 'A/L Scholar';
+  const myUserId = currentUserId || currentUserProfile?.id || currentUserProfile?._id || currentUserProfile?.email || 'current-user';
 
   // Merge current user's live entry into leaderboard entries
   const entries = useMemo(() => {

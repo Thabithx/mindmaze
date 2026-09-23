@@ -66,11 +66,11 @@ export function clearStoredStreak(): void {
   } catch {}
 }
 
-export function calculateStreak(dailyTasks: DailyTask[]): StreakState {
+export function calculateStreak(dailyTasks: DailyTask[] = []): StreakState {
   const todayStr = getTodayDateString();
-  const raw = getRawStoredStreak();
+  const raw = getRawStoredStreak() as any;
 
-  const dateSet = new Set<string>(raw.completedDates);
+  const dateSet = new Set<string>(raw.completedDates || []);
 
   dailyTasks.forEach((t) => {
     if (t.isCompleted && t.date) {
@@ -78,29 +78,38 @@ export function calculateStreak(dailyTasks: DailyTask[]): StreakState {
     }
   });
 
+  const lastVisit = localStorage.getItem('mindmaze_last_visit_date');
+  if (lastVisit) {
+    dateSet.add(lastVisit);
+  }
+
   const isCompletedToday = dateSet.has(todayStr);
   const yesterdayStr = getPreviousDateString(todayStr);
 
-  let currentStreak = 0;
+  let currentStreak = typeof raw.currentStreak === 'number' && raw.currentStreak > 0 ? raw.currentStreak : 0;
 
   if (isCompletedToday) {
     // Walk backwards starting from today
     let checkDate = todayStr;
+    let count = 0;
     while (dateSet.has(checkDate)) {
-      currentStreak++;
+      count++;
       checkDate = getPreviousDateString(checkDate);
     }
+    currentStreak = Math.max(currentStreak, count, 1);
   } else if (dateSet.has(yesterdayStr)) {
     let checkDate = yesterdayStr;
+    let count = 0;
     while (dateSet.has(checkDate)) {
-      currentStreak++;
+      count++;
       checkDate = getPreviousDateString(checkDate);
     }
+    currentStreak = Math.max(currentStreak, count, 1);
   } else {
-    currentStreak = 0;
+    currentStreak = Math.max(1, currentStreak);
   }
 
-  const bestStreak = Math.max(raw.bestStreak, currentStreak);
+  const bestStreak = Math.max(raw.bestStreak || 0, currentStreak);
   const sortedCompleted = Array.from(dateSet).sort();
 
   return {

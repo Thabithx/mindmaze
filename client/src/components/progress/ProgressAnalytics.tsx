@@ -34,6 +34,9 @@ interface ProgressAnalyticsProps {
   userSettings?: UserSettings;
   revisionCount?: number;
   currentUserId?: string | null;
+  currentUserProfile?: any;
+  userProfile?: any;
+  streakDays?: number;
 }
 
 export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
@@ -47,6 +50,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   userSettings,
   revisionCount = 0,
   currentUserId = null,
+  currentUserProfile,
+  userProfile,
+  streakDays = 1,
 }) => {
   const effectiveStream = stream || userSettings?.stream || settings?.stream || 'Physical Science';
   const effectiveElective = physicalScienceElective || userSettings?.physicalScienceElective || settings?.physicalScienceElective || 'Chemistry';
@@ -957,9 +963,11 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
 
       <Leaderboard
         currentUserId={currentUserId}
+        currentUserProfile={userProfile || currentUserProfile}
         syllabusTopics={safeTopics}
         timetable={safeTimetable}
         dailyTasks={safeDailyTasks}
+        streakDays={streakDays}
         stream={effectiveStream}
         physicalScienceElective={effectiveElective}
       />

@@ -999,6 +999,10 @@ export function App() {
           {/* Analytics Progress */}
           {currentScreen === 'progress' && (
             <ProgressAnalytics
+              currentUserId={user?.id || user?._id || userProfile.email || 'current-user'}
+              currentUserProfile={userProfile}
+              userProfile={userProfile}
+              streakDays={streakDays}
               userSettings={userSettings}
               stream={user?.stream || userSettings.stream}
               physicalScienceElective={user?.physicalScienceElective || userSettings.physicalScienceElective || 'Chemistry'}
