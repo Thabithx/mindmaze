@@ -146,6 +146,48 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
   }
 });
 
+// Bulk update entire topic progress (status + all subtopics at once)
+router.put('/update-topic', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { topicId, subject, unitNumber, unitTitle, topicTitle, status, completedSubtopics, subtopicProgress } = req.body;
+
+    if (!topicId) {
+      res.status(400).json({ message: 'topicId is required' });
+      return;
+    }
+
+    let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId });
+    if (!item) {
+      item = new SyllabusProgress({
+        user: req.user!._id,
+        topicId,
+        subject: subject || 'General',
+        unitNumber: unitNumber || 1,
+        unitTitle: unitTitle || '',
+        topicTitle: topicTitle || topicId,
+        subtopicProgress: new Map(),
+        completedSubtopics: [],
+        status: 'not_started',
+      });
+    }
+
+    if (status) item.status = status;
+    if (Array.isArray(completedSubtopics)) item.completedSubtopics = completedSubtopics;
+    if (subtopicProgress && typeof subtopicProgress === 'object') {
+      const newMap = new Map<string, number>();
+      Object.entries(subtopicProgress).forEach(([k, v]) => newMap.set(k, Number(v)));
+      item.subtopicProgress = newMap;
+    }
+
+    await item.save();
+    res.json({ item });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error updating topic progress', error: error.message });
+  }
+});
+
+
+
 router.post('/completed-picker', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { topics } = req.body; // Array of { topicId, subject, unitNumber, topicTitle, subtopics }

@@ -204,6 +204,56 @@ export function App() {
         } catch (ttErr) {
           console.warn('[Timetable] Initial fetch/sync notice:', ttErr);
         }
+
+        // Restore syllabus progress from DB
+        try {
+          const sylRes = await api.getSyllabusProgress();
+          if (sylRes?.progress && sylRes.progress.length > 0) {
+            const progressMap: Record<string, any> = {};
+            sylRes.progress.forEach((p: any) => {
+              progressMap[p.topicId] = p;
+            });
+            setSyllabusTopics((prev) => {
+              const merged = prev.map((t) => {
+                const dbp = progressMap[t.id];
+                if (!dbp) return t;
+                return {
+                  ...t,
+                  status: dbp.status || t.status,
+                  completedSubtopics: dbp.completedSubtopics || t.completedSubtopics || [],
+                  subtopicProgress: dbp.subtopicProgress || t.subtopicProgress || {},
+                };
+              });
+              saveStoredSyllabusTopics(merged);
+              return merged;
+            });
+          }
+        } catch (sylErr) {
+          console.warn('[Syllabus] Initial fetch notice:', sylErr);
+        }
+
+        // Restore mistakes from DB
+        try {
+          const mkRes = await api.getMistakes();
+          if (mkRes?.mistakes && mkRes.mistakes.length > 0) {
+            const mapped: MistakeItem[] = mkRes.mistakes.map((m: any) => ({
+              id: m._id || m.id,
+              subject: m.subject || '',
+              topic: m.topic || '',
+              questionText: m.questionText || '',
+              yourAnswer: m.yourAnswer || '',
+              correctAnswer: m.correctAnswer || '',
+              explanation: m.explanation || '',
+              reviewStatus: m.reviewStatus || 'Needs Review',
+              isMastered: Boolean(m.isMastered),
+              dateAdded: m.dateAdded || m.createdAt || new Date().toISOString(),
+            }));
+            setMistakes(mapped);
+            saveStoredMistakes(mapped);
+          }
+        } catch (mkErr) {
+          console.warn('[Mistakes] Initial fetch notice:', mkErr);
+        }
       }
     } catch (e: any) {
       console.warn('[Auth] checkCurrentAuth warning:', e?.message || e);
@@ -855,6 +905,17 @@ export function App() {
                   });
                   setSyllabusTopics(updated);
                   saveStoredSyllabusTopics(updated);
+                  if (getAuthToken()) {
+                    const topic = updated.find(t => t.id === topicId);
+                    if (topic) {
+                      api.updateTopicProgress({
+                        topicId,
+                        status: topic.status,
+                        completedSubtopics: topic.completedSubtopics || [],
+                        subtopicProgress: topic.subtopicProgress || {},
+                      }).catch(() => {});
+                    }
+                  }
                 }}
                 onToggleSubtopic={(topicId, subtopicTitle) => {
                   const updated = syllabusTopics.map((t) => {
@@ -885,6 +946,17 @@ export function App() {
                   });
                   setSyllabusTopics(updated);
                   saveStoredSyllabusTopics(updated);
+                  if (getAuthToken()) {
+                    const topic = updated.find(t => t.id === topicId);
+                    if (topic) {
+                      api.updateTopicProgress({
+                        topicId,
+                        status: topic.status,
+                        completedSubtopics: topic.completedSubtopics || [],
+                        subtopicProgress: topic.subtopicProgress || {},
+                      }).catch(() => {});
+                    }
+                  }
                 }}
                 onBulkOnboardingComplete={(completedTopicIds, subtopicKeys) => {
                   const topicIdSet = new Set(completedTopicIds);
@@ -1085,6 +1157,25 @@ export function App() {
                 const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
                 setMistakes(updated);
                 saveStoredMistakes(updated);
+                if (getAuthToken()) {
+                  api.saveMistake({
+                    subject: m.subject || '',
+                    topic: m.topic || '',
+                    questionText: m.questionText || '',
+                    yourAnswer: m.yourAnswer || '',
+                    correctAnswer: m.correctAnswer || '',
+                    explanation: m.explanation || '',
+                    reviewStatus: m.reviewStatus || 'Needs Review',
+                    isMastered: Boolean(m.isMastered),
+                    dateAdded: m.dateAdded || new Date().toISOString(),
+                  }).then((res: any) => {
+                    if (res?.mistake?._id) {
+                      setMistakes((prev) =>
+                        prev.map((x) => x.id === m.id ? { ...x, id: res.mistake._id } : x)
+                      );
+                    }
+                  }).catch(() => {});
+                }
               }}
               quizQuestions={quizQuestions}
             />
@@ -1101,11 +1192,23 @@ export function App() {
                 );
                 setMistakes(updated);
                 saveStoredMistakes(updated);
+                if (getAuthToken()) {
+                  const mistake = updated.find(m => m.id === id);
+                  if (mistake) {
+                    api.updateMistake(id, {
+                      isMastered: mistake.isMastered,
+                      reviewStatus: mistake.reviewStatus,
+                    }).catch(() => {});
+                  }
+                }
               }}
               onDeleteMistake={(id) => {
                 const updated = mistakes.filter((m) => m.id !== id);
                 setMistakes(updated);
                 saveStoredMistakes(updated);
+                if (getAuthToken()) {
+                  api.deleteMistake(id).catch(() => {});
+                }
               }}
               onStartReviewSession={() => setCurrentScreen('quiz')}
             />

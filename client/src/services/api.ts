@@ -118,6 +118,7 @@ export const api = {
   getSyllabusProgress: () => apiFetch('/syllabus'),
   getLeaderboard: (period = 'weekly', limit = 50) => apiFetch(`/syllabus/leaderboard?period=${period}&limit=${limit}`),
   updateSubtopicProgress: (body: any) => apiFetch('/syllabus/update-subtopic', { method: 'POST', body: JSON.stringify(body) }),
+  updateTopicProgress: (body: any) => apiFetch('/syllabus/update-topic', { method: 'PUT', body: JSON.stringify(body) }),
   saveCompletedTopicsPicker: (topics: any[]) => apiFetch('/syllabus/completed-picker', { method: 'POST', body: JSON.stringify({ topics }) }),
 
   // Mistakes
