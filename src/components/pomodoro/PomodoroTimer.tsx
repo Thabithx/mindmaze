@@ -240,6 +240,25 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[mode].minutes * 60);
   };
 
+  // Called when user marks a unit finished — fully resets timer back to initial state
+  const handleMarkFinished = () => {
+    // Stop and reset audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    // Reset all internal state
+    setIsRunning(false);
+    setMode('work');
+    setTimeLeft(MODE_CONFIGS.work.minutes * 60);
+    setCompletedSessions(0);
+    setHasStarted(false);
+    setSelectedUnitId('');
+    setSelectedSubject(activeSubject || '');
+    // Then call the parent callback
+    if (onMarkFinished) onMarkFinished();
+  };
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -267,7 +286,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         <div className="flex items-center gap-1.5 shrink-0">
           {onMarkFinished && hasStarted && (
             <button
-              onClick={onMarkFinished}
+              onClick={handleMarkFinished}
               className="px-3 py-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs font-black transition cursor-pointer shadow-md flex items-center gap-1.5"
               title="Mark Unit as Finished"
             >
@@ -378,7 +397,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
             {onMarkFinished && hasStarted && (
               <button
-                onClick={onMarkFinished}
+                onClick={handleMarkFinished}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs sm:text-sm font-black transition shrink-0 cursor-pointer shadow-lg shadow-emerald-950/40 hover:scale-105 active:scale-95 min-h-[44px]"
                 title="Mark this unit/task as finished"
               >
@@ -397,7 +416,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 <span className="text-white font-bold">Select Study Topic</span>
                 {!hasUnitSelected && (
                   <span className="text-[10px] font-bold text-amber-300 bg-amber-400/15 border border-amber-400/40 px-1.5 py-0.5 rounded-full">
-                    Required to start
+                    Required
                   </span>
                 )}
               </div>
@@ -674,7 +693,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </span>
         {onMarkFinished && hasStarted && (
           <button
-            onClick={onMarkFinished}
+            onClick={handleMarkFinished}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-sm font-black text-emerald-200 hover:text-white transition cursor-pointer hover:scale-105 active:scale-95 shadow-md shadow-emerald-900/30 min-h-[44px]"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

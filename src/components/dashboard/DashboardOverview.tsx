@@ -143,6 +143,99 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
+      {/* ── How It Works ── */}
+      <div className="glass-card rounded-3xl p-5 sm:p-7 border border-white/10 shadow-xl">
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">
+            <Zap className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black text-white">How It Works</h2>
+            <p className="text-[11px] text-slate-400">Your daily A/L study workflow in 5 steps</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          {[
+            {
+              step: '01',
+              icon: <CalendarDays className="w-5 h-5" />,
+              color: 'indigo',
+              title: 'Plan Your Week',
+              desc: 'Add study blocks to your timetable with subjects, times, and linked syllabus units.',
+              screen: 'planner' as ScreenId,
+            },
+            {
+              step: '02',
+              icon: <BookOpen className="w-5 h-5" />,
+              color: 'cyan',
+              title: 'Track Syllabus',
+              desc: 'Tick off subtopics as you cover them. Watch your completion percentage climb.',
+              screen: 'topics' as ScreenId,
+            },
+            {
+              step: '03',
+              icon: <Clock className="w-5 h-5" />,
+              color: 'purple',
+              title: 'Focus with Pomodoro',
+              desc: 'Select a unit, start the timer, and study in focused 25-min intervals with lo-fi music.',
+              screen: 'dashboard' as ScreenId,
+            },
+            {
+              step: '04',
+              icon: <Sparkles className="w-5 h-5" />,
+              color: 'amber',
+              title: 'Quiz Yourself',
+              desc: 'Test your knowledge with past papers and subject quizzes after completing units.',
+              screen: 'quiz' as ScreenId,
+            },
+            {
+              step: '05',
+              icon: <Trophy className="w-5 h-5" />,
+              color: 'emerald',
+              title: 'Climb the Leaderboard',
+              desc: 'Your study hours, streak, and syllabus % earn you a rank among all students.',
+              screen: 'leaderboard' as ScreenId,
+            },
+          ].map((item, idx) => {
+            const colorMap: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+              indigo: { bg: 'bg-indigo-500/15', border: 'border-indigo-400/25', text: 'text-indigo-300', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30' },
+              cyan:   { bg: 'bg-cyan-500/15',   border: 'border-cyan-400/25',   text: 'text-cyan-300',   badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30' },
+              purple: { bg: 'bg-purple-500/15',  border: 'border-purple-400/25', text: 'text-purple-300', badge: 'bg-purple-500/20 text-purple-300 border-purple-400/30' },
+              amber:  { bg: 'bg-amber-500/15',   border: 'border-amber-400/25',  text: 'text-amber-300',  badge: 'bg-amber-500/20 text-amber-300 border-amber-400/30' },
+              emerald:{ bg: 'bg-emerald-500/15', border: 'border-emerald-400/25',text: 'text-emerald-300',badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' },
+            };
+            const c = colorMap[item.color];
+            return (
+              <button
+                key={item.step}
+                onClick={() => onNavigate(item.screen)}
+                className={`group relative flex flex-col gap-3 p-4 rounded-2xl border text-left transition cursor-pointer hover:scale-[1.02] active:scale-95 ${c.bg} ${c.border}`}
+              >
+                {/* Step badge */}
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border w-fit ${c.badge}`}>
+                  STEP {item.step}
+                </span>
+
+                {/* Icon */}
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${c.bg} border ${c.border} ${c.text}`}>
+                  {item.icon}
+                </div>
+
+                {/* Text */}
+                <div>
+                  <p className="text-xs font-black text-white mb-1">{item.title}</p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">{item.desc}</p>
+                </div>
+
+                {/* Arrow */}
+                <ArrowRight className={`w-3.5 h-3.5 absolute top-3.5 right-3.5 opacity-0 group-hover:opacity-100 transition ${c.text}`} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {pomodoroSlot && (
         <div className="animate-fadeIn">
           {pomodoroSlot}
