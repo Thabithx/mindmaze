@@ -687,10 +687,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       </div>
 
       <div className="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between gap-3 text-xs text-slate-400">
-        <span className="flex items-center gap-1.5 shrink-0">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
-          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 ml-1">{completedSessions} / 4</span>
-        </span>
+        
         {onMarkFinished && hasStarted && (
           <button
             onClick={handleMarkFinished}

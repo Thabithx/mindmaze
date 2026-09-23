@@ -340,9 +340,21 @@ export function App() {
 
     setAuthSubmitting(true);
     try {
-      setAuthSuccess(`If an account exists for ${cleanEmail}, a password reset link has been sent! Please check your inbox and spam folder.`);
+      try {
+        const { supabase } = await import('./lib/supabaseClient');
+        if (supabase) {
+          await supabase.auth.resetPasswordForEmail(cleanEmail, {
+            redirectTo: `${window.location.origin}/#reset-password`,
+          });
+        }
+      } catch (sbErr) {
+        console.warn('Supabase reset notice:', sbErr);
+      }
+
+      const res = await api.sendForgotPasswordEmail(cleanEmail);
+      setAuthSuccess(res.message || `Password reset link has been sent to ${cleanEmail}! Please check your inbox and spam folder.`);
     } catch (err: any) {
-      setAuthError(err.message || 'Failed to send reset link. Please try again.');
+      setAuthError(err.message || 'Failed to send reset link. Please check your email and try again.');
     } finally {
       setAuthSubmitting(false);
     }
