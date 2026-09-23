@@ -310,7 +310,13 @@ export function App() {
   const { permission: notificationPermission, requestPermission, sendNotification } = useNotifications();
 
   // Active timetable session detection
-  const [activePomodoroTopic, setActivePomodoroTopic] = useState<{ title: string; subject: string; id?: string } | null>(null);
+  const [activePomodoroTopic, setActivePomodoroTopic] = useState<{
+    title: string;
+    subject: string;
+    id?: string;
+    topicId?: string;
+    subtopics?: string[];
+  } | null>(null);
   const [isPomodoroMinimized, setIsPomodoroMinimized] = useState(false);
   const [hasPromptedActiveBlock, setHasPromptedActiveBlock] = useState(false);
 
@@ -332,10 +338,31 @@ export function App() {
         !dismissedBlockIds.includes(currentBlock.id) &&
         (!activePomodoroTopic || activePomodoroTopic.id !== currentBlock.id)
       ) {
+        // Find matching syllabus topic for the study block
+        let matchedTopic: SyllabusTopic | undefined;
+        if (currentBlock.topicId) {
+          matchedTopic = syllabusTopics.find((t) => t.id === currentBlock.topicId);
+        }
+        if (!matchedTopic && currentBlock.topic) {
+          matchedTopic = syllabusTopics.find(
+            (t) =>
+              t.topicTitle.toLowerCase() === currentBlock.topic.toLowerCase() ||
+              (currentBlock.subject &&
+                t.subject.toLowerCase() === currentBlock.subject.toLowerCase() &&
+                t.topicTitle.toLowerCase().includes(currentBlock.topic.toLowerCase()))
+          );
+        }
+
+        const subtopicList = currentBlock.subtopicTargets && currentBlock.subtopicTargets.length > 0
+          ? currentBlock.subtopicTargets.map((st) => st.subtopic)
+          : matchedTopic?.subtopics || [];
+
         setActivePomodoroTopic({
-          title: currentBlock.topic,
-          subject: currentBlock.subject,
+          title: matchedTopic?.topicTitle || currentBlock.topic,
+          subject: currentBlock.subject || matchedTopic?.subject || '',
           id: currentBlock.id,
+          topicId: matchedTopic?.id || currentBlock.topicId,
+          subtopics: subtopicList,
         });
 
         setCurrentScreen('dashboard');
@@ -359,14 +386,19 @@ export function App() {
 
 
   const activeSyllabusTopic = activePomodoroTopic
-    ? syllabusTopics.find(
+    ? (activePomodoroTopic.topicId ? syllabusTopics.find((t) => t.id === activePomodoroTopic.topicId) : null) ||
+      syllabusTopics.find(
         (t) =>
           t.id === activePomodoroTopic.id ||
           t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase() ||
-          (activePomodoroTopic.subject && t.subject.toLowerCase() === activePomodoroTopic.subject.toLowerCase() && t.topicTitle.toLowerCase().includes(activePomodoroTopic.title.toLowerCase()))
+          (activePomodoroTopic.subject &&
+            t.subject.toLowerCase() === activePomodoroTopic.subject.toLowerCase() &&
+            t.topicTitle.toLowerCase().includes(activePomodoroTopic.title.toLowerCase()))
       )
     : null;
-  const activeSubtopics = activeSyllabusTopic?.subtopics || [];
+  const activeSubtopics = activePomodoroTopic?.subtopics && activePomodoroTopic.subtopics.length > 0
+    ? activePomodoroTopic.subtopics
+    : activeSyllabusTopic?.subtopics || [];
   const activeCompletedSubtopics = activeSyllabusTopic?.completedSubtopics || [];
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -466,11 +498,15 @@ export function App() {
                     subtopics={activeSubtopics}
                     completedSubtopics={activeCompletedSubtopics}
                     availableTopics={syllabusTopics}
+                    userStream={userSettings?.stream || 'Physical Science'}
+                    physicalScienceElective={userSettings?.physicalScienceElective || 'Chemistry'}
                     onSelectTopic={(topic) => {
                       setActivePomodoroTopic({
                         title: topic.topicTitle,
                         subject: topic.subject,
                         id: topic.id,
+                        topicId: topic.id,
+                        subtopics: topic.subtopics || [],
                       });
                     }}
                     onToggleSubtopic={(subtopicTitle) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SyllabusTopic } from '../../types';
+import { SyllabusTopic, StreamType } from '../../types';
+import { getSubjectsForStream } from '../../data/alSyllabusData';
 import {
   Play,
   Pause,
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   Volume2,
   VolumeX,
+  Music,
 } from 'lucide-react';
 
 export interface PomodoroTimerProps {
@@ -22,6 +24,8 @@ export interface PomodoroTimerProps {
   subtopics?: string[];
   completedSubtopics?: string[];
   availableTopics?: SyllabusTopic[];
+  userStream?: StreamType | string;
+  physicalScienceElective?: 'Chemistry' | 'ICT' | string;
   onSelectTopic?: (topic: SyllabusTopic) => void;
   onToggleSubtopic?: (subtopic: string) => void;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
@@ -46,6 +50,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   subtopics = [],
   completedSubtopics = [],
   availableTopics = [],
+  userStream = 'Physical Science',
+  physicalScienceElective = 'Chemistry',
   onSelectTopic,
   onToggleSubtopic,
   onSessionComplete,
@@ -61,16 +67,32 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [completedSessions, setCompletedSessions] = useState<number>(0);
   const [selectedSubject, setSelectedSubject] = useState<string>(() => activeSubject || '');
 
+  // Filter topics strictly according to user's stream and elective subject
+  const allowedSubjectMetas = getSubjectsForStream(
+    userStream,
+    physicalScienceElective
+  );
+  const allowedSubjectNames = allowedSubjectMetas.map((s) => s.name);
+
+  const userAllowedTopics = (availableTopics || []).filter((t) =>
+    allowedSubjectNames.includes(t.subject)
+  );
+
+  const availableSubjects = allowedSubjectNames.filter((name) =>
+    userAllowedTopics.some((t) => t.subject === name)
+  );
+
   useEffect(() => {
     if (activeSubject) {
       setSelectedSubject(activeSubject);
+    } else if (availableSubjects.length > 0 && !allowedSubjectNames.includes(selectedSubject)) {
+      setSelectedSubject(availableSubjects[0]);
     }
-  }, [activeSubject]);
+  }, [activeSubject, userStream, physicalScienceElective]);
 
-  const availableSubjects = Array.from(new Set(availableTopics.map((t) => t.subject))).filter(Boolean);
   const filteredTopics = selectedSubject
-    ? availableTopics.filter((t) => t.subject === selectedSubject)
-    : availableTopics;
+    ? userAllowedTopics.filter((t) => t.subject === selectedSubject)
+    : userAllowedTopics;
 
   const totalTime = MODE_CONFIGS[mode].minutes * 60;
   const progressPercent = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100));
@@ -138,22 +160,47 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Lo-Fi Study Music Player
+  // Curated soothing Lo-Fi & Study Music tracks
   const LOFI_TRACKS = [
     {
       id: 'lofi-1',
-      title: '1 A.M. Study Session (Chill Lo-Fi Beats)',
+      title: '🎧 1 A.M. Study Session (Chill Lo-Fi Beats)',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     },
     {
       id: 'lofi-2',
-      title: 'Midnight Rain & Soft Beats',
+      title: '🌧️ Midnight Rain & Soft Beats',
       src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
     },
     {
       id: 'lofi-3',
-      title: 'Warm Study Glow (Ambient Piano)',
+      title: '🎹 Deep Focus Piano & Ambient Strings',
       src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
+    },
+    {
+      id: 'lofi-4',
+      title: '☕ Cozy Coffee Shop Study Flow',
+      src: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=study-110111.mp3',
+    },
+    {
+      id: 'lofi-5',
+      title: '🌿 Zen Meditation & Nature Flow',
+      src: 'https://cdn.pixabay.com/download/audio/2021/09/06/audio_8340d85ef4.mp3?filename=deep-meditation-192828.mp3',
+    },
+    {
+      id: 'lofi-6',
+      title: '🌌 Deep Space Synth & Night Ambient',
+      src: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3?filename=chill-abstract-intention-12099.mp3',
+    },
+    {
+      id: 'lofi-7',
+      title: '🧠 Alpha Waves 432Hz Calm Drone',
+      src: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
+    },
+    {
+      id: 'lofi-8',
+      title: '📚 Library Peaceful Study Beats',
+      src: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_c3527e30de.mp3?filename=lofi-study-beat-110023.mp3',
     },
   ];
 
@@ -300,12 +347,12 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap max-w-full">
-            {availableTopics && availableTopics.length > 0 && onSelectTopic && (
-              <div className="flex items-center gap-1.5">
+            {userAllowedTopics.length > 0 && onSelectTopic && (
+              <div className="flex items-center gap-1.5 min-w-0 max-w-full">
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="bg-black/40 border border-white/10 rounded-xl px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none cursor-pointer max-w-[110px] truncate"
+                  className="bg-black/40 border border-white/10 rounded-xl px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none cursor-pointer max-w-[100px] truncate"
                 >
                   <option value="">All</option>
                   {availableSubjects.map((s) => (
@@ -315,10 +362,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
                 <select
                   onChange={(e) => {
-                    const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                    const found = userAllowedTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
                     if (found) onSelectTopic(found);
                   }}
-                  className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[140px] sm:max-w-[170px] truncate"
+                  className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
                   defaultValue=""
                 >
                   <option value="" disabled>Switch Unit...</option>
@@ -344,7 +391,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           </div>
         </div>
       ) : (
-        availableTopics && availableTopics.length > 0 && onSelectTopic && (
+        userAllowedTopics.length > 0 && onSelectTopic && (
           <div className="mb-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs">
             <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
               <div className="flex items-center gap-2">
@@ -365,7 +412,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                   onChange={(e) => setSelectedSubject(e.target.value)}
                   className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400 cursor-pointer"
                 >
-                  <option value="">All Subjects</option>
+                  <option value="">All ({userStream})</option>
                   {availableSubjects.map((subj) => (
                     <option key={subj} value={subj} className="bg-[#161831] text-white">
                       {subj}
@@ -381,7 +428,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </label>
                 <select
                   onChange={(e) => {
-                    const found = availableTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                    const found = userAllowedTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
                     if (found) {
                       setSelectedSubject(found.subject);
                       onSelectTopic(found);
@@ -539,25 +586,57 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         preload="auto"
       />
 
-      {/* Lo-Fi Music Control Bar */}
-      <div className="mt-4 p-3 rounded-2xl bg-black/30 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className={`p-2 rounded-xl border transition cursor-pointer shrink-0 ${
-              !isAudioMuted && isRunning
-                ? 'bg-purple-500/20 text-purple-300 border-purple-400/40 animate-pulse'
-                : 'bg-white/5 text-slate-400 border-white/10'
-            }`}
-            title={isAudioMuted ? 'Unmute Lo-Fi Beats' : 'Mute Lo-Fi Beats'}
-          >
-            {!isAudioMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          </button>
+      {/* Lo-Fi Music Control Bar (Mobile responsive, zero horizontal overflow) */}
+      <div className="mt-5 p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5 text-xs w-full max-w-full overflow-hidden box-border">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`p-1.5 rounded-lg shrink-0 ${!isAudioMuted && isRunning ? 'bg-purple-500/20 text-purple-300 animate-pulse' : 'bg-white/5 text-slate-400'}`}>
+              <Music className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-300 truncate">Lo-Fi Study Music</span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAudioMuted(!isAudioMuted)}
+              className={`p-1.5 rounded-lg border transition cursor-pointer shrink-0 ${
+                !isAudioMuted
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-400/40'
+                  : 'bg-white/5 text-slate-500 border-white/10'
+              }`}
+              title={isAudioMuted ? 'Unmute' : 'Mute'}
+            >
+              {!isAudioMuted ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isAudioMuted ? 0 : audioVolume}
+                onChange={(e) => {
+                  setAudioVolume(Number(e.target.value));
+                  if (isAudioMuted) setIsAudioMuted(false);
+                }}
+                className="w-16 sm:w-20 accent-[#6B4EFF] cursor-pointer"
+                title="Volume"
+              />
+              <span className="text-[10px] text-slate-400 font-mono w-6 text-right">
+                {isAudioMuted ? '0%' : `${Math.round(audioVolume * 100)}%`}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dropdown with strict width constraints */}
+        <div className="w-full min-w-0 max-w-full overflow-hidden">
           <select
             value={selectedTrackIndex}
             onChange={(e) => setSelectedTrackIndex(Number(e.target.value))}
-            className="flex-1 sm:flex-none bg-[#1a1c38] text-slate-200 border border-white/15 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold focus:outline-none focus:border-purple-400"
+            className="w-full min-w-0 max-w-full block truncate bg-[#161831] text-slate-200 border border-white/15 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-purple-400 cursor-pointer"
+            style={{ colorScheme: 'dark' }}
           >
             {LOFI_TRACKS.map((t, i) => (
               <option key={t.id} value={i} className="bg-[#161831] text-white">
@@ -565,22 +644,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <span className="text-[10px] text-slate-400 font-semibold">Volume</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={isAudioMuted ? 0 : audioVolume}
-            onChange={(e) => {
-              setAudioVolume(Number(e.target.value));
-              if (isAudioMuted) setIsAudioMuted(false);
-            }}
-            className="w-20 sm:w-24 accent-[#6B4EFF] cursor-pointer"
-          />
         </div>
       </div>
 
