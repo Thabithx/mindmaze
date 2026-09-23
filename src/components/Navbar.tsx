@@ -33,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuthModal,
   onSignOut,
   onOpenProfileEdit,
+  onOpenSearch,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
