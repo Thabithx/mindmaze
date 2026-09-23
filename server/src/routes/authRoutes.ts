@@ -404,8 +404,8 @@ router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise
     await user.save();
 
     // Determine client host URL
-    const clientUrl = req.headers.origin || req.headers.referer || process.env.CLIENT_URL || 'http://localhost:3000';
-    const cleanClientUrl = clientUrl.replace(/\/$/, '');
+    const rawClientUrl = req.body.clientUrl || process.env.CLIENT_URL || process.env.FRONTEND_URL || req.headers.origin || req.headers.referer || 'http://localhost:3000';
+    const cleanClientUrl = String(rawClientUrl).trim().replace(/\/$/, '');
     const resetUrl = `${cleanClientUrl}/?resetToken=${token}&email=${encodeURIComponent(cleanEmail)}`;
 
     // Dispatch email
