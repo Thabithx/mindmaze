@@ -22,6 +22,9 @@ export interface IUser extends Document {
   targetExamDate: string;
   targetZScore: string;
   mobileNumber: string;
+  whatsappNumber?: string;
+  phoneNumber?: string;
+  phone?: string;
   motivationNote: string;
   dailyHoursGoal: number;
   weeklyHoursGoal: number;
@@ -62,6 +65,9 @@ const UserSchema = new Schema<IUser>(
     targetExamDate: { type: String, default: '' },
     targetZScore: { type: String, default: '' },
     mobileNumber: { type: String, default: '' },
+    whatsappNumber: { type: String, default: '' },
+    phoneNumber: { type: String, default: '' },
+    phone: { type: String, default: '' },
     motivationNote: { type: String, default: '' },
     dailyHoursGoal: { type: Number, default: 4 },
     weeklyHoursGoal: { type: Number, default: 28 },

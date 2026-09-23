@@ -50,6 +50,8 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
     const validStreams = ['Physical Science', 'Biological Science', 'Maths', 'Bio'];
     const selectedStream = validStreams.includes(stream) ? stream : 'Physical Science';
 
+    const userPhone = (req.body.whatsappNumber || req.body.mobileNumber || req.body.phoneNumber || req.body.phone || '').trim();
+
     const user = await User.create({
       name,
       email,
@@ -58,6 +60,10 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
       targetExamYear: '2026',
+      mobileNumber: userPhone,
+      whatsappNumber: userPhone,
+      phoneNumber: userPhone,
+      phone: userPhone,
       timezone: req.body.timezone || 'Asia/Colombo',
     });
 
@@ -75,7 +81,10 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         targetExamYear: user.targetExamYear,
         targetExamDate: user.targetExamDate,
         targetZScore: user.targetZScore,
-        mobileNumber: user.mobileNumber,
+        mobileNumber: user.mobileNumber || userPhone,
+        whatsappNumber: user.whatsappNumber || userPhone,
+        phoneNumber: user.phoneNumber || userPhone,
+        phone: user.phone || userPhone,
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
         streakDays: user.streakDays,
@@ -278,7 +287,15 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
     if (targetExamYear !== undefined) user.targetExamYear = String(targetExamYear).trim();
     if (targetExamDate !== undefined) user.targetExamDate = String(targetExamDate).trim();
     if (targetZScore !== undefined) user.targetZScore = String(targetZScore).trim();
-    if (mobileNumber !== undefined) user.mobileNumber = String(mobileNumber).trim();
+    
+    const incomingPhone = req.body.mobileNumber || req.body.whatsappNumber || req.body.phoneNumber || req.body.phone;
+    if (incomingPhone !== undefined) {
+      const cleanPhone = String(incomingPhone).trim();
+      user.mobileNumber = cleanPhone;
+      user.whatsappNumber = cleanPhone;
+      user.phoneNumber = cleanPhone;
+      user.phone = cleanPhone;
+    }
     if (motivationNote !== undefined) user.motivationNote = String(motivationNote).trim();
     if (req.body.timezone !== undefined) user.timezone = String(req.body.timezone).trim();
 

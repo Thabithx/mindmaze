@@ -272,10 +272,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const filteredUsers = (users || []).filter((u) => {
+    const userPhone = u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || '';
     const matchesSearch =
       (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.whatsappNumber || u.phoneNumber || u.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+      userPhone.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStream = streamFilter === 'all' || u.stream === streamFilter;
     return matchesSearch && matchesStream;
   });
@@ -556,7 +557,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
                         </td>
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px]">
-                          {u.whatsappNumber || u.phoneNumber || u.phone || "—"}
+                          {u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || "—"}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 font-medium">

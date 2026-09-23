@@ -61,17 +61,8 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
     if (targetMap.has(raw)) {
       onTargetsChange(targets.filter((t) => t.subtopic !== raw));
     } else {
-      const existing = currentTopic ? getSubtopicProgressValue(currentTopic, raw) : 0;
-      const def = existing >= 100 ? 100 : Math.max(50, 100);
-      onTargetsChange([...targets, { subtopic: raw, targetProgress: def }]);
+      onTargetsChange([...targets, { subtopic: raw, targetProgress: 100 }]);
     }
-  };
-
-  const setTargetValue = (raw: string, val: number) => {
-    const clean = Math.max(0, Math.min(100, Math.round(val)));
-    onTargetsChange(
-      targets.map((t) => (t.subtopic === raw ? { ...t, targetProgress: clean } : t))
-    );
   };
 
   const removeTarget = (raw: string) => {
@@ -200,83 +191,46 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
           <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5 overscroll-contain">
             {currentTopic.subtopics.map((raw) => {
               const checked = targetMap.has(raw);
-              const sliderVal = targetMap.get(raw) ?? 100;
               const existing = getSubtopicProgressValue(currentTopic, raw);
               const grp = groupNameOf(raw);
               return (
                 <div
                   key={raw}
-                  className={`rounded-xl border p-2.5 transition ${
+                  onClick={() => toggleSubtopic(raw)}
+                  className={`rounded-xl border p-2.5 transition cursor-pointer select-none ${
                     checked
-                      ? 'border-cyan-400/50 bg-cyan-500/10'
+                      ? 'border-cyan-400/60 bg-cyan-500/15 shadow-sm'
                       : 'border-white/10 bg-white/[0.03] hover:border-white/20'
                   }`}
                 >
-                  <div className="flex items-start gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleSubtopic(raw)}
-                      aria-pressed={checked}
-                      title={checked ? 'Remove subtopic from this block' : 'Add subtopic to this block'}
-                      className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition cursor-pointer ${
-                        checked
-                          ? 'bg-cyan-500 border-cyan-400 text-white'
-                          : 'border-white/30 bg-black/20 text-transparent hover:border-cyan-400'
-                      }`}
-                    >
-                      <Plus className={`w-3.5 h-3.5 ${checked ? 'rotate-45' : ''}`} />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      {grp && (
-                        <span className="text-[10px] font-bold text-cyan-400/80 uppercase tracking-wide block truncate">
-                          {grp}
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div
+                        className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition ${
+                          checked
+                            ? 'bg-cyan-500 border-cyan-400 text-white'
+                            : 'border-white/30 bg-black/20 text-transparent'
+                        }`}
+                      >
+                        <Plus className={`w-3.5 h-3.5 ${checked ? 'rotate-45' : ''}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {grp && (
+                          <span className="text-[10px] font-bold text-cyan-400/80 uppercase tracking-wide block truncate">
+                            {grp}
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-white leading-snug block">
+                          {shortLabel(raw)}
                         </span>
-                      )}
-                      <span className="text-xs font-semibold text-white leading-snug block">
-                        {shortLabel(raw)}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">
-                        Already at {existing}%{checked && sliderVal < 100 ? ` • this block targets ${sliderVal}%` : checked ? ' • this block finishes it' : ''}
-                      </span>
-                      {checked && (
-                        <div className="mt-2 flex items-center gap-2.5">
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            step={5}
-                            value={sliderVal}
-                            onChange={(e) => setTargetValue(raw, Number(e.target.value))}
-                            aria-label={`How much of ${shortLabel(raw)} will this block finish (0 to 100 percent)`}
-                            className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-white/10 accent-cyan-400"
-                          />
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              step={5}
-                              value={sliderVal}
-                              onChange={(e) => setTargetValue(raw, Number(e.target.value))}
-                              aria-label={`${shortLabel(raw)} target percent`}
-                              className="w-14 rounded-lg bg-black/40 border border-cyan-500/30 px-1.5 py-1 text-center text-xs font-bold text-cyan-200 focus:border-cyan-400 focus:outline-none"
-                            />
-                            <span className="text-[11px] font-bold text-cyan-300">%</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeTarget(raw)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
-                            title="Remove subtopic"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          {existing >= 100 ? 'Already completed' : existing > 0 ? `Currently at ${existing}%` : 'Not started yet'}
+                        </span>
+                      </div>
                     </div>
                     {checked && (
-                      <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 shrink-0">
-                        {sliderVal}%
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 shrink-0">
+                        100% Target
                       </span>
                     )}
                   </div>

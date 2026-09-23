@@ -316,9 +316,8 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
       <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
         {availableSubjectMetas.map((s) => {
           const isSelected = selectedSubject === s.name;
-          const sTopics = topics.filter((t) => t.subject === s.name);
-          const sCompleted = sTopics.filter((t) => t.status === 'completed').length;
-          const sPercent = sTopics.length === 0 ? 0 : Math.round((sCompleted / sTopics.length) * 100);
+          const sProgression = calculateSubjectProgression(s.name, safeTopics);
+          const sPercent = sProgression.percentage;
 
           return (
             <button
