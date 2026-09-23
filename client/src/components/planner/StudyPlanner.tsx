@@ -1047,13 +1047,13 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full min-w-0">
+                    <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1.5 w-full min-w-0 overflow-hidden box-border">
                       <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-                        <span className="flex items-center gap-1.5 text-cyan-300">
-                          <Clock className="w-3.5 h-3.5" /> Start Time
+                        <span className="flex items-center gap-1.5 text-cyan-300 truncate">
+                          <Clock className="w-3.5 h-3.5 shrink-0" /> Start Time
                         </span>
-                        <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-md border border-cyan-400/20">
+                        <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-md border border-cyan-400/20 shrink-0">
                           {formatTime12h(formStart)}
                         </span>
                       </div>
@@ -1062,16 +1062,17 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                         required
                         value={formStart}
                         onChange={(e) => { setFormStart(e.target.value); setFormTimeError(''); }}
-                        className={`w-full min-h-[44px] rounded-xl bg-black/40 border px-3 py-2 text-sm font-bold text-white focus:outline-none ${formTimeError ? 'border-rose-500' : 'border-white/15 focus:border-cyan-400'}`}
+                        style={{ colorScheme: 'dark' }}
+                        className={`w-full max-w-full min-w-0 min-h-[44px] rounded-xl bg-black/40 border px-3 py-2 text-sm font-bold text-white focus:outline-none box-border ${formTimeError ? 'border-rose-500' : 'border-white/15 focus:border-cyan-400'}`}
                       />
                     </div>
 
-                    <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1.5">
+                    <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1.5 w-full min-w-0 overflow-hidden box-border">
                       <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-                        <span className="flex items-center gap-1.5 text-purple-300">
-                          <Clock className="w-3.5 h-3.5" /> End Time
+                        <span className="flex items-center gap-1.5 text-purple-300 truncate">
+                          <Clock className="w-3.5 h-3.5 shrink-0" /> End Time
                         </span>
-                        <span className="text-[11px] font-bold text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-md border border-purple-400/20">
+                        <span className="text-[11px] font-bold text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-md border border-purple-400/20 shrink-0">
                           {formatTime12h(formEnd)}
                         </span>
                       </div>
@@ -1080,7 +1081,8 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                         required
                         value={formEnd}
                         onChange={(e) => { setFormEnd(e.target.value); setFormTimeError(''); }}
-                        className={`w-full min-h-[44px] rounded-xl bg-black/40 border px-3 py-2 text-sm font-bold text-white focus:outline-none ${formTimeError ? 'border-rose-500' : 'border-white/15 focus:border-purple-400'}`}
+                        style={{ colorScheme: 'dark' }}
+                        className={`w-full max-w-full min-w-0 min-h-[44px] rounded-xl bg-black/40 border px-3 py-2 text-sm font-bold text-white focus:outline-none box-border ${formTimeError ? 'border-rose-500' : 'border-white/15 focus:border-purple-400'}`}
                       />
                     </div>
                   </div>

@@ -48,28 +48,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Header Search Button */}
-        {onOpenSearch && (
-          <button
-            onClick={onOpenSearch}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition cursor-pointer min-h-[40px] text-xs font-semibold"
-            title="Search (Cmd + K)"
-          >
-            <Search className="w-4 h-4 text-cyan-400" />
-            <span className="hidden md:inline font-bold">Search</span>
-            <span className="hidden md:inline-block text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded border border-white/10 font-mono">
-              ⌘K
-            </span>
-          </button>
-        )}
-
-        {/* Header Streak Counter Badge (ONLY NUMBER) */}
+        {/* Header Streak Counter Badge */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-black shadow-sm" title="Streak Days">
           <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
           <span className="whitespace-nowrap">{userProfile?.streakDays || 1}</span>
         </div>
 
-        {/* Header Notifications Bell Button (Desktop/Tablet — Mobile in Sidebar) */}
+        {/* Header Notifications Bell Button (Desktop/Tablet Only — Mobile in Sidebar) */}
         <button
           onClick={() => onNavigate('notifications')}
           className={`hidden sm:flex relative p-2 rounded-xl border transition cursor-pointer min-h-[40px] min-w-[40px] items-center justify-center ${
@@ -87,6 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <PWAInstallButton />
         </div>
 
+        {/* Desktop Profile Menu */}
         <div className="relative hidden sm:block">
           {userProfile?.isAuthenticated ? (
             <button
@@ -153,9 +139,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
+        {/* Header Search Button (Directly left of Menu on Mobile) */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition cursor-pointer min-h-[40px] min-w-[40px] sm:min-w-0 justify-center text-xs font-semibold"
+            title="Search (Cmd + K)"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4 text-cyan-400" />
+            <span className="hidden md:inline font-bold">Search</span>
+            <span className="hidden md:inline-block text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded border border-white/10 font-mono">
+              ⌘K
+            </span>
+          </button>
+        )}
+
+        {/* Mobile Navigation Hamburger Menu */}
         <button
           onClick={onToggleMobileSidebar}
-          className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 border border-white/10"
+          className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[40px] min-w-[40px] flex items-center justify-center shrink-0 border border-white/10 cursor-pointer"
           aria-label="Toggle navigation menu"
         >
           <Menu className="w-5 h-5" />
