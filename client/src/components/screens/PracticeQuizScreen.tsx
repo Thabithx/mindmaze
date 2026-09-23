@@ -61,6 +61,22 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
     return sourcePool;
   }, [quizQuestions, initialQuestionId, initialTopicFilter]);
 
+  const [savedBookmarkSuccess, setSavedBookmarkSuccess] = useState(false);
+
+  const handleBookmarkQuestion = () => {
+    if (!currentQuestion) return;
+    const newMistake: MistakeItem = {
+      id: `mistake-${Date.now()}`,
+      savedAt: new Date().toISOString().split('T')[0],
+      userSelectedOptionId: selectedOptionId || 'A',
+      isMastered: false,
+      question: currentQuestion,
+    };
+    onSaveMistake(newMistake);
+    setSavedBookmarkSuccess(true);
+    setTimeout(() => setSavedBookmarkSuccess(false), 3000);
+  };
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
@@ -289,26 +305,8 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
             />
           </div>
 
-  const [savedBookmarkSuccess, setSavedBookmarkSuccess] = useState(false);
-
-  const handleBookmarkQuestion = () => {
-    if (!currentQuestion) return;
-    const newMistake: MistakeItem = {
-      id: `mistake-${Date.now()}`,
-      savedAt: new Date().toISOString().split('T')[0],
-      userSelectedOptionId: selectedOptionId || 'A',
-      isMastered: false,
-      question: currentQuestion,
-    };
-    onSaveMistake(newMistake);
-    setSavedBookmarkSuccess(true);
-    setTimeout(() => setSavedBookmarkSuccess(false), 3000);
-  };
-
-  return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Question Card */}
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md space-y-6 shadow-xl">
+          {/* Question Card */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md space-y-6 shadow-xl">
         {/* Repeat Probability Header Badge */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
           <div className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">
