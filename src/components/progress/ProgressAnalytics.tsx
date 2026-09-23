@@ -955,7 +955,14 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       </div>
       )}
 
-      <Leaderboard currentUserId={currentUserId} />
+      <Leaderboard
+        currentUserId={currentUserId}
+        syllabusTopics={safeTopics}
+        timetable={safeTimetable}
+        dailyTasks={safeDailyTasks}
+        stream={effectiveStream}
+        physicalScienceElective={effectiveElective}
+      />
     </div>
   );
 };

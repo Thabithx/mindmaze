@@ -72,10 +72,10 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       };
     });
 
-    // Sort by Completed Hours > Syllabus % > Streak
+    // Sort by Syllabus % > Completed Hours > Streak
     entries.sort((a, b) => {
-      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
       if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
+      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
       return b.currentStreak - a.currentStreak;
     });
 

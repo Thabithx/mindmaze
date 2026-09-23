@@ -104,132 +104,127 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div id="dashboard-overview-view" className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
-      <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl border border-white/15">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none" />
+      {/* ── Welcome Block (Compact) ── */}
+      <div className="glass-card rounded-2xl p-4 sm:p-5.5 relative overflow-hidden shadow-xl border border-white/15">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold flex items-center gap-1.5 backdrop-blur-md">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{effectiveStream} {effectiveStream.includes('Physical') ? `(${effectiveElective})` : ''}</span>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[11px] font-bold inline-flex items-center gap-1.5 backdrop-blur-md">
+                <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
+                <span className="truncate">{effectiveStream} {effectiveStream.includes('Physical') ? `(${effectiveElective})` : ''}</span>
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">
               Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-300">{studentName}</span>!
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-              Stay consistent with your daily study goals. Master topics step by step and track your island rank progress.
+            <p className="text-xs text-slate-300 leading-normal line-clamp-1 sm:line-clamp-none">
+              Stay consistent with your daily study goals and master topics step by step.
             </p>
           </div>
 
-          {/* Exam Days Badge */}
-          <div className="flex flex-col items-center justify-center p-5 sm:p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shrink-0 text-center min-w-[170px] shadow-lg">
-            <div className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tight">{examDaysLeft}</div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
-              Days to A/L Exam
+          {/* Exam Days Compact Badge */}
+          <div className="flex items-center sm:flex-col justify-between sm:justify-center p-3 sm:p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xl shrink-0 text-center sm:min-w-[140px] shadow-sm">
+            <div className="flex items-baseline sm:flex-col sm:items-center gap-1.5 sm:gap-0">
+              <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:mt-1">
+                Days to A/L
+              </span>
             </div>
             <button
               onClick={handleOpenSettings}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition cursor-pointer shadow-md shadow-indigo-600/30 hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-[10px] font-bold transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 sm:mt-2"
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>UPDATE EXAM DATE</span>
+              <Calendar className="w-3 h-3" />
+              <span>Update Date</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── How It Works ── */}
-      <div className="glass-card rounded-3xl p-5 sm:p-7 border border-white/10 shadow-xl">
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">
-            <Zap className="w-4 h-4" />
+      {/* ── How It Works (Short & Sleek) ── */}
+      <div className="glass-card rounded-2xl p-3.5 sm:p-4 border border-white/10 shadow-lg">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-lg bg-indigo-500/20 text-indigo-300">
+              <Zap className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-xs font-black text-white">How It Works</span>
           </div>
-          <div>
-            <h2 className="text-sm font-black text-white">How It Works</h2>
-            <p className="text-[11px] text-slate-400">Your daily A/L study workflow in 5 steps</p>
-          </div>
+          <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">5-step daily study loop</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {[
             {
-              step: '01',
-              icon: <CalendarDays className="w-5 h-5" />,
+              step: '1',
+              icon: <CalendarDays className="w-4 h-4" />,
               color: 'indigo',
-              title: 'Plan Your Week',
-              desc: 'Add study blocks to your timetable with subjects, times, and linked syllabus units.',
+              title: 'Plan Week',
+              desc: 'Add study blocks',
               screen: 'planner' as ScreenId,
             },
             {
-              step: '02',
-              icon: <BookOpen className="w-5 h-5" />,
+              step: '2',
+              icon: <BookOpen className="w-4 h-4" />,
               color: 'cyan',
               title: 'Track Syllabus',
-              desc: 'Tick off subtopics as you cover them. Watch your completion percentage climb.',
+              desc: 'Tick off lessons',
               screen: 'topics' as ScreenId,
             },
             {
-              step: '03',
-              icon: <Clock className="w-5 h-5" />,
+              step: '3',
+              icon: <Clock className="w-4 h-4" />,
               color: 'purple',
-              title: 'Focus with Pomodoro',
-              desc: 'Select a unit, start the timer, and study in focused 25-min intervals with lo-fi music.',
+              title: 'Pomodoro',
+              desc: 'Focus with music',
               screen: 'dashboard' as ScreenId,
             },
             {
-              step: '04',
-              icon: <Sparkles className="w-5 h-5" />,
+              step: '4',
+              icon: <Sparkles className="w-4 h-4" />,
               color: 'amber',
-              title: 'Quiz Yourself',
-              desc: 'Test your knowledge with past papers and subject quizzes after completing units.',
+              title: 'Quizzes',
+              desc: 'Past paper tests',
               screen: 'quiz' as ScreenId,
             },
             {
-              step: '05',
-              icon: <Trophy className="w-5 h-5" />,
+              step: '5',
+              icon: <Trophy className="w-4 h-4" />,
               color: 'emerald',
-              title: 'Climb the Leaderboard',
-              desc: 'Your study hours, streak, and syllabus % earn you a rank among all students.',
+              title: 'Rankings',
+              desc: 'Climb leaderboard',
               screen: 'leaderboard' as ScreenId,
             },
-          ].map((item, idx) => {
+          ].map((item) => {
             const colorMap: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-              indigo: { bg: 'bg-indigo-500/15', border: 'border-indigo-400/25', text: 'text-indigo-300', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30' },
-              cyan:   { bg: 'bg-cyan-500/15',   border: 'border-cyan-400/25',   text: 'text-cyan-300',   badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30' },
-              purple: { bg: 'bg-purple-500/15',  border: 'border-purple-400/25', text: 'text-purple-300', badge: 'bg-purple-500/20 text-purple-300 border-purple-400/30' },
-              amber:  { bg: 'bg-amber-500/15',   border: 'border-amber-400/25',  text: 'text-amber-300',  badge: 'bg-amber-500/20 text-amber-300 border-amber-400/30' },
-              emerald:{ bg: 'bg-emerald-500/15', border: 'border-emerald-400/25',text: 'text-emerald-300',badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' },
+              indigo: { bg: 'bg-indigo-500/10', border: 'border-indigo-400/20 hover:border-indigo-400/40', text: 'text-indigo-300', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30' },
+              cyan:   { bg: 'bg-cyan-500/10',   border: 'border-cyan-400/20 hover:border-cyan-400/40',   text: 'text-cyan-300',   badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30' },
+              purple: { bg: 'bg-purple-500/10',  border: 'border-purple-400/20 hover:border-purple-400/40', text: 'text-purple-300', badge: 'bg-purple-500/20 text-purple-300 border-purple-400/30' },
+              amber:  { bg: 'bg-amber-500/10',   border: 'border-amber-400/20 hover:border-amber-400/40',  text: 'text-amber-300',  badge: 'bg-amber-500/20 text-amber-300 border-amber-400/30' },
+              emerald:{ bg: 'bg-emerald-500/10', border: 'border-emerald-400/20 hover:border-emerald-400/40',text: 'text-emerald-300',badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' },
             };
             const c = colorMap[item.color];
             return (
               <button
                 key={item.step}
                 onClick={() => onNavigate(item.screen)}
-                className={`group relative flex flex-col gap-3 p-4 rounded-2xl border text-left transition cursor-pointer hover:scale-[1.02] active:scale-95 ${c.bg} ${c.border}`}
+                className={`group flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition cursor-pointer hover:bg-white/[0.04] active:scale-95 ${c.bg} ${c.border}`}
               >
-                {/* Step badge */}
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border w-fit ${c.badge}`}>
-                  STEP {item.step}
-                </span>
-
-                {/* Icon */}
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${c.bg} border ${c.border} ${c.text}`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${c.badge}`}>
                   {item.icon}
                 </div>
-
-                {/* Text */}
-                <div>
-                  <p className="text-xs font-black text-white mb-1">{item.title}</p>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">{item.desc}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-black text-slate-400">#{item.step}</span>
+                    <span className="text-[11px] font-bold text-white truncate">{item.title}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 truncate">{item.desc}</p>
                 </div>
-
-                {/* Arrow */}
-                <ArrowRight className={`w-3.5 h-3.5 absolute top-3.5 right-3.5 opacity-0 group-hover:opacity-100 transition ${c.text}`} />
               </button>
             );
           })}

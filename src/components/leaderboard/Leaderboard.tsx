@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { Trophy, Medal, Flame, RefreshCw, Crown } from 'lucide-react';
+import { ScreenId, StreamType, SyllabusTopic, TimetableEntry, DailyTask, StreakData } from '../../types';
 import {
   LeaderboardEntry,
   LeaderboardPeriod,
   fetchLeaderboard,
   getCachedLeaderboard,
+  sortLeaderboardEntries,
 } from '../../lib/leaderboard';
+import { getSubjectsForStream } from '../../data/alSyllabusData';
+import { calculateOverallStreamProgression } from '../../lib/syllabusProgression';
 
 interface LeaderboardProps {
   currentUserId?: string | null;
@@ -13,6 +17,13 @@ interface LeaderboardProps {
   onNavigate?: (screen: ScreenId) => void;
   compact?: boolean;
   onViewAll?: () => void;
+  syllabusTopics?: SyllabusTopic[];
+  timetable?: TimetableEntry[];
+  dailyTasks?: DailyTask[];
+  streakDays?: number;
+  streakData?: StreakData;
+  stream?: StreamType | string;
+  physicalScienceElective?: 'Chemistry' | 'ICT' | string;
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({
@@ -21,26 +32,86 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   onNavigate,
   compact = false,
   onViewAll,
+  syllabusTopics = [],
+  timetable = [],
+  dailyTasks = [],
+  streakDays = 1,
+  streakData,
+  stream = 'Physical Science',
+  physicalScienceElective = 'Chemistry',
 }) => {
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>(() =>
-    getCachedLeaderboard('weekly', compact ? 5 : 50)
+  const [rawEntries, setRawEntries] = useState<LeaderboardEntry[]>(() =>
+    getCachedLeaderboard('weekly', 50)
   );
   const [loading, setLoading] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
 
+  // Calculate live user stats
+  const effectiveStream = currentUserProfile?.stream || stream || 'Physical Science';
+  const effectiveElective = physicalScienceElective || 'Chemistry';
+  const streamSubjects = getSubjectsForStream(effectiveStream, effectiveElective);
+  const progression = calculateOverallStreamProgression(streamSubjects, syllabusTopics);
+  const liveSyllabusPercent = progression.totalPercentage;
+
+  // Calculate live study hours
+  let liveStudyMinutes = 0;
+  timetable.forEach((entry) => {
+    if (!entry.startTime || !entry.endTime) return;
+    const [sh, sm] = entry.startTime.split(':').map(Number);
+    const [eh, em] = entry.endTime.split(':').map(Number);
+    const diff = eh * 60 + em - (sh * 60 + sm);
+    if (diff > 0) liveStudyMinutes += (entry.isCompleted ? diff : Math.round(diff * 0.5));
+  });
+  const completedTaskCount = dailyTasks.filter((t) => t && t.isCompleted).length;
+  const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
+  const liveHours = Math.max(
+    Math.round(liveStreak * 2.5 * 10) / 10,
+    Math.round(((liveStudyMinutes / 60) + completedTaskCount * 0.75) * 10) / 10
+  );
+
+  const myUsername = currentUserProfile?.name || currentUserProfile?.username || 'A/L Scholar';
+  const myUserId = currentUserId || currentUserProfile?.id || currentUserProfile?.email || 'current-user';
+
+  // Merge current user's live entry into leaderboard entries
+  const entries = useMemo(() => {
+    const list = [...rawEntries];
+    const userIndex = list.findIndex(
+      (e) => (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase()
+    );
+
+    const myEntry: LeaderboardEntry = {
+      userId: myUserId,
+      username: myUsername,
+      stream: effectiveStream,
+      completedHours: liveHours,
+      completedTasks: Math.max(completedTaskCount, progression.completedTopics * 3, liveStreak * 2),
+      currentStreak: liveStreak,
+      syllabusCompletedPercent: liveSyllabusPercent,
+    };
+
+    if (userIndex >= 0) {
+      list[userIndex] = { ...list[userIndex], ...myEntry };
+    } else {
+      list.push(myEntry);
+    }
+
+    const sorted = sortLeaderboardEntries(list);
+    return compact ? sorted.slice(0, 5) : sorted;
+  }, [rawEntries, myUserId, myUsername, effectiveStream, liveHours, completedTaskCount, progression.completedTopics, liveStreak, liveSyllabusPercent, compact]);
+
   const load = useCallback(async (p: LeaderboardPeriod) => {
     setLoading(true);
     try {
-      const res = await fetchLeaderboard(p, compact ? 5 : 50);
+      const res = await fetchLeaderboard(p, 50);
       if (res.entries && res.entries.length > 0) {
-        setEntries(res.entries);
+        setRawEntries(res.entries);
       }
       setNeedsSetup(res.needsSetup);
     } finally {
       setLoading(false);
     }
-  }, [compact]);
+  }, []);
 
   useEffect(() => {
     void load(period);
@@ -48,7 +119,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
   const top3 = entries.slice(0, 3);
   const rest = entries.slice(3);
-  const myRank = currentUserId ? entries.findIndex((e) => e.userId === currentUserId) : -1;
+  const myRank = entries.findIndex(
+    (e) => (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase()
+  );
+
+  const isMe = (e: LeaderboardEntry) =>
+    (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase();
 
   const medal = (i: number) =>
     i === 0 ? (
@@ -109,7 +185,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
               <div
                 key={e.userId}
                 className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${
-                  e.userId === currentUserId
+                  isMe(e)
                     ? 'border-cyan-400/60 bg-cyan-500/10'
                     : 'border-white/10 bg-white/[0.03]'
                 }`}
@@ -118,7 +194,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                 <div className="flex justify-center w-5">{medal(i)}</div>
                 <span className="text-xs font-bold text-white truncate flex-1">
                   @{e.username}
-                  {e.userId === currentUserId && (
+                  {isMe(e) && (
                     <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                   )}
                 </span>
@@ -143,15 +219,20 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                 <div
                   key={e.userId}
                   className={`rounded-2xl border p-3 text-center ${
-                    e.userId === currentUserId
-                      ? 'border-cyan-400/60 bg-cyan-500/10'
+                    isMe(e)
+                      ? 'border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/40'
                       : i === 0
                         ? 'border-amber-400/50 bg-amber-500/10'
                         : 'border-white/10 bg-white/[0.03]'
                   }`}
                 >
                   <div className="flex justify-center">{medal(i)}</div>
-                  <div className="text-xs font-black text-white truncate mt-1">@{e.username}</div>
+                  <div className="text-xs font-black text-white truncate mt-1 flex items-center justify-center gap-1">
+                    <span>@{e.username}</span>
+                    {isMe(e) && (
+                      <span className="text-[8px] font-black px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
+                    )}
+                  </div>
                   <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
                   <div className="text-[10px] text-slate-400">
                     {e.completedHours}h study • {e.currentStreak}d streak
@@ -176,12 +257,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   {rest.map((e, i) => (
                     <tr
                       key={e.userId}
-                      className={`border-b border-white/5 ${e.userId === currentUserId ? 'bg-cyan-500/10' : ''}`}
+                      className={`border-b border-white/5 ${isMe(e) ? 'bg-cyan-500/10' : ''}`}
                     >
                       <td className="py-2 pr-3 font-black text-slate-400">{i + 4}</td>
                       <td className="py-2 pr-3 font-bold text-white">
                         @{e.username}
-                        {e.userId === currentUserId && (
+                        {isMe(e) && (
                           <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                         )}
                       </td>
