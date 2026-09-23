@@ -329,7 +329,9 @@ export function App() {
       const currentTimeStr = `${currentHours}:${currentMins}`;
 
       const currentBlock = timetable.find((entry) => {
+        if (entry.isCompleted) return false;
         if (entry.dayOfWeek !== currentDay) return false;
+        if (!entry.startTime || !entry.endTime) return false;
         return entry.startTime <= currentTimeStr && currentTimeStr <= entry.endTime;
       });
 
@@ -344,18 +346,22 @@ export function App() {
           matchedTopic = syllabusTopics.find((t) => t.id === currentBlock.topicId);
         }
         if (!matchedTopic && currentBlock.topic) {
+          const cleanBlockTopic = currentBlock.topic.toLowerCase().trim();
           matchedTopic = syllabusTopics.find(
             (t) =>
-              t.topicTitle.toLowerCase() === currentBlock.topic.toLowerCase() ||
+              t.topicTitle.toLowerCase().trim() === cleanBlockTopic ||
               (currentBlock.subject &&
                 t.subject.toLowerCase() === currentBlock.subject.toLowerCase() &&
-                t.topicTitle.toLowerCase().includes(currentBlock.topic.toLowerCase()))
+                (t.topicTitle.toLowerCase().includes(cleanBlockTopic) ||
+                  cleanBlockTopic.includes(t.topicTitle.toLowerCase())))
           );
         }
 
         const subtopicList = currentBlock.subtopicTargets && currentBlock.subtopicTargets.length > 0
           ? currentBlock.subtopicTargets.map((st) => st.subtopic)
-          : matchedTopic?.subtopics || [];
+          : currentBlock.subtopic
+            ? [currentBlock.subtopic]
+            : matchedTopic?.subtopics || [];
 
         setActivePomodoroTopic({
           title: matchedTopic?.topicTitle || currentBlock.topic,
@@ -371,7 +377,7 @@ export function App() {
         if (!hasPromptedActiveBlock) {
           sendNotification(
             'Study Session Starting!',
-            `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) has started!`,
+            `Your scheduled study block "${currentBlock.topic}" (${currentBlock.subject}) is active now!`,
             `study-block-${currentBlock.id}`
           );
           setHasPromptedActiveBlock(true);
@@ -380,9 +386,9 @@ export function App() {
     };
 
     checkActiveBlock();
-    const interval = setInterval(checkActiveBlock, 30000);
+    const interval = setInterval(checkActiveBlock, 15000);
     return () => clearInterval(interval);
-  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, sendNotification]);
+  }, [timetable, activePomodoroTopic, hasPromptedActiveBlock, dismissedBlockIds, sendNotification, syllabusTopics]);
 
 
   const activeSyllabusTopic = activePomodoroTopic
@@ -592,22 +598,55 @@ export function App() {
                         ) : null);
 
                       if (currentTopic) {
-                        const subs = currentTopic.subtopics || [];
+                        // Complete ONLY the subtopics targeted for this block (or all topic subtopics if none specified)
+                        const targetSubs = activeSubtopics && activeSubtopics.length > 0
+                          ? activeSubtopics
+                          : currentTopic.subtopics || [];
+
                         const newMap: Record<string, number> = { ...(currentTopic.subtopicProgress || {}) };
-                        subs.forEach((s) => { newMap[s] = 100; });
+                        targetSubs.forEach((s) => { newMap[s] = 100; });
+
+                        const existingCompleted = currentTopic.completedSubtopics || [];
+                        const mergedCompleted = Array.from(new Set([...existingCompleted, ...targetSubs]));
+
+                        const allTopicSubs = currentTopic.subtopics || [];
+                        let newStatus: any = 'in_progress';
+                        if (allTopicSubs.length > 0) {
+                          const isAllDone = allTopicSubs.every((s) => newMap[s] === 100 || mergedCompleted.includes(s));
+                          if (isAllDone) newStatus = 'completed';
+                          else if (mergedCompleted.length > 0) newStatus = 'in_progress';
+                        } else {
+                          newStatus = 'completed';
+                        }
+
                         const updated = syllabusTopics.map((t) => {
                           if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
                             return {
                               ...t,
-                              status: 'completed' as const,
+                              status: newStatus,
                               subtopicProgress: newMap,
-                              completedSubtopics: [...subs],
+                              completedSubtopics: mergedCompleted,
                             };
                           }
                           return t;
                         });
                         setSyllabusTopics(updated);
                         saveStoredSyllabusTopics(updated);
+
+                        // Sync with backend API
+                        if (getAuthToken()) {
+                          targetSubs.forEach((subName) => {
+                            api.updateSubtopicProgress({
+                              topicId: currentTopic.id,
+                              subject: currentTopic.subject,
+                              unitNumber: currentTopic.unitNumber,
+                              unitTitle: currentTopic.unitTitle,
+                              topicTitle: currentTopic.topicTitle,
+                              subtopic: subName,
+                              progress: 100,
+                            }).catch(() => {});
+                          });
+                        }
                       }
 
                       if (activePomodoroTopic?.id) {
@@ -619,6 +658,10 @@ export function App() {
                         });
                         setTimetable(updatedTimetable);
                         saveStoredTimetable(updatedTimetable);
+
+                        if (getAuthToken()) {
+                          api.updateTimetableSlot(activePomodoroTopic.id, { isCompleted: true }).catch(() => {});
+                        }
                       }
 
                       // Also mark matching daily task completed
