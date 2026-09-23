@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { User, StreamType } from '../../types';
 import { X, Save, User as UserIcon, Calendar, Target, Phone, Clock, Award, Loader2 } from 'lucide-react';
+import { validateName, validatePhone, validateYear } from '../../lib/validation';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -36,44 +37,37 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    const cleanName = name.trim();
-    if (!cleanName || cleanName.length < 2) {
-      setError('Full name must be at least 2 characters long.');
+    const nameErr = validateName(name, 'Full Name');
+    if (nameErr) {
+      setError(nameErr);
       return;
     }
 
-    if (mobileNumber.trim()) {
-      const cleanPhone = mobileNumber.trim().replace(/[\s\-\(\)]/g, '');
-      if (!/^(\+?\d{9,15}|\d{10})$/.test(cleanPhone)) {
-        setError('Please enter a valid mobile phone number (e.g., +94 77 123 4567 or 0771234567).');
-        return;
-      }
-    }
-
-    if (targetZScore.trim()) {
-      const num = Number(targetZScore.trim());
-      if (isNaN(num) || num < 0 || num > 4.0) {
-        setError('Target Z-Score must be a valid number (e.g. 2.1500).');
-        return;
-      }
-    }
-
-    if (dailyHoursGoal < 1 || dailyHoursGoal > 24) {
-      setError('Daily hours goal must be between 1 and 24 hours.');
+    const phoneErr = validatePhone(mobileNumber, false);
+    if (phoneErr) {
+      setError(phoneErr);
       return;
+    }
+
+    if (targetExamYear) {
+      const yearErr = validateYear(targetExamYear, 2000, 2035);
+      if (yearErr) {
+        setError(yearErr);
+        return;
+      }
     }
 
     try {
       setSaving(true);
 
       const res = await api.updateProfile({
-        name: cleanName,
+        name,
         stream,
         physicalScienceElective: elective,
         targetExamYear,
         targetExamDate,
-        targetZScore: targetZScore.trim(),
-        mobileNumber: mobileNumber.trim(),
+        targetZScore,
+        mobileNumber,
         motivationNote,
         dailyHoursGoal,
         weeklyHoursGoal,
@@ -164,11 +158,10 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Expected Exam Date</label>
               <input
-                id="profile-target-exam-date"
                 type="date"
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/40 transition-all"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
               />
             </div>
           </div>

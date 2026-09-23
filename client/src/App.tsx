@@ -62,7 +62,7 @@ export function App() {
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | null>(null);
 
   // Auth Inputs
   const [emailInput, setEmailInput] = useState('');
@@ -72,7 +72,6 @@ export function App() {
   const [streamInput, setStreamInput] = useState<StreamType>('Physical Science');
   const [electiveInput, setElectiveInput] = useState<'Chemistry' | 'ICT'>('Chemistry');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
 
   // Profile Edit Modal State
@@ -218,34 +217,12 @@ export function App() {
     }
   };
 
-  const validateEmailFormat = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const validatePhoneFormat = (phone: string) => {
-    const clean = phone.replace(/[\s\-\(\)]/g, '');
-    return /^(\+?\d{9,15}|\d{10})$/.test(clean);
-  };
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-
-    const cleanEmail = emailInput.trim();
-    if (!cleanEmail) {
-      setAuthError('Please enter your email address.');
-      return;
-    }
-    if (!validateEmailFormat(cleanEmail)) {
-      setAuthError('Please enter a valid email address (e.g. student@example.com).');
-      return;
-    }
-    if (!passwordInput) {
-      setAuthError('Please enter your password.');
-      return;
-    }
-
     setAuthSubmitting(true);
+    setAuthError(null);
     try {
-      const res = await api.login({ email: cleanEmail, password: passwordInput });
+      const res = await api.login({ email: emailInput.trim(), password: passwordInput });
       if (!res?.token) {
         throw new Error(res?.message || 'Invalid credentials');
       }
@@ -263,7 +240,7 @@ export function App() {
       }
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
-      setAuthError(err.message || 'Invalid email or password. Please check your credentials.');
+      setAuthError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -271,39 +248,14 @@ export function App() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-
-    const cleanName = nameInput.trim();
-    if (!cleanName || cleanName.length < 2) {
-      setAuthError('Please enter your full name (at least 2 characters).');
-      return;
-    }
-
-    const cleanEmail = emailInput.trim();
-    if (!cleanEmail || !validateEmailFormat(cleanEmail)) {
-      setAuthError('Please enter a valid email address (e.g. student@example.com).');
-      return;
-    }
-
-    const cleanWhatsapp = whatsappInput.trim();
-    if (!cleanWhatsapp || !validatePhoneFormat(cleanWhatsapp)) {
-      setAuthError('Please enter a valid WhatsApp mobile number (e.g., +94 77 123 4567 or 0771234567).');
-      return;
-    }
-
-    if (!passwordInput || passwordInput.length < 6) {
-      setAuthError('Password must be at least 6 characters long.');
-      return;
-    }
-
     try {
       setAuthSubmitting(true);
+      setAuthError(null);
       const res = await api.register({
-        name: cleanName,
-        email: cleanEmail,
+        name: nameInput,
+        email: emailInput,
         password: passwordInput,
-        whatsappNumber: cleanWhatsapp,
+        whatsappNumber: whatsappInput,
         stream: streamInput,
         physicalScienceElective: streamInput === 'Physical Science' ? electiveInput : undefined,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Colombo',
@@ -321,40 +273,7 @@ export function App() {
         api.syncTimetable(local).catch(() => {});
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Registration failed. Please check your details and try again.');
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-
-    const cleanEmail = emailInput.trim();
-    if (!cleanEmail || !validateEmailFormat(cleanEmail)) {
-      setAuthError('Please enter a valid email address to receive the password reset link.');
-      return;
-    }
-
-    setAuthSubmitting(true);
-    try {
-      try {
-        const { supabase } = await import('./lib/supabaseClient');
-        if (supabase) {
-          await supabase.auth.resetPasswordForEmail(cleanEmail, {
-            redirectTo: `${window.location.origin}/#reset-password`,
-          });
-        }
-      } catch (sbErr) {
-        console.warn('Supabase reset notice:', sbErr);
-      }
-
-      const res = await api.sendForgotPasswordEmail(cleanEmail);
-      setAuthSuccess(res.message || `Password reset link has been sent to ${cleanEmail}! Please check your inbox and spam folder.`);
-    } catch (err: any) {
-      setAuthError(err.message || 'Failed to send reset link. Please check your email and try again.');
+      setAuthError(err.message || 'Registration failed.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -1280,14 +1199,10 @@ export function App() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  {authModalMode === 'signin' ? 'Welcome Back' : authModalMode === 'signup' ? 'Create Account' : 'Reset Password'}
+                  {authModalMode === 'signin' ? 'Welcome Back' : 'Create Account'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {authModalMode === 'signin'
-                    ? 'Sign in to access your study planner'
-                    : authModalMode === 'signup'
-                    ? 'Join Mind Maze GCE A/L Community'
-                    : 'Enter your email to receive reset instructions'}
+                  {authModalMode === 'signin' ? 'Sign in to access your study planner' : 'Join Mind Maze GCE A/L Community'}
                 </p>
               </div>
             </div>
@@ -1298,13 +1213,7 @@ export function App() {
               </div>
             )}
 
-            {authSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold flex items-center gap-2">
-                <span>{authSuccess}</span>
-              </div>
-            )}
-
-            <form onSubmit={authModalMode === 'signin' ? handleSignIn : authModalMode === 'signup' ? handleSignUp : handleResetPassword} className="space-y-4">
+            <form onSubmit={authModalMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
               {authModalMode === 'signup' && (
                 <>
                   <div>
@@ -1348,31 +1257,18 @@ export function App() {
                 />
               </div>
 
-              {authModalMode !== 'forgot' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">Password <span className="text-rose-400">*</span></label>
-                    {authModalMode === 'signin' && (
-                      <button
-                        type="button"
-                        onClick={() => { setAuthModalMode('forgot'); setAuthError(null); setAuthSuccess(null); }}
-                        className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    type="password"
-                    autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                    required={authModalMode !== 'forgot'}
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Password <span className="text-rose-400">*</span></label>
+                <input
+                  type="password"
+                  autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                  required
+                />
+              </div>
 
               {authModalMode === 'signup' && (
                 <div className={streamInput === 'Physical Science' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
@@ -1407,7 +1303,7 @@ export function App() {
               <button
                 type="submit"
                 disabled={authSubmitting}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
               >
                 {authSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1415,12 +1311,10 @@ export function App() {
                   <>
                     <LogIn className="w-4 h-4" /> Sign In
                   </>
-                ) : authModalMode === 'signup' ? (
+                ) : (
                   <>
                     <UserPlus className="w-4 h-4" /> Create Account
                   </>
-                ) : (
-                  <span>Send Reset Link</span>
                 )}
               </button>
             </form>
@@ -1429,22 +1323,15 @@ export function App() {
               {authModalMode === 'signin' ? (
                 <p>
                   Don't have an account?{' '}
-                  <button onClick={() => { setAuthModalMode('signup'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
+                  <button onClick={() => setAuthModalMode('signup')} className="text-indigo-400 font-bold hover:underline">
                     Sign Up
-                  </button>
-                </p>
-              ) : authModalMode === 'signup' ? (
-                <p>
-                  Already have an account?{' '}
-                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
-                    Sign In
                   </button>
                 </p>
               ) : (
                 <p>
-                  Remembered your password?{' '}
-                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
-                    Back to Sign In
+                  Already have an account?{' '}
+                  <button onClick={() => setAuthModalMode('signin')} className="text-indigo-400 font-bold hover:underline">
+                    Sign In
                   </button>
                 </p>
               )}

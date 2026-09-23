@@ -378,25 +378,4 @@ router.post('/push-subscription', protect, async (req: AuthRequest, res: Respons
   }
 });
 
-router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
-      res.status(400).json({ message: 'Please provide a valid email address' });
-      return;
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: cleanEmail });
-
-    res.json({
-      message: `Password reset instructions sent to ${cleanEmail}. Please check your email inbox and spam folder.`,
-      userFound: Boolean(user),
-    });
-  } catch (error: any) {
-    console.error('Forgot Password Error:', error);
-    res.status(500).json({ message: 'Server error processing password reset request' });
-  }
-});
-
 export default router;

@@ -94,32 +94,12 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
               <div className="text-xl font-black text-cyan-300">{userProfile.targetGrade}</div>
               <div className="text-[10px] text-purple-300">{daysLeft} Days to A/L Exam</div>
             </div>
-            <div className="flex flex-col gap-1.5 shrink-0">
-              <button
-                onClick={() => setIsEditingGoal(!isEditingGoal)}
-                className="px-3 py-1.5 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white transition-colors shadow-[0_0_15px_rgba(107,78,255,0.4)] cursor-pointer text-center"
-              >
-                {isEditingGoal ? 'Close' : 'Adjust Goal'}
-              </button>
-              <button
-                onClick={() => {
-                  onNavigate('settings');
-                  setTimeout(() => {
-                    const el = document.getElementById('settings-target-exam-date') || document.getElementById('profile-target-exam-date');
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      el.focus();
-                      el.classList.add('ring-4', 'ring-amber-400/80');
-                      setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400/80'), 2500);
-                    }
-                  }, 250);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-bold text-cyan-300 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Change Date</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setIsEditingGoal(!isEditingGoal)}
+              className="px-3 py-1.5 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white transition-colors shadow-[0_0_15px_rgba(107,78,255,0.4)]"
+            >
+              {isEditingGoal ? 'Close' : 'Adjust Goal'}
+            </button>
           </div>
         </div>
 

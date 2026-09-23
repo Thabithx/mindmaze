@@ -148,6 +148,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     return false;
   };
 
+import { validateEmail, validatePhone, validatePassword } from '../../lib/validation';
+
   const persistStreamChoice = () => {
     if (!stream) return;
     try {
@@ -190,16 +192,23 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
       setErrorMsg(nameError);
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMsg('Please enter a valid email address.');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrorMsg(emailError);
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+    const passError = validatePassword(password);
+    if (passError) {
+      setErrorMsg(passError);
       return;
     }
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
+      return;
+    }
+    const phoneError = validatePhone(mobileNumber, false);
+    if (phoneError) {
+      setErrorMsg(phoneError);
       return;
     }
     if (!stream) {
@@ -295,8 +304,14 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setErrorMsg(null);
     setInfoMsg(null);
     if (blockedByCooldown('signin')) return;
-    if (!email.trim() || !password) {
-      setErrorMsg('Please enter both your email and password.');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrorMsg(emailError);
+      return;
+    }
+    const passError = validatePassword(password);
+    if (passError) {
+      setErrorMsg(passError);
       return;
     }
     setBusy(true);
@@ -316,8 +331,9 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setErrorMsg(null);
     setInfoMsg(null);
     if (blockedByCooldown('forgot')) return;
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMsg('Enter your account email above first.');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrorMsg(emailError);
       return;
     }
     setBusy(true);

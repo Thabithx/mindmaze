@@ -83,7 +83,6 @@ export const api = {
   login: (body: any) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   getProfile: () => apiFetch('/auth/profile'),
   updateProfile: (body: any) => apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
-  sendForgotPasswordEmail: (email: string) => apiFetch('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses

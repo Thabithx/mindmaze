@@ -60,7 +60,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   username,
   examDate = null,
   onNavigateToSettings,
-  onOpenProfileEdit,
   pomodoroSlot,
 }) => {
   const effectiveStream = stream || userSettings?.stream || 'Physical Science';
@@ -99,23 +98,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   })();
 
   const handleOpenSettings = () => {
-    if (onOpenProfileEdit) {
-      onOpenProfileEdit();
-    } else if (onNavigateToSettings) {
-      onNavigateToSettings();
-    } else if (onNavigate) {
-      onNavigate('settings');
-    }
-
-    setTimeout(() => {
-      const el = document.getElementById('profile-target-exam-date') || document.getElementById('settings-target-exam-date');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.focus();
-        el.classList.add('ring-4', 'ring-amber-400/80');
-        setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400/80'), 2500);
-      }
-    }, 250);
+    if (onNavigateToSettings) onNavigateToSettings();
+    else if (onNavigate) onNavigate('settings');
   };
 
   return (
@@ -228,21 +212,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             return (
               <button
                 key={item.step}
-                onClick={() => {
-                  if (item.step === '3') {
-                    onNavigate('dashboard');
-                    setTimeout(() => {
-                      const el = document.getElementById('pomodoro-timer-container');
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        el.classList.add('ring-4', 'ring-indigo-500/60');
-                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500/60'), 2500);
-                      }
-                    }, 150);
-                  } else {
-                    onNavigate(item.screen);
-                  }
-                }}
+                onClick={() => onNavigate(item.screen)}
                 className={`group flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition cursor-pointer hover:bg-white/[0.04] active:scale-95 ${c.bg} ${c.border}`}
               >
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${c.badge}`}>

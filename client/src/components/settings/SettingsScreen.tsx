@@ -132,32 +132,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       return;
     }
 
-    if (!name.trim() || name.trim().length < 2) {
-      setErrorMessage('Full name must be at least 2 characters long.');
-      return;
-    }
-
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setErrorMessage('Please enter a valid email address (e.g. student@example.com).');
-      return;
-    }
-
-    if (mobileNumber.trim()) {
-      const cleanPhone = mobileNumber.trim().replace(/[\s\-\(\)]/g, '');
-      if (!/^(\+?\d{9,15}|\d{10})$/.test(cleanPhone)) {
-        setErrorMessage('Please enter a valid mobile phone number (e.g., +94 77 123 4567 or 0771234567).');
-        return;
-      }
-    }
-
-    if (targetZScore.trim()) {
-      const num = Number(targetZScore.trim());
-      if (isNaN(num) || num < 0 || num > 4.0) {
-        setErrorMessage('Target Z-Score must be a valid number between 0.0 and 4.0 (e.g. 2.1500).');
-        return;
-      }
-    }
-
     if (showPasswordSection && newPassword) {
       if (newPassword.length < 6) {
         setErrorMessage('New password must be at least 6 characters long.');
@@ -580,12 +554,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 Expected Exam Date
               </label>
               <input
-                id="settings-target-exam-date"
                 type="date"
                 disabled={isGuest}
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/40 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 

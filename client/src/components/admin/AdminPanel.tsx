@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, getAuthToken } from '../../services/api';
 import { PastPaper, Question } from '../../types';
+import { validateRequired, validateYear } from '../../lib/validation';
 
 interface AdminPanelProps {
   userRole?: string;
@@ -161,14 +162,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailSubject.trim() || !emailMessage.trim()) return;
+    setBroadcastStatus(null);
+
+    const subjErr = validateRequired(emailSubject, 'Subject Title', 3);
+    if (subjErr) {
+      setBroadcastStatus({ error: subjErr });
+      return;
+    }
+
+    const msgErr = validateRequired(emailMessage, 'Message Content', 5);
+    if (msgErr) {
+      setBroadcastStatus({ error: msgErr });
+      return;
+    }
 
     setSendingEmail(true);
-    setBroadcastStatus(null);
     try {
       const res = await api.sendBroadcastEmail({
-        subject: emailSubject,
-        message: emailMessage,
+        subject: emailSubject.trim(),
+        message: emailMessage.trim(),
       });
       setBroadcastStatus({ success: res.message || 'Broadcast email dispatched successfully!' });
       setEmailSubject('');
@@ -195,7 +207,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreatePastPaper = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paperTitle.trim()) return;
+    
+    const titleErr = validateRequired(paperTitle, 'Paper Title', 3);
+    if (titleErr) {
+      alert(titleErr);
+      return;
+    }
+
+    if (!selectedPdfFile) {
+      alert('Please upload or select a Past Paper PDF file to publish.');
+      return;
+    }
+
+    const yearErr = validateYear(paperYear, 2000, 2030);
+    if (yearErr) {
+      alert(yearErr);
+      return;
+    }
 
     const newPaper: PastPaper = {
       id: `pp-${Date.now()}`,
@@ -223,7 +251,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateQuizQuestion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quizQuestionText.trim() || !quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim() || !quizOptE.trim()) return;
+
+    const qErr = validateRequired(quizQuestionText, 'Question Text', 5);
+    if (qErr) {
+      alert(qErr);
+      return;
+    }
+
+    if (!quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim() || !quizOptE.trim()) {
+      alert('Please fill in all 5 options (A, B, C, D, and E) properly.');
+      return;
+    }
+
+    const yearErr = validateYear(quizYear, 2000, 2030);
+    if (yearErr) {
+      alert(yearErr);
+      return;
+    }
 
     const newQuestion: Question = {
       id: `q-admin-${Date.now()}`,

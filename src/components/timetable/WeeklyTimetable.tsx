@@ -176,7 +176,10 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTopic.trim()) return;
+    if (!formTopic.trim()) {
+      setFormTimeError('Please select a subject unit / topic for this study block.');
+      return;
+    }
 
     if (!isEndAfterStart(formStartTime, formEndTime)) {
       setFormTimeError(

@@ -140,7 +140,10 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim()) {
+      setTimeError('Please enter a study task title or select a syllabus unit.');
+      return;
+    }
 
     if (!isEndAfterStart(newStartTime, newEndTime)) {
       setTimeError(
