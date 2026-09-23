@@ -314,45 +314,37 @@ export const sendPasswordResetEmail = async (
     fromName: 'Mind Maze Support',
     fromEmail: FROM_ADDR,
     to: toEmail,
-    subject: 'Reset Your Mind Maze Account Password',
+    subject: 'Reset Your Mind Maze Password',
     html: `
-      <div style="font-family: Arial, sans-serif; background-color: #0f1023; padding: 30px; color: #f8fafc;">
-        <div style="max-width: 540px; margin: 0 auto; background-color: #161831; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0;">Mind <span style="color: #6B4EFF;">Maze</span></h1>
-            <p style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px;">GCE A/L Study Assistant</p>
-          </div>
-          
-          <h2 style="color: #ffffff; font-size: 18px; font-weight: 700; margin-top: 0;">Password Reset Request</h2>
-          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-            Hello ${userName || 'Student'}, we received a request to reset the password for your Mind Maze account associated with <strong>${toEmail}</strong>.
+      <div style="font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 560px; background-color: #0d0f1e; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Password Reset Request</h2>
+          <p style="color: #94a3b8; font-size: 14px; margin: 0;">Mind Maze GCE A/L Study Assistant</p>
+        </div>
+        <div style="background-color: #161936; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 24px;">
+          <p style="color: #e2e8f0; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+            Hi <strong>${userName || 'Student'}</strong>,
           </p>
-          
+          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+            We received a request to reset the password for your Mind Maze account associated with <strong>${toEmail}</strong>. Click the button below to set a new password:
+          </p>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${resetUrl}" style="background-color: #6B4EFF; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(107, 78, 255, 0.4);">
-              Reset Password Now
+            <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #6b4eff, #8b5cf6); color: #ffffff; font-weight: bold; text-decoration: none; border-radius: 12px; font-size: 14px; box-shadow: 0 4px 15px rgba(107, 78, 255, 0.4);">
+              Reset My Password
             </a>
           </div>
-
-          <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">
-            Or copy and paste this link into your browser:<br />
+          <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 0;">
+            If the button doesn't work, copy and paste this link into your browser:<br/>
             <a href="${resetUrl}" style="color: #38bdf8; word-break: break-all;">${resetUrl}</a>
           </p>
-
-          <div style="background-color: rgba(255,255,255,0.05); border-left: 3px solid #f59e0b; padding: 12px 14px; border-radius: 8px; margin-top: 24px;">
-            <p style="margin: 0; font-size: 12px; color: #fbbf24;">
-              <strong>Note:</strong> This link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.
-            </p>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0 16px 0;" />
-          <p style="font-size: 11px; color: #64748b; text-align: center; margin: 0;">
-            Mind Maze Study Suite &bull; Helping GCE A/L Students Succeed
-          </p>
         </div>
+        <p style="color: #64748b; font-size: 12px; text-align: center; margin: 0;">
+          This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.
+        </p>
       </div>
     `,
   });
 
   console.log(`[Email] Password reset email sent to ${toEmail}`);
 };
+

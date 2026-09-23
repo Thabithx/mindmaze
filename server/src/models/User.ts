@@ -35,9 +35,9 @@ export interface IUser extends Document {
   completedDates: string[];
   badges: string[];
   pushSubscriptions: IPushSubscription[];
-  timezone?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  timezone?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -80,9 +80,9 @@ const UserSchema = new Schema<IUser>(
     completedDates: [{ type: String }],
     badges: [{ type: String }],
     pushSubscriptions: [PushSubscriptionSchema],
+    resetPasswordToken: { type: String, default: undefined },
+    resetPasswordExpires: { type: Date, default: undefined },
     timezone: { type: String, default: 'Asia/Colombo' },
-    resetPasswordToken: { type: String, default: '' },
-    resetPasswordExpires: { type: Date },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

@@ -52,7 +52,7 @@ import { NotificationsScreen } from './components/notifications/NotificationsScr
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
 
-import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap } from 'lucide-react';
+import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyRound, ArrowLeft, Mail, Lock } from 'lucide-react';
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('dashboard');
@@ -62,16 +62,19 @@ export function App() {
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-password' | null>(null);
 
   // Auth Inputs
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [resetTokenInput, setResetTokenInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [whatsappInput, setWhatsappInput] = useState('');
   const [streamInput, setStreamInput] = useState<StreamType>('Physical Science');
   const [electiveInput, setElectiveInput] = useState<'Chemistry' | 'ICT'>('Chemistry');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authInfoMsg, setAuthInfoMsg] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
 
   // Profile Edit Modal State
@@ -123,6 +126,17 @@ export function App() {
     if (token) {
       api.updateProfile({ streakDays: streakState.currentStreak, bestStreak: streakState.bestStreak }).catch(() => {});
     }
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const resetToken = params.get('resetToken') || params.get('token');
+      const resetEmail = params.get('email');
+      if (resetToken) {
+        setResetTokenInput(resetToken);
+        if (resetEmail) setEmailInput(resetEmail);
+        setAuthModalMode('reset-password');
+      }
+    } catch {}
   }, []);
 
   const checkCurrentAuth = async () => {
@@ -274,6 +288,64 @@ export function App() {
       }
     } catch (err: any) {
       setAuthError(err.message || 'Registration failed.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError(null);
+    setAuthInfoMsg(null);
+    if (!emailInput.trim() || !emailInput.includes('@')) {
+      setAuthError('Please enter a valid email address.');
+      setAuthSubmitting(false);
+      return;
+    }
+    try {
+      const res = await api.forgotPassword(emailInput.trim());
+      setAuthInfoMsg(res.message || `Password reset link sent to ${emailInput.trim()}! Please check your email inbox.`);
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to send password reset email. Please try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError(null);
+    setAuthInfoMsg(null);
+    if (passwordInput.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      setAuthSubmitting(false);
+      return;
+    }
+    if (passwordInput !== confirmPasswordInput) {
+      setAuthError('Passwords do not match.');
+      setAuthSubmitting(false);
+      return;
+    }
+    try {
+      const res = await api.resetPassword({
+        token: resetTokenInput,
+        email: emailInput.trim(),
+        newPassword: passwordInput,
+      });
+      setAuthInfoMsg(res.message || 'Password reset successful! Redirecting to sign in...');
+      setTimeout(() => {
+        setAuthModalMode('signin');
+        setPasswordInput('');
+        setConfirmPasswordInput('');
+        setAuthInfoMsg(null);
+        if (typeof window !== 'undefined' && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }, 2000);
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to reset password. Link may have expired.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -1182,12 +1254,16 @@ export function App() {
       {/* Mobile Bottom Action Bar */}
       <MobileBottomBar currentScreen={currentScreen} onNavigate={setCurrentScreen} />
 
-      {/* Auth Modal (Signin / Signup) */}
+      {/* Auth Modal (Signin / Signup / Forgot / Reset Password) */}
       {authModalMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
           <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
             <button
-              onClick={() => setAuthModalMode(null)}
+              onClick={() => {
+                setAuthModalMode(null);
+                setAuthError(null);
+                setAuthInfoMsg(null);
+              }}
               className="absolute right-4 top-4 text-slate-400 hover:text-white"
             >
               <X className="w-5 h-5" />
@@ -1199,10 +1275,16 @@ export function App() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  {authModalMode === 'signin' ? 'Welcome Back' : 'Create Account'}
+                  {authModalMode === 'signin' && 'Welcome Back'}
+                  {authModalMode === 'signup' && 'Create Account'}
+                  {authModalMode === 'forgot' && 'Reset Password'}
+                  {authModalMode === 'reset-password' && 'Set New Password'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {authModalMode === 'signin' ? 'Sign in to access your study planner' : 'Join Mind Maze GCE A/L Community'}
+                  {authModalMode === 'signin' && 'Sign in to access your study planner'}
+                  {authModalMode === 'signup' && 'Join Mind Maze GCE A/L Community'}
+                  {authModalMode === 'forgot' && "Enter your email and we'll send a reset link"}
+                  {authModalMode === 'reset-password' && 'Enter your new password below'}
                 </p>
               </div>
             </div>
@@ -1213,129 +1295,250 @@ export function App() {
               </div>
             )}
 
-            <form onSubmit={authModalMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
-              {authModalMode === 'signup' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-rose-400">*</span></label>
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="Kasun Perera"
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      WhatsApp Number <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      value={whatsappInput}
-                      onChange={(e) => setWhatsappInput(e.target.value)}
-                      placeholder="+94 77 123 4567"
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-rose-400">*</span></label>
-                <input
-                  type="email"
-                  autoComplete="username email"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="student@example.com"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                  required
-                />
+            {authInfoMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-medium">
+                {authInfoMsg}
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Password <span className="text-rose-400">*</span></label>
-                <input
-                  type="password"
-                  autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                  required
-                />
-              </div>
-
-              {authModalMode === 'signup' && (
-                <div className={streamInput === 'Physical Science' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">A/L Stream <span className="text-rose-400">*</span></label>
-                    <select
-                      value={streamInput}
-                      onChange={(e) => setStreamInput(e.target.value as StreamType)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
-                    >
-                      <option value="Physical Science">Physical Science</option>
-                      <option value="Biological Science">Biological Science</option>
-                    </select>
-                  </div>
-
-                  {streamInput === 'Physical Science' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Elective Subject</label>
-                      <select
-                        value={electiveInput}
-                        onChange={(e) => setElectiveInput(e.target.value as 'Chemistry' | 'ICT')}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
-                      >
-                        <option value="Chemistry">Chemistry</option>
-                        <option value="ICT">ICT</option>
-                      </select>
-                    </div>
-                  )}
+            {/* FORGOT PASSWORD FORM */}
+            {authModalMode === 'forgot' && (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Email Address <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    autoComplete="username email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="student@example.com"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                    required
+                  />
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={authSubmitting}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
-              >
-                {authSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : authModalMode === 'signin' ? (
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-50"
+                >
+                  {authSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" /> Send Password Reset Link
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthModalMode('signin');
+                      setAuthError(null);
+                      setAuthInfoMsg(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 font-bold hover:underline cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* RESET PASSWORD FORM (from email link) */}
+            {authModalMode === 'reset-password' && (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    New Password <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Min. 6 characters"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Confirm New Password <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPasswordInput}
+                    onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                    placeholder="Repeat new password"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-50"
+                >
+                  {authSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <KeyRound className="w-4 h-4" /> Update Password & Sign In
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* SIGN IN & SIGN UP FORMS */}
+            {(authModalMode === 'signin' || authModalMode === 'signup') && (
+              <form onSubmit={authModalMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
+                {authModalMode === 'signup' && (
                   <>
-                    <LogIn className="w-4 h-4" /> Sign In
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" /> Create Account
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-rose-400">*</span></label>
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Kasun Perera"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        WhatsApp Number <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={whatsappInput}
+                        onChange={(e) => setWhatsappInput(e.target.value)}
+                        placeholder="+94 77 123 4567"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
                   </>
                 )}
-              </button>
-            </form>
 
-            <div className="mt-4 pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
-              {authModalMode === 'signin' ? (
-                <p>
-                  Don't have an account?{' '}
-                  <button onClick={() => setAuthModalMode('signup')} className="text-indigo-400 font-bold hover:underline">
-                    Sign Up
-                  </button>
-                </p>
-              ) : (
-                <p>
-                  Already have an account?{' '}
-                  <button onClick={() => setAuthModalMode('signin')} className="text-indigo-400 font-bold hover:underline">
-                    Sign In
-                  </button>
-                </p>
-              )}
-            </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-rose-400">*</span></label>
+                  <input
+                    type="email"
+                    autoComplete="username email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="student@example.com"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-300">Password <span className="text-rose-400">*</span></label>
+                    {authModalMode === 'signin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalMode('forgot');
+                          setAuthError(null);
+                          setAuthInfoMsg(null);
+                        }}
+                        className="text-[11px] text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                    required
+                  />
+                </div>
+
+                {authModalMode === 'signup' && (
+                  <div className={streamInput === 'Physical Science' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">A/L Stream <span className="text-rose-400">*</span></label>
+                      <select
+                        value={streamInput}
+                        onChange={(e) => setStreamInput(e.target.value as StreamType)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
+                      >
+                        <option value="Physical Science">Physical Science</option>
+                        <option value="Biological Science">Biological Science</option>
+                      </select>
+                    </div>
+
+                    {streamInput === 'Physical Science' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Elective Subject</label>
+                        <select
+                          value={electiveInput}
+                          onChange={(e) => setElectiveInput(e.target.value as 'Chemistry' | 'ICT')}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
+                        >
+                          <option value="Chemistry">Chemistry</option>
+                          <option value="ICT">ICT</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+                >
+                  {authSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : authModalMode === 'signin' ? (
+                    <>
+                      <LogIn className="w-4 h-4" /> Sign In
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" /> Create Account
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {(authModalMode === 'signin' || authModalMode === 'signup') && (
+              <div className="mt-4 pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
+                {authModalMode === 'signin' ? (
+                  <p>
+                    Don't have an account?{' '}
+                    <button onClick={() => { setAuthModalMode('signup'); setAuthError(null); setAuthInfoMsg(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
+                      Sign Up
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthInfoMsg(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
+                      Sign In
+                    </button>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

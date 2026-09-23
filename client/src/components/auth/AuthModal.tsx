@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { api } from '../../services/api';
 import { StreamType, SyllabusType, MediumType, UserProfile } from '../../types';
 import { SUBJECTS_BY_STREAM } from '../../data/mockData';
 import {
@@ -48,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
   const [signUpStep, setSignUpStep] = useState<number>(1); // 1: Credentials, 2: Stream, 3: Subjects & Medium, 4: Goals & Preferences
 
   // Form Fields
@@ -59,6 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [provider, setProvider] = useState<'email' | 'google'>('email');
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Preferences (Step 2 - 4)
   const [stream, setStream] = useState<StreamType>(initialStream);
@@ -234,6 +236,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     saveSession(profile);
     onSuccess(profile);
     onClose();
+  };
+
+  // Forgot Password Submit
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setInfoMsg(null);
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await api.forgotPassword(email.trim());
+      setInfoMsg(res.message || `Password reset link sent to ${email.trim()}! Please check your email inbox.`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to send password reset email. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Step 1 to Step 2 Validation
@@ -538,9 +560,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setInfoMsg(`Password reset link sent to ${email.trim() ? email.trim() : 'your email address'} (simulated).`);
+                      setMode('forgot');
+                      setErrorMsg(null);
+                      setInfoMsg(null);
                     }}
-                    className="text-[11px] text-cyan-400 hover:underline"
+                    className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -615,6 +639,73 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   Create account with Stream & Preferences
                 </button>
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* FORGOT PASSWORD VIEW */}
+        {mode === 'forgot' && !showGooglePicker && (
+          <div className="p-5 sm:p-7 space-y-5">
+            <div className="text-center space-y-1.5">
+              <h2 className="text-2xl font-black text-white">Reset Password</h2>
+              <p className="text-xs text-slate-300">
+                Enter your account email to receive a password reset link.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            {infoMsg && (
+              <div className="p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-semibold flex items-center gap-2">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>{infoMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@example.com"
+                    required
+                    className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] disabled:opacity-50 text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(107,78,255,0.4)] hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isSubmitting ? 'Sending Reset Link...' : 'Send Reset Link to Email'}
+              </button>
+            </form>
+
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setErrorMsg(null);
+                  setInfoMsg(null);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-300 hover:underline cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Sign In</span>
+              </button>
             </div>
           </div>
         )}

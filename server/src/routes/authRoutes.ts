@@ -1,7 +1,7 @@
+import crypto from 'crypto';
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import User, { StreamType } from '../models/User.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 import { sendPasswordResetEmail } from '../services/emailService.js';
@@ -382,62 +382,55 @@ router.post('/push-subscription', protect, async (req: AuthRequest, res: Respons
 
 router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    let { email } = req.body;
+    const { email } = req.body;
     if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
-      res.status(400).json({ message: 'Please enter a valid email address' });
+      res.status(400).json({ message: 'Please provide a valid email address' });
       return;
     }
 
-    email = email.trim().toLowerCase();
-    const user = await User.findOne({ email });
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
-      res.json({ message: `If an account exists for ${email}, a password reset link has been dispatched.` });
+      // Return 200 for security reasons or informative message
+      res.json({ message: `If an account with ${cleanEmail} exists, a password reset link has been sent.` });
       return;
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 3600000);
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const origin = (req.headers.origin || process.env.FRONTEND_URL || 'https://mindmaze.vercel.app').replace(/\/$/, '');
-    const resetUrl = `${origin}/?resetToken=${resetToken}&email=${encodeURIComponent(user.email)}`;
+    // Determine client host URL
+    const clientUrl = req.headers.origin || req.headers.referer || process.env.CLIENT_URL || 'http://localhost:3000';
+    const cleanClientUrl = clientUrl.replace(/\/$/, '');
+    const resetUrl = `${cleanClientUrl}/?resetToken=${token}&email=${encodeURIComponent(cleanEmail)}`;
 
-    try {
-      await sendPasswordResetEmail(user.email, user.name, resetUrl);
-    } catch (emailErr: any) {
-      console.error('Failed to send reset email:', emailErr);
-      res.status(500).json({ message: `Failed to dispatch reset email: ${emailErr.message}` });
-      return;
-    }
+    // Dispatch email
+    await sendPasswordResetEmail(user.email, user.name, resetUrl);
 
-    res.json({ message: `Password reset link sent to ${user.email}. Check your inbox & spam folder.` });
+    res.json({ message: `Password reset link sent to ${user.email}. Please check your email inbox!` });
   } catch (error: any) {
     console.error('Forgot Password Error:', error);
-    res.status(500).json({ message: 'Server error processing password reset request' });
+    res.status(500).json({ message: 'Error processing password reset request', error: error.message });
   }
 });
 
 router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    let { email, token, newPassword } = req.body;
-
-    if (!email || !token || !newPassword || typeof email !== 'string' || typeof token !== 'string' || typeof newPassword !== 'string') {
-      res.status(400).json({ message: 'Email, token, and new password are required' });
+    const { token, newPassword } = req.body;
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ message: 'Reset token is required' });
       return;
     }
-
-    if (newPassword.length < 6) {
-      res.status(400).json({ message: 'New password must be at least 6 characters long' });
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      res.status(400).json({ message: 'Password must be at least 6 characters long' });
       return;
     }
-
-    email = email.trim().toLowerCase();
-    token = token.trim();
 
     const user = await User.findOne({
-      email,
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() },
     });
@@ -449,14 +442,14 @@ router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<
 
     const salt = await bcrypt.genSalt(10);
     user.passwordHash = await bcrypt.hash(newPassword, salt);
-    user.resetPasswordToken = '';
+    user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    res.json({ message: 'Your password has been reset successfully! You can now log in.' });
+    res.json({ message: 'Password reset successful! You can now sign in with your new password.' });
   } catch (error: any) {
     console.error('Reset Password Error:', error);
-    res.status(500).json({ message: 'Server error resetting password' });
+    res.status(500).json({ message: 'Error resetting password', error: error.message });
   }
 });
 
