@@ -167,8 +167,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/10">
                     <th className="py-2 pr-3 font-bold">#</th>
                     <th className="py-2 pr-3 font-bold">Student</th>
-                    <th className="py-2 pr-3 font-bold">Syllabus %</th>
                     <th className="py-2 pr-3 font-bold">Hours</th>
+                    <th className="py-2 pr-3 font-bold">Syllabus %</th>
                     <th className="py-2 font-bold">Streak</th>
                   </tr>
                 </thead>
@@ -186,7 +186,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                         )}
                       </td>
                       <td className="py-2 pr-3 font-black text-amber-300">{e.completedHours}h</td>
-                      <td className="py-2 pr-3 text-slate-300">{e.completedTasks}</td>
+                      <td className="py-2 pr-3 font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</td>
                       <td className="py-2 text-slate-300 flex items-center gap-1">
                         <Flame className="w-3 h-3 text-amber-400" />
                         {e.currentStreak}d

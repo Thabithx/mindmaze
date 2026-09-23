@@ -66,6 +66,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [completedSessions, setCompletedSessions] = useState<number>(0);
   const [selectedSubject, setSelectedSubject] = useState<string>(() => activeSubject || '');
+  // Track whether timer has been started at least once (controls Mark Finished visibility)
+  const [hasStarted, setHasStarted] = useState<boolean>(false);
+  // Track the unit selected inside the timer (when no activeUnitTitle from timetable)
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
 
   // Filter topics strictly according to user's stream and elective subject
   const allowedSubjectMetas = getSubjectsForStream(
@@ -212,10 +216,18 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     }
   }, [isRunning, isAudioMuted, mode, selectedTrackIndex]);
 
+  // A unit is considered "selected" if either the timetable auto-set one, or user picked one in the dropdown
+  const hasUnitSelected = !!(activeUnitTitle || selectedUnitId);
+
   const toggleTimer = () => {
+    // Require a subject + unit to be selected before starting
+    if (!isRunning && !hasUnitSelected) {
+      return; // blocked — UI shows prompt instead
+    }
     if (!isRunning && mode === 'work' && onStartSession) {
       onStartSession();
     }
+    if (!isRunning) setHasStarted(true);
     setIsRunning(!isRunning);
   };
 
@@ -253,7 +265,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {onMarkFinished && (
+          {onMarkFinished && hasStarted && (
             <button
               onClick={onMarkFinished}
               className="px-3 py-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs font-black transition cursor-pointer shadow-md flex items-center gap-1.5"
@@ -364,7 +376,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
               </div>
             )}
 
-            {onMarkFinished && (
+            {onMarkFinished && hasStarted && (
               <button
                 onClick={onMarkFinished}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs sm:text-sm font-black transition shrink-0 cursor-pointer shadow-lg shadow-emerald-950/40 hover:scale-105 active:scale-95 min-h-[44px]"
@@ -378,13 +390,18 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </div>
       ) : (
         userAllowedTopics.length > 0 && onSelectTopic && (
-          <div className="mb-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs">
+          <div className={`mb-4 p-3.5 rounded-2xl border space-y-2.5 text-xs ${!hasUnitSelected ? 'bg-amber-500/10 border-amber-400/40' : 'bg-white/5 border-white/10'}`}>
             <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
                 <span className="text-white font-bold">Select Study Topic</span>
+                {!hasUnitSelected && (
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-400/15 border border-amber-400/40 px-1.5 py-0.5 rounded-full">
+                    Required to start
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">1. Choose Subject → 2. Choose Unit</span>
+              <span className="text-[10px] text-slate-400 font-medium">Subject → Unit</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -395,7 +412,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </label>
                 <select
                   value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  onChange={(e) => { setSelectedSubject(e.target.value); setSelectedUnitId(''); }}
                   className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400 cursor-pointer"
                 >
                   <option value="">All ({userStream})</option>
@@ -409,19 +426,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
               {/* Step 2: Syllabus Unit Dropdown */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${!selectedUnitId ? 'text-amber-300' : 'text-slate-300'}`}>
                   2. Syllabus Unit ({filteredTopics.length})
                 </label>
                 <select
+                  value={selectedUnitId}
                   onChange={(e) => {
-                    const found = userAllowedTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
+                    const id = e.target.value;
+                    setSelectedUnitId(id);
+                    const found = userAllowedTopics.find((t) => t.id === id);
                     if (found) {
                       setSelectedSubject(found.subject);
                       onSelectTopic(found);
                     }
                   }}
-                  className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400 cursor-pointer truncate"
-                  defaultValue=""
+                  className={`w-full bg-[#161831] border rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer truncate ${!selectedUnitId ? 'border-amber-400/50 focus:border-amber-400' : 'border-white/15 focus:border-indigo-400'}`}
                 >
                   <option value="" disabled>Choose Syllabus Unit...</option>
                   {filteredTopics.map((t) => (
@@ -527,41 +546,56 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       </div>
 
       {/* Timer Controls */}
-      <div className="flex items-center justify-center gap-3 mt-5">
-        <button
-          onClick={resetTimer}
-          className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          title="Reset Timer"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </button>
+      <div className="flex flex-col items-center gap-2 mt-5">
+        <div className="flex items-center justify-center gap-3 w-full">
+          <button
+            onClick={resetTimer}
+            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Reset Timer"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
 
-        <button
-          onClick={() => setIsAudioMuted(!isAudioMuted)}
-          className={`p-3 rounded-xl border transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center ${
-            !isAudioMuted
-              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
-              : 'bg-white/5 text-slate-500 border-white/10 hover:text-slate-300'
-          }`}
-          title={isAudioMuted ? 'Unmute Focus Music' : 'Mute Focus Music'}
-        >
-          {!isAudioMuted ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
+          <button
+            onClick={() => setIsAudioMuted(!isAudioMuted)}
+            className={`p-3 rounded-xl border transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center ${
+              !isAudioMuted
+                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
+                : 'bg-white/5 text-slate-500 border-white/10 hover:text-slate-300'
+            }`}
+            title={isAudioMuted ? 'Unmute Focus Music' : 'Mute Focus Music'}
+          >
+            {!isAudioMuted ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
 
-        <button
-          onClick={toggleTimer}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-95 cursor-pointer min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110`}
-        >
-          {isRunning ? (
-            <>
-              <Pause className="w-5 h-5 fill-current" /> Pause
-            </>
-          ) : (
-            <>
-              <Play className="w-5 h-5 fill-current" /> Start Focus
-            </>
-          )}
-        </button>
+          <button
+            onClick={toggleTimer}
+            disabled={!isRunning && !hasUnitSelected}
+            title={!isRunning && !hasUnitSelected ? 'Select a subject and unit above to start' : ''}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} ${
+              !isRunning && !hasUnitSelected
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:brightness-110 active:scale-95 cursor-pointer'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <Pause className="w-5 h-5 fill-current" /> Pause
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5 fill-current" /> Start Focus
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Prompt shown when no unit is selected */}
+        {!isRunning && !hasUnitSelected && (
+          <p className="text-[11px] text-amber-300 font-semibold text-center flex items-center gap-1.5">
+            <span>⚠</span> Select a subject and syllabus unit above to start the timer
+          </p>
+        )}
       </div>
 
       {/* Hidden Audio Element */}
@@ -638,7 +672,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
           <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 ml-1">{completedSessions} / 4</span>
         </span>
-        {onMarkFinished && (
+        {onMarkFinished && hasStarted && (
           <button
             onClick={onMarkFinished}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-sm font-black text-emerald-200 hover:text-white transition cursor-pointer hover:scale-105 active:scale-95 shadow-md shadow-emerald-900/30 min-h-[44px]"
