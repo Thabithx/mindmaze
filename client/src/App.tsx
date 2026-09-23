@@ -867,11 +867,19 @@ export function App() {
 
                       // Refresh streak
                       const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
-                      setStreakDays(refreshedStreak.currentStreak);
+                      // Save study time to DB on block completion
+                      if (getAuthToken()) {
+                        api.updateProfile({ addStudyMinutes: 25 }).then((res: any) => {
+                          if (res?.user) {
+                            setUser(res.user);
+                            setStoredUser(res.user);
+                          }
+                        }).catch(() => {});
+                      }
 
                       setCelebration({
                         title: 'Study Task Completed! 🎉',
-                        message: `Awesome job! You finished "${title}". Keep up the great streak!`,
+                        message: `Awesome job! You finished "${title}". 25 study minutes saved to database!`,
                       });
                       if (activePomodoroTopic?.id) {
                         setDismissedBlockIds((prev) => [...prev, activePomodoroTopic.id!]);
@@ -881,9 +889,19 @@ export function App() {
                     onSessionComplete={(type, mins) => {
                       if (type === 'work') {
                         setCelebration({
-                          title: 'Pomodoro Completed!',
-                          message: `Great job! You finished a ${mins}-minute focus study session. Keep building your streak!`,
+                          title: 'Pomodoro Completed! ⏱️',
+                          message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
                         });
+                        if (getAuthToken()) {
+                          api.updateProfile({ addStudyMinutes: mins }).then((res: any) => {
+                            if (res?.user) {
+                              setUser(res.user);
+                              setStoredUser(res.user);
+                            }
+                          }).catch((err) => {
+                            console.warn('[Timer] Error saving study minutes to DB:', err);
+                          });
+                        }
                       }
                     }}
                   />

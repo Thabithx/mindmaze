@@ -12,7 +12,7 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
     const period = String(req.query.period || 'weekly');
 
     const users = await User.find({ isActive: true })
-      .select('name stream streakDays bestStreak xp completedDates createdAt')
+      .select('name stream streakDays bestStreak xp completedDates totalStudyMinutes createdAt')
       .sort({ streakDays: -1, xp: -1 })
       .limit(limit)
       .lean();
@@ -54,9 +54,11 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
         ? Math.min(100, Math.round((realSubtopicsCount / 90) * 100))
         : Math.min(100, Math.round(streak * 3.5 + 15));
 
-      const realHours = hoursMap.get(uId);
-      const computedHours = realHours !== undefined && realHours > 0
-        ? Math.round(realHours * 10) / 10
+      const timerHours = (u.totalStudyMinutes || 0) / 60;
+      const ttHours = hoursMap.get(uId) || 0;
+      const combinedHours = timerHours + ttHours;
+      const computedHours = combinedHours > 0
+        ? Math.round(combinedHours * 10) / 10
         : Math.round((streak * 2.5 + (u.xp ? u.xp / 100 : 0)) * 10) / 10;
 
       const completedTasks = Math.round(streak * 3 + (realSubtopicsCount || 0));

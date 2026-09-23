@@ -28,6 +28,7 @@ export interface IUser extends Document {
   motivationNote: string;
   dailyHoursGoal: number;
   weeklyHoursGoal: number;
+  totalStudyMinutes: number;
   xp: number;
   streakDays: number;
   bestStreak: number;
@@ -73,6 +74,7 @@ const UserSchema = new Schema<IUser>(
     motivationNote: { type: String, default: '' },
     dailyHoursGoal: { type: Number, default: 4 },
     weeklyHoursGoal: { type: Number, default: 28 },
+    totalStudyMinutes: { type: Number, default: 0 },
     xp: { type: Number, default: 0 },
     streakDays: { type: Number, default: 0 },
     bestStreak: { type: Number, default: 0 },
