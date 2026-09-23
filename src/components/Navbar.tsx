@@ -10,6 +10,7 @@ import {
   Sparkles,
   LogIn,
   Bell,
+  Search,
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -21,6 +22,7 @@ interface NavbarProps {
   onOpenAuthModal: (mode: 'signin' | 'signup') => void;
   onSignOut: () => void;
   onOpenProfileEdit: () => void;
+  onOpenSearch?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -45,6 +47,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Header Search Button */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition cursor-pointer min-h-[40px] text-xs font-semibold"
+            title="Search (Cmd + K)"
+          >
+            <Search className="w-4 h-4 text-cyan-400" />
+            <span className="hidden md:inline font-bold">Search</span>
+            <span className="hidden md:inline-block text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded border border-white/10 font-mono">
+              ⌘K
+            </span>
+          </button>
+        )}
+
         {/* Header Streak Counter Badge (ONLY NUMBER) */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-black shadow-sm" title="Streak Days">
           <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />

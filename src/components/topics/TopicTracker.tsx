@@ -512,51 +512,42 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
                     </h3>
                   </div>
 
-                  {/* Status Buttons — task-gated */}
+                  {/* Status Buttons — One-tap direct toggle */}
                   <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                    {hasTask ? (
-                      <>
-                        <button
-                          onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                            topic.status === 'completed'
-                              ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                              : 'bg-white/5 text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10'
-                          }`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Completed</span>
-                        </button>
+                    <button
+                      onClick={() => onUpdateTopicStatus(topic.id, 'completed')}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                        topic.status === 'completed'
+                          ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                          : 'bg-white/5 text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-white/5'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Completed</span>
+                    </button>
 
-                        <button
-                          onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                            topic.status === 'in_progress'
-                              ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
-                              : 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10'
-                          }`}
-                        >
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>In Progress</span>
-                        </button>
+                    <button
+                      onClick={() => onUpdateTopicStatus(topic.id, 'in_progress')}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                        topic.status === 'in_progress'
+                          ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                          : 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10 border border-white/5'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>In Progress</span>
+                    </button>
 
-                        <button
-                          onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
-                            topic.status === 'not_started'
-                              ? 'bg-slate-700 text-white'
-                              : 'bg-white/5 text-slate-500 hover:text-white'
-                          }`}
-                        >
-                          Not Started
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
-                        <Lock className="w-3.5 h-3.5 shrink-0" />
-                        <span>Create a task first</span>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => onUpdateTopicStatus(topic.id, 'not_started')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[40px] ${
+                        topic.status === 'not_started'
+                          ? 'bg-slate-700 text-white border border-white/20'
+                          : 'bg-white/5 text-slate-500 hover:text-white border border-white/5'
+                      }`}
+                    >
+                      Not Started
+                    </button>
                   </div>
                 </div>
 

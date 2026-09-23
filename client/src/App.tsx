@@ -31,6 +31,7 @@ import { MobileBottomBar } from './components/MobileBottomBar';
 import { MazeBackground } from './components/MazeBackground';
 import { CelebrationModal, Celebration } from './components/common/CelebrationModal';
 import { WhatsAppCommunityBanner } from './components/common/WhatsAppCommunityBanner';
+import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 
 // Feature Components
 import { PomodoroTimer } from './components/pomodoro/PomodoroTimer';
@@ -118,6 +119,10 @@ export function App() {
     checkCurrentAuth();
     const streakState = recordDailyVisit();
     setStreakDays(streakState.currentStreak);
+    const token = getAuthToken();
+    if (token) {
+      api.updateProfile({ streakDays: streakState.currentStreak, bestStreak: streakState.bestStreak }).catch(() => {});
+    }
   }, []);
 
   const checkCurrentAuth = async () => {
@@ -364,6 +369,8 @@ export function App() {
   const activeSubtopics = activeSyllabusTopic?.subtopics || [];
   const activeCompletedSubtopics = activeSyllabusTopic?.completedSubtopics || [];
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Background Animated Maze Grid */}
@@ -372,12 +379,24 @@ export function App() {
       {/* WhatsApp Community Banner */}
       <WhatsAppCommunityBanner />
 
+      {/* Global Cmd+K Search Modal */}
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigate={setCurrentScreen}
+        syllabusTopics={syllabusTopics}
+        pastPapers={pastPapers}
+        quizQuestions={quizQuestions}
+        tasks={tasks}
+      />
+
       {/* Top Navigation Bar */}
       <Navbar
         userProfile={userProfile}
         currentScreen={currentScreen}
         onNavigate={setCurrentScreen}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAuthModal={(mode) => setAuthModalMode(mode)}
         onSignOut={handleSignOut}
         onOpenProfileEdit={() => setIsProfileEditOpen(true)}

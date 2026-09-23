@@ -241,6 +241,20 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
       }
     }
 
+    if (req.body.streakDays !== undefined) {
+      const val = Number(req.body.streakDays);
+      if (!isNaN(val) && val >= 1) {
+        user.streakDays = val;
+        if (val > (user.bestStreak || 0)) {
+          user.bestStreak = val;
+        }
+      }
+    }
+    if (req.body.bestStreak !== undefined) {
+      const val = Number(req.body.bestStreak);
+      if (!isNaN(val) && val >= 1) user.bestStreak = val;
+    }
+
     await user.save();
 
     res.json({

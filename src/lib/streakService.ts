@@ -176,18 +176,40 @@ export function recordTaskCompletionAndRefreshStreak(
 
 export function recordDailyVisit(): StreakState {
   const todayStr = getTodayDateString();
+  const yesterdayStr = getPreviousDateString(todayStr);
   const raw = getRawStoredStreak();
+
+  const lastVisit = localStorage.getItem('mindmaze_last_visit_date');
   const dateSet = new Set<string>(raw.completedDates);
   dateSet.add(todayStr);
 
-  let currentStreak = 0;
+  let currentStreak = raw.bestStreak ? (raw.completedDates.length > 0 ? 1 : 1) : 1;
+
+  // Calculate streak based on continuous daily visits/completions
   let checkDate = todayStr;
+  let streakCount = 0;
   while (dateSet.has(checkDate)) {
-    currentStreak++;
+    streakCount++;
     checkDate = getPreviousDateString(checkDate);
   }
 
-  const bestStreak = Math.max(raw.bestStreak, currentStreak);
+  if (lastVisit === yesterdayStr) {
+    // Continuous consecutive day visit!
+    currentStreak = Math.max(streakCount, (raw.bestStreak > 0 ? streakCount : 1));
+  } else if (lastVisit === todayStr) {
+    // Same day re-visit
+    currentStreak = Math.max(1, streakCount);
+  } else if (dateSet.has(yesterdayStr)) {
+    // Yesterday completed
+    currentStreak = streakCount;
+  } else {
+    // Missed a day or brand new visit
+    currentStreak = 1;
+  }
+
+  localStorage.setItem('mindmaze_last_visit_date', todayStr);
+
+  const bestStreak = Math.max(raw.bestStreak || 0, currentStreak);
   const sortedCompleted = Array.from(dateSet).sort();
 
   saveRawStoredStreak({

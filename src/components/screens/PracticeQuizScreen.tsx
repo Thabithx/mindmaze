@@ -289,20 +289,50 @@ export const PracticeQuizScreen: React.FC<PracticeQuizScreenProps> = ({
             />
           </div>
 
-          {/* Question Card */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md space-y-6 shadow-xl">
-            {/* Repeat Probability Header Badge */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
-              <div className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>{currentQuestion.repeatFrequency}</span>
-              </div>
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md ${
-                currentQuestion.difficulty === 'Hard' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-              }`}>
-                {currentQuestion.difficulty} Difficulty
-              </span>
-            </div>
+  const [savedBookmarkSuccess, setSavedBookmarkSuccess] = useState(false);
+
+  const handleBookmarkQuestion = () => {
+    if (!currentQuestion) return;
+    const newMistake: MistakeItem = {
+      id: `mistake-${Date.now()}`,
+      savedAt: new Date().toISOString().split('T')[0],
+      userSelectedOptionId: selectedOptionId || 'A',
+      isMastered: false,
+      question: currentQuestion,
+    };
+    onSaveMistake(newMistake);
+    setSavedBookmarkSuccess(true);
+    setTimeout(() => setSavedBookmarkSuccess(false), 3000);
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      {/* Question Card */}
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md space-y-6 shadow-xl">
+        {/* Repeat Probability Header Badge */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span>{currentQuestion.repeatFrequency}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBookmarkQuestion}
+              className="px-3 py-1 rounded-xl bg-purple-500/15 border border-purple-400/35 text-purple-300 text-xs font-bold hover:bg-purple-500/30 transition flex items-center gap-1.5 cursor-pointer min-h-[36px]"
+              title="Save to Mistake Notebook"
+            >
+              <BookmarkCheck className="w-3.5 h-3.5 text-purple-300" />
+              <span>{savedBookmarkSuccess ? 'Saved to Notebook!' : 'Bookmark Question'}</span>
+            </button>
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md ${
+              currentQuestion.difficulty === 'Hard' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            }`}>
+              {currentQuestion.difficulty} Difficulty
+            </span>
+          </div>
+        </div>
 
             {/* Question Text */}
             <div>
