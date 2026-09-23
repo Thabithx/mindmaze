@@ -30,6 +30,10 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src="/logo.png"
           alt="Mind Maze Logo"
+          loading="eager"
+          decoding="async"
+          // @ts-ignore
+          fetchpriority="high"
           className={`${imageSizes[size]} object-contain bg-transparent drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]`}
         />
       </div>
