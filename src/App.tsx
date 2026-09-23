@@ -281,6 +281,14 @@ export function App() {
     setCurrentScreen('dashboard');
   };
 
+  const globalExamDate = (() => {
+    try {
+      return localStorage.getItem('mindmaze_global_exam_date') || '';
+    } catch {
+      return '';
+    }
+  })();
+
   const userProfile: UserProfile = {
     name: user?.name || userSettings.studentName || 'A/L Scholar',
     email: user?.email || '',
@@ -289,7 +297,7 @@ export function App() {
     streakDays: streakDays || user?.streakDays || 1,
     targetYear: user?.targetExamYear || '2026',
     targetZScore: user?.targetZScore || '',
-    examDate: user?.targetExamDate || '',
+    examDate: globalExamDate || user?.targetExamDate || '2026-11-25',
     dailyCompletedMCQs: 0,
     isAuthenticated: !!user,
   };
@@ -391,7 +399,7 @@ export function App() {
         />
 
         {/* Main Content Body */}
-        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 pb-28 sm:pb-8 md:pb-8 max-w-7xl mx-auto w-full space-y-6">
           {/* Home / Dashboard Screen */}
           {currentScreen === 'dashboard' && (
             <div className="space-y-6">

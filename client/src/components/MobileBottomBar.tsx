@@ -29,7 +29,7 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
     <nav
       id="mobile-bottom-navigation-bar"
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0E1022]/95 backdrop-blur-xl px-2 pt-1 pb-safe shadow-[0_-10px_25px_rgba(0,0,0,0.5)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0E1022]/95 backdrop-blur-xl px-2 pt-1.5 pb-safe shadow-[0_-10px_25px_rgba(0,0,0,0.6)]"
     >
       <div className="flex items-center justify-around max-w-md mx-auto">
         {tabs.map((tab) => {
@@ -40,8 +40,8 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
               key={tab.id}
               id={`mobile-nav-${tab.id}`}
               onClick={() => onNavigate(tab.id)}
-              className={`relative flex flex-col items-center justify-center flex-1 min-h-[48px] py-1.5 transition-all cursor-pointer ${
-                isActive ? 'text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+              className={`relative flex flex-col items-center justify-center flex-1 min-h-[52px] py-1 transition-all cursor-pointer select-none active:scale-95 ${
+                isActive ? 'text-cyan-300 font-bold' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <div className="relative">
@@ -54,13 +54,13 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
               </div>
               <span
                 className={`text-[10px] font-medium tracking-tight mt-1 ${
-                  isActive ? 'font-bold text-cyan-300' : 'text-slate-400'
+                  isActive ? 'font-extrabold text-cyan-300' : 'text-slate-400'
                 }`}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <div className="absolute bottom-0.5 h-0.5 w-6 rounded-full bg-gradient-to-r from-[#6B4EFF] to-cyan-400 shadow-[0_0_8px_rgba(0,245,255,0.8)]" />
+                <div className="absolute bottom-0 h-1 w-7 rounded-full bg-gradient-to-r from-[#6B4EFF] to-cyan-400 shadow-[0_0_10px_rgba(0,245,255,0.9)]" />
               )}
             </button>
           );

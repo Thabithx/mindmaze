@@ -79,6 +79,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [completedCheckedTopics, setCompletedCheckedTopics] = useState<Set<string>>(new Set());
   const [completedCheckedSubtopics, setCompletedCheckedSubtopics] = useState<Set<string>>(new Set());
+  const [completedModalSubject, setCompletedModalSubject] = useState<string>('');
 
   const openCompletedUnitsModal = () => {
     const initTopics = new Set<string>();
@@ -103,6 +104,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
     setCompletedCheckedTopics(initTopics);
     setCompletedCheckedSubtopics(initSubs);
+    setCompletedModalSubject(selectedSubject || availableSubjectMetas[0]?.name || '');
     setShowCompletedModal(true);
   };
 
@@ -795,7 +797,36 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
 
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 overscroll-contain">
-              {availableSubjectMetas.map((subjectMeta) => {
+              {/* Subject Selection Tabs First */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-3 border-b border-white/10 shrink-0 scrollbar-none">
+                {availableSubjectMetas.map((s) => {
+                  const isSelected = (completedModalSubject || selectedSubject) === s.name;
+                  const sTopics = safeTopics.filter((t) => t.subject === s.name);
+                  const sDone = sTopics.filter((t) => completedCheckedTopics.has(t.id)).length;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setCompletedModalSubject(s.name)}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-md'
+                          : 'bg-white/5 text-slate-400 border border-white/5 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <SubjectIcon subject={s.name} className="w-3.5 h-3.5" />
+                      <span>{s.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 text-emerald-400 font-semibold">
+                        {sDone}/{sTopics.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {availableSubjectMetas
+                .filter((s) => s.name === (completedModalSubject || selectedSubject || availableSubjectMetas[0]?.name))
+                .map((subjectMeta) => {
                 const subjectTopics = safeTopics.filter((t) => t.subject === subjectMeta.name);
                 if (subjectTopics.length === 0) return null;
                 const completedInSub = subjectTopics.filter((t) => completedCheckedTopics.has(t.id)).length;

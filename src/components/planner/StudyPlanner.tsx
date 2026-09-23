@@ -1036,7 +1036,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
                         {formReminder ? (
                           <>
                             <Bell className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>On (15m before)</span>
+                            <span>On</span>
                           </>
                         ) : (
                           <>

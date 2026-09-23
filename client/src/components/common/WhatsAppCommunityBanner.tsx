@@ -33,12 +33,21 @@ export const WhatsAppCommunityBanner: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href="https://chat.whatsapp.com/invite/mindmaze-al-community"
+            href="https://chat.whatsapp.com/C4NbNeRB9mY57jw2dPf7EZ?s=cl&p=i&mlu=4&ilr=4"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[11px] transition shadow-md shadow-emerald-500/20 hover:scale-105 active:scale-95"
           >
-            <span>Join WhatsApp Community</span>
+            <span>Join Discussion Group</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+          <a
+            href="https://whatsapp.com/channel/0029Vb8OnJGCRs1fpYosgU1z"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] transition"
+          >
+            <span>Daily MCQs Channel</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </a>
 

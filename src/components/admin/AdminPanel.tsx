@@ -59,6 +59,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: string; error?: string } | null>(null);
 
   // Search & Filter state
+  // Global Exam Date State
+  const [adminExamDate, setAdminExamDate] = useState(() => {
+    try {
+      return localStorage.getItem('mindmaze_global_exam_date') || '2026-11-25';
+    } catch {
+      return '2026-11-25';
+    }
+  });
+  const [examDateSavedMsg, setExamDateSavedMsg] = useState(false);
+
+  const handleSaveGlobalExamDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      localStorage.setItem('mindmaze_global_exam_date', adminExamDate);
+      setExamDateSavedMsg(true);
+      setTimeout(() => setExamDateSavedMsg(false), 3000);
+    } catch (err) {
+      console.warn(err);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
 
@@ -202,7 +223,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateQuizQuestion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quizQuestionText.trim() || !quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim()) return;
+    if (!quizQuestionText.trim() || !quizOptA.trim() || !quizOptB.trim() || !quizOptC.trim() || !quizOptD.trim() || !quizOptE.trim()) return;
 
     const newQuestion: Question = {
       id: `q-admin-${Date.now()}`,
@@ -215,7 +236,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         { id: 'B', text: quizOptB.trim(), isCorrect: quizCorrectOpt === 'B' },
         { id: 'C', text: quizOptC.trim(), isCorrect: quizCorrectOpt === 'C' },
         { id: 'D', text: quizOptD.trim(), isCorrect: quizCorrectOpt === 'D' },
-        ...(quizOptE.trim() ? [{ id: 'E', text: quizOptE.trim(), isCorrect: quizCorrectOpt === 'E' }] : []),
+        { id: 'E', text: quizOptE.trim(), isCorrect: quizCorrectOpt === 'E' },
       ],
       explanation: {
         correctOptionId: quizCorrectOpt,
@@ -239,6 +260,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setQuizOptC('');
     setQuizOptD('');
     setQuizOptE('');
+    setQuizOptE('');
     setQuizExplanation('');
     setTimeout(() => setQuizSuccess(null), 5000);
   };
@@ -252,7 +274,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const filteredUsers = (users || []).filter((u) => {
     const matchesSearch =
       (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.whatsappNumber || u.phoneNumber || u.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStream = streamFilter === 'all' || u.stream === streamFilter;
     return matchesSearch && matchesStream;
   });
@@ -510,6 +533,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <thead>
                   <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4">Student</th>
+                    <th className="py-3 px-4">Phone</th>
                     <th className="py-3 px-4">Stream & Elective</th>
                     <th className="py-3 px-4">Role</th>
                     <th className="py-3 px-4">Streak</th>
@@ -530,6 +554,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 font-semibold text-white">
                           <div>{u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px]">
+                          {u.whatsappNumber || u.phoneNumber || u.phone || "—"}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 font-medium">
@@ -945,14 +972,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 ))}
 
-                {/* Option E (optional) */}
+                {/* Option E (Required - 5 Options Standard) */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Option E <span className="text-slate-500">(optional)</span></label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Option E <span className="text-rose-400">*</span></label>
                   <input
                     type="text"
+                    required
                     value={quizOptE}
                     onChange={(e) => setQuizOptE(e.target.value)}
-                    placeholder="Enter option E (optional)"
+                    placeholder="Enter option E"
                     className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
                   />
                 </div>

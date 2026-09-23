@@ -105,7 +105,7 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
 
         {/* Goal Edit Drawer */}
         {isEditingGoal && (
-          <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-200">
+          <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-200">
             <div>
               <label className="text-xs text-slate-300 font-semibold block mb-1">Target Grade</label>
               <select
@@ -120,22 +120,12 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
               </select>
             </div>
 
-            <div>
-              <label className="text-xs text-slate-300 font-semibold block mb-1">Exam Date</label>
-              <input
-                type="date"
-                value={tempExamDate}
-                onChange={(e) => setTempExamDate(e.target.value)}
-                className="w-full bg-[#161831] border border-white/15 rounded-xl px-3 py-2 text-xs text-white"
-              />
-            </div>
-
             <div className="flex items-end">
               <button
                 onClick={handleSaveGoal}
-                className="w-full py-2.5 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_15px_rgba(107,78,255,0.4)]"
+                className="w-full py-2 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_15px_rgba(107,78,255,0.4)] min-h-[40px]"
               >
-                Save & Recalculate Quotas
+                Save &amp; Recalculate Quotas
               </button>
             </div>
           </div>

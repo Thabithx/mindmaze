@@ -12,6 +12,8 @@ import {
   Clock,
   Flame,
   ChevronDown,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 export interface PomodoroTimerProps {
@@ -136,6 +138,90 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
+  // Ambient soothing study music synth via Web Audio API
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const gainNodeRef = React.useRef<GainNode | null>(null);
+  const oscillatorsRef = React.useRef<OscillatorNode[]>([]);
+
+  const startAmbientMusic = () => {
+    try {
+      if (audioCtxRef.current && audioCtxRef.current.state === 'running') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.01, ctx.currentTime);
+      masterGain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 3); // Soft 3s fade in
+      masterGain.connect(ctx.destination);
+      gainNodeRef.current = masterGain;
+
+      // Lowpass filter for warm, soothing tone
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(450, ctx.currentTime);
+      filter.connect(masterGain);
+
+      // Calming binaural 432Hz A-major harmonic chord frequencies
+      const freqs = [216, 270, 324, 432]; // Warm soothing harmonics
+      const osclist: OscillatorNode[] = [];
+
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+        const subGain = ctx.createGain();
+        subGain.gain.setValueAtTime(0.25, ctx.currentTime);
+
+        osc.connect(subGain);
+        subGain.connect(filter);
+        osc.start();
+        osclist.push(osc);
+      });
+
+      oscillatorsRef.current = osclist;
+    } catch (err) {
+      console.warn('Ambient study audio:', err);
+    }
+  };
+
+  const stopAmbientMusic = () => {
+    try {
+      if (gainNodeRef.current && audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        gainNodeRef.current.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        setTimeout(() => {
+          oscillatorsRef.current.forEach((osc) => {
+            try { osc.stop(); } catch {}
+          });
+          oscillatorsRef.current = [];
+          if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+            audioCtxRef.current.close().catch(() => {});
+          }
+          audioCtxRef.current = null;
+        }, 850);
+      }
+    } catch (e) {
+      console.warn('Stop ambient music:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (isRunning && !isAudioMuted && mode === 'work') {
+      startAmbientMusic();
+    } else {
+      stopAmbientMusic();
+    }
+
+    return () => {
+      stopAmbientMusic();
+    };
+  }, [isRunning, isAudioMuted, mode]);
+
   const toggleTimer = () => {
     if (!isRunning && mode === 'work' && onStartSession) {
       onStartSession();
@@ -145,6 +231,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   const resetTimer = () => {
     setIsRunning(false);
+    stopAmbientMusic();
     setTimeLeft(MODE_CONFIGS[mode].minutes * 60);
   };
 
@@ -453,6 +540,18 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           title="Reset Timer"
         >
           <RotateCcw className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => setIsAudioMuted(!isAudioMuted)}
+          className={`p-3 rounded-xl border transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center ${
+            !isAudioMuted
+              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
+              : 'bg-white/5 text-slate-500 border-white/10 hover:text-slate-300'
+          }`}
+          title={isAudioMuted ? 'Unmute Focus Music' : 'Mute Focus Music'}
+        >
+          {!isAudioMuted ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
 
         <button
