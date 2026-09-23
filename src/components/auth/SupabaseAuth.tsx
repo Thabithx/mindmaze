@@ -740,6 +740,15 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
           </div>
           {passwordField('Password', true)}
           {submitButton('Sign In to Dashboard', 'signin')}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => { setErrorMsg(null); onViewChange('forgot'); }}
+              className="text-xs text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer underline underline-offset-2"
+            >
+              Forgot password?
+            </button>
+          </div>
           <p className="text-[11px] text-slate-500 text-center">
             Your data syncs across devices and survives cache clearing.
           </p>
