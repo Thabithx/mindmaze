@@ -54,21 +54,19 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const progression = calculateOverallStreamProgression(streamSubjects, syllabusTopics);
   const liveSyllabusPercent = progression.totalPercentage;
 
-  // Calculate live study hours
-  let liveStudyMinutes = 0;
+  // Calculate real live study hours
+  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || 0;
+  let ttMinutes = 0;
   timetable.forEach((entry) => {
     if (!entry.startTime || !entry.endTime) return;
     const [sh, sm] = entry.startTime.split(':').map(Number);
     const [eh, em] = entry.endTime.split(':').map(Number);
-    const diff = eh * 60 + em - (sh * 60 + sm);
-    if (diff > 0) liveStudyMinutes += (entry.isCompleted ? diff : Math.round(diff * 0.5));
+    const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+    if (diff > 0 && entry.isCompleted) ttMinutes += diff;
   });
-  const completedTaskCount = dailyTasks.filter((t) => t && t.isCompleted).length;
+  const liveHours = Math.round(((dbTimerMinutes + ttMinutes) / 60) * 10) / 10;
+  const completedTaskCount = progression.completedTopics || 0;
   const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
-  const liveHours = Math.max(
-    Math.round(liveStreak * 2.5 * 10) / 10,
-    Math.round(((liveStudyMinutes / 60) + completedTaskCount * 0.75) * 10) / 10
-  );
 
   const storedStudentName = (() => {
     try {
@@ -102,7 +100,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       username: myUsername,
       stream: effectiveStream,
       completedHours: liveHours,
-      completedTasks: Math.max(completedTaskCount, progression.completedTopics * 3, liveStreak * 2),
+      completedTasks: completedTaskCount,
       currentStreak: liveStreak,
       syllabusCompletedPercent: liveSyllabusPercent,
     };

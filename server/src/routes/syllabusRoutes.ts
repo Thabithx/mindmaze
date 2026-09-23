@@ -50,34 +50,31 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       const streak = Math.max(1, u.streakDays || 1);
       
       const realSubtopicsCount = progressMap.get(uId) || 0;
-      const computedSyllabusPercent = realSubtopicsCount > 0
-        ? Math.min(100, Math.round((realSubtopicsCount / 90) * 100))
-        : Math.min(100, Math.round(streak * 3.5 + 15));
+      const computedSyllabusPercent = Math.min(100, Math.round((realSubtopicsCount / 110) * 100));
 
       const timerHours = (u.totalStudyMinutes || 0) / 60;
       const ttHours = hoursMap.get(uId) || 0;
-      const combinedHours = timerHours + ttHours;
-      const computedHours = combinedHours > 0
-        ? Math.round(combinedHours * 10) / 10
-        : Math.round((streak * 2.5 + (u.xp ? u.xp / 100 : 0)) * 10) / 10;
-
-      const completedTasks = Math.round(streak * 3 + (realSubtopicsCount || 0));
+      const computedHours = Math.round((timerHours + ttHours) * 10) / 10;
 
       return {
         userId: uId,
         username: u.name || 'A/L Scholar',
         stream: u.stream || 'Physical Science',
         completedHours: computedHours,
-        completedTasks: completedTasks,
+        completedTasks: realSubtopicsCount,
         currentStreak: streak,
         syllabusCompletedPercent: computedSyllabusPercent,
       };
     });
 
-    // Sort by Syllabus % > Completed Hours > Streak
+    // Sort strictly by Syllabus % > Completed Hours > Streak
     entries.sort((a, b) => {
-      if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
-      if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
+      if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) {
+        return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
+      }
+      if (b.completedHours !== a.completedHours) {
+        return b.completedHours - a.completedHours;
+      }
       return b.currentStreak - a.currentStreak;
     });
 

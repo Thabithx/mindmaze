@@ -31,17 +31,6 @@ export interface AdminProgressEntry {
   monthMinutes: number;
 }
 
-const FALLBACK_LEADERBOARD_USERS = [
-  { _id: 'u1', name: 'Sandun Jayasuriya', stream: 'Physical Science', streakDays: 28, hours: 72.5, lessons: 84, syllabusCompletedPercent: 88 },
-  { _id: 'u2', name: 'Nethmi Fernando', stream: 'Biological Science', streakDays: 24, hours: 68.0, lessons: 76, syllabusCompletedPercent: 82 },
-  { _id: 'u3', name: 'Kavindu Perera', stream: 'Physical Science', streakDays: 21, hours: 64.5, lessons: 71, syllabusCompletedPercent: 76 },
-  { _id: 'u4', name: 'Dinuka Wickramasinghe', stream: 'Physical Science', streakDays: 19, hours: 58.0, lessons: 65, syllabusCompletedPercent: 70 },
-  { _id: 'u5', name: 'Anuki Senaratne', stream: 'Biological Science', streakDays: 16, hours: 52.5, lessons: 60, syllabusCompletedPercent: 62 },
-  { _id: 'u6', name: 'Ravindu Bandara', stream: 'Physical Science', streakDays: 14, hours: 46.0, lessons: 53, syllabusCompletedPercent: 55 },
-  { _id: 'u7', name: 'Tharushi Silva', stream: 'Biological Science', streakDays: 12, hours: 41.5, lessons: 48, syllabusCompletedPercent: 48 },
-  { _id: 'u8', name: 'Oshada De Silva', stream: 'Physical Science', streakDays: 10, hours: 35.0, lessons: 42, syllabusCompletedPercent: 40 },
-];
-
 export const sortLeaderboardEntries = (entries: LeaderboardEntry[]): LeaderboardEntry[] => {
   return [...entries].sort((a, b) => {
     // 1. Syllabus % (highest first)
@@ -62,19 +51,13 @@ const formatUsersToEntries = (users: any[]): LeaderboardEntry[] => {
     const streak = u.streakDays || u.currentStreak || 1;
     const syllabusPercent = typeof u.syllabusCompletedPercent === 'number' 
       ? u.syllabusCompletedPercent 
-      : typeof u.syllabusPercent === 'number'
-        ? u.syllabusPercent
-        : Math.min(100, Math.round(streak * 2.8 + 15));
+      : (typeof u.syllabusPercent === 'number' ? u.syllabusPercent : 0);
     const hours = typeof u.completedHours === 'number' 
       ? u.completedHours 
-      : typeof u.hours === 'number' 
-        ? u.hours 
-        : Math.round(streak * 2.5 * 10) / 10;
+      : (typeof u.hours === 'number' ? u.hours : 0);
     const tasks = typeof u.completedTasks === 'number' 
       ? u.completedTasks 
-      : typeof u.lessons === 'number' 
-        ? u.lessons 
-        : streak * 3;
+      : (typeof u.lessons === 'number' ? u.lessons : 0);
     return {
       userId: u.userId || u._id || 'u',
       username: u.username || u.name || 'A/L Scholar',
@@ -103,7 +86,7 @@ export function getCachedLeaderboard(period: LeaderboardPeriod, limit = 50): Lea
   } catch {
     // Ignore localStorage parse errors
   }
-  return formatUsersToEntries(FALLBACK_LEADERBOARD_USERS).slice(0, limit);
+  return [];
 }
 
 export async function fetchLeaderboard(
