@@ -545,7 +545,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <tbody className="divide-y divide-white/5">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
                         No matching registered students found.
                       </td>
                     </tr>
@@ -556,15 +556,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <div>{u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
                         </td>
-                        <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px]">
+                        <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
                           {u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || "—"}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 font-medium">
                             {u.stream} ({u.physicalScienceElective || 'Chemistry'})
                           </span>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                               u.role === 'admin'
@@ -575,10 +575,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             {u.role || 'student'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-amber-300">
+                        <td className="py-3.5 px-4 font-bold text-amber-300 whitespace-nowrap">
                           {u.streakDays || 0}d
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                               u.isActive !== false
@@ -589,24 +589,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             {u.isActive !== false ? 'Active' : 'Deactivated'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right space-x-2">
-                          <button
-                            onClick={() => handleToggleRole(u._id, u.role)}
-                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-slate-300 transition cursor-pointer"
-                          >
-                            {u.role === 'admin' ? 'Demote' : 'Make Admin'}
-                          </button>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleToggleRole(u._id, u.role)}
+                              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer min-w-[96px]"
+                            >
+                              {u.role === 'admin' ? (
+                                <>
+                                  <UserX className="w-3.5 h-3.5 text-purple-400" />
+                                  <span>Demote</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span>Make Admin</span>
+                                </>
+                              )}
+                            </button>
 
-                          <button
-                            onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-                              u.isActive !== false
-                                ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            }`}
-                          >
-                            {u.isActive !== false ? 'Block' : 'Activate'}
-                          </button>
+                            <button
+                              onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
+                              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer min-w-[84px] ${
+                                u.isActive !== false
+                                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              }`}
+                            >
+                              {u.isActive !== false ? (
+                                <>
+                                  <UserX className="w-3.5 h-3.5" />
+                                  <span>Block</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <span>Activate</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
