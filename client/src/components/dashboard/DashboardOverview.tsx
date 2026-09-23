@@ -98,8 +98,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   })();
 
   const handleOpenSettings = () => {
-    if (onNavigateToSettings) onNavigateToSettings();
-    else if (onNavigate) onNavigate('settings');
+    if (onOpenProfileEdit) {
+      onOpenProfileEdit();
+    } else if (onNavigateToSettings) {
+      onNavigateToSettings();
+    } else if (onNavigate) {
+      onNavigate('settings');
+    }
   };
 
   return (
@@ -140,7 +145,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-[10px] font-bold transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 sm:mt-2"
             >
               <Calendar className="w-3 h-3" />
-              <span>Update Date</span>
+              <span>Change Date</span>
             </button>
           </div>
         </div>

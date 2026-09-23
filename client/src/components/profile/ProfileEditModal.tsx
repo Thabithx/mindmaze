@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { User, StreamType } from '../../types';
 import { X, Save, User as UserIcon, Calendar, Target, Phone, Clock, Award, Loader2 } from 'lucide-react';
@@ -32,6 +32,25 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        const inputEl = document.getElementById('profile-exam-date-input');
+        const sectionEl = document.getElementById('section-exam-date');
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          sectionEl.classList.add('ring-2', 'ring-indigo-500', 'p-2', 'rounded-xl', 'bg-indigo-500/10', 'transition-all');
+          setTimeout(() => {
+            sectionEl.classList.remove('ring-2', 'ring-indigo-500', 'p-2', 'bg-indigo-500/10');
+          }, 2500);
+        }
+        if (inputEl) {
+          inputEl.focus();
+        }
+      }, 150);
+    }
+  }, [isOpen]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +162,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div id="section-exam-date" className="grid grid-cols-2 gap-3 transition-all duration-300">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Target Exam Year</label>
               <input
@@ -158,10 +177,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Expected Exam Date</label>
               <input
+                id="profile-exam-date-input"
                 type="date"
                 value={targetExamDate}
                 onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
