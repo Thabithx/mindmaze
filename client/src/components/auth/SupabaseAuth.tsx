@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { api, setAuthToken, setStoredUser } from '../../services/api';
 import {
   checkUsernameAvailable,
   createProfile,
@@ -181,6 +182,21 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     } catch {}
   };
 
+  const [resetToken, setResetToken] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tokenParam = params.get('resetToken') || params.get('token');
+      const emailParam = params.get('email');
+      if (tokenParam) {
+        setResetToken(tokenParam);
+        if (emailParam) setEmail(emailParam);
+        onViewChange('update-password');
+      }
+    } catch {}
+  }, []);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -219,81 +235,46 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     setBusy(true);
     recordAttempt('signup');
     try {
-      const available = await checkUsernameAvailable(username);
-      if (!available) {
-        setErrorMsg('Username already taken. Please choose another one.');
-        setBusy(false);
-        return;
-      }
-
-      const { data, error } = await client.auth.signUp({
+      const res = await api.register({
+        name: username.trim(),
         email: email.trim(),
         password,
-        options: { emailRedirectTo: `${window.location.origin}/confirmed` },
+        stream,
+        physicalScienceElective: elective,
+        mobileNumber: mobileNumber.trim(),
+        whatsappNumber: mobileNumber.trim(),
+        phoneNumber: mobileNumber.trim(),
+        phone: mobileNumber.trim(),
       });
-      if (error) throw error;
-      const user = data.user;
-      if (!user) {
-        setErrorMsg('Could not create your account. Please try again.');
-        setBusy(false);
-        return;
-      }
-
-      persistStreamChoice();
-      persistExamDateChoice();
-      persistGoalsChoice();
-      persistMobileChoice();
-      if (data.session) {
-        try {
-          await createProfile(
-            user.id,
-            username,
-            stream,
-            elective,
-            toExamDate(examDate),
-            targetZScore.trim() || null,
-            motivationNote.trim() || null,
-            toMobileNumber(mobileNumber)
-          );
-          if (completedTopicIds.length > 0) {
-            try {
-              await pushTopics(user.id, buildCompletedTopicsFromIds(completedTopicIds));
-            } catch (topicsErr) {
-              console.warn('Initial topics sync failed:', topicsErr);
-            }
-          }
-        } catch (profileErr) {
-          await client.auth.signOut();
-          fail(profileErr, 'signup');
-          return;
-        }
-        setBusy(false);
-        onAuthReady?.(username.trim());
-      } else if (data.user && (data.user.identities?.length ?? 1) === 0) {
-        setBusy(false);
-        setErrorMsg('An account with this email already exists. Try signing in instead.');
-        onViewChange('signin');
+      setAuthToken(res.token);
+      setStoredUser(res.user);
+      setBusy(false);
+      if (onAuthReady) {
+        onAuthReady(res.user.name || res.user.email);
       } else {
-      try {
-        localStorage.setItem('mindmaze_pending_username', username.trim());
-        localStorage.setItem('mindmaze_pending_stream', stream);
-        localStorage.setItem('mindmaze_pending_elective', elective);
-        const cleanDate = toExamDate(examDate);
-        if (cleanDate) localStorage.setItem('mindmaze_pending_exam_date', cleanDate);
-        if (targetZScore.trim()) localStorage.setItem('mindmaze_pending_zscore', targetZScore.trim().slice(0, 20));
-        if (motivationNote.trim()) {
-          localStorage.setItem('mindmaze_pending_note', motivationNote.trim().slice(0, 500));
-        }
-        const cleanMobile = toMobileNumber(mobileNumber);
-        if (cleanMobile) localStorage.setItem('mindmaze_pending_mobile', cleanMobile);
-        if (completedTopicIds.length > 0) {
-          localStorage.setItem('mindmaze_pending_topics', JSON.stringify(completedTopicIds));
-        }
-      } catch {}
-        setBusy(false);
-        onViewChange('check-email');
+        window.location.reload();
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (client) {
+        try {
+          const available = await checkUsernameAvailable(username);
+          if (!available) {
+            setErrorMsg('Username already taken. Please choose another one.');
+            setBusy(false);
+            return;
+          }
+          const { data, error } = await client.auth.signUp({
+            email: email.trim(),
+            password,
+            options: { emailRedirectTo: `${window.location.origin}/confirmed` },
+          });
+          if (!error && data.session) {
+            setBusy(false);
+            onAuthReady?.(username.trim());
+            return;
+          }
+        } catch {}
+      }
       fail(err, 'signup');
     }
   };
@@ -317,10 +298,26 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     setBusy(true);
     recordAttempt('signin');
     try {
-      const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) throw error;
+      const res = await api.login({ email: email.trim(), password });
+      setAuthToken(res.token);
+      setStoredUser(res.user);
       setBusy(false);
-    } catch (err) {
+      if (onAuthReady) {
+        onAuthReady(res.user.name || res.user.email);
+      } else {
+        window.location.reload();
+      }
+    } catch (err: any) {
+      if (client) {
+        try {
+          const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+          if (!error) {
+            setBusy(false);
+            if (onAuthReady) onAuthReady(email.trim());
+            return;
+          }
+        } catch {}
+      }
       fail(err, 'signin');
     }
   };
@@ -339,13 +336,20 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     setBusy(true);
     recordAttempt('forgot');
     try {
-      const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: window.location.origin,
-      });
-      if (error) throw error;
+      const res = await api.forgotPassword(email.trim());
       setBusy(false);
-      setInfoMsg(`If an account exists for ${email.trim()}, a password reset link is on its way. Check your inbox (and spam folder).`);
-    } catch (err) {
+      setInfoMsg(res.message || `Password reset link sent to ${email.trim()}! Please check your email inbox and spam folder.`);
+    } catch (err: any) {
+      if (client) {
+        try {
+          await client.auth.resetPasswordForEmail(email.trim(), {
+            redirectTo: window.location.origin,
+          });
+          setBusy(false);
+          setInfoMsg(`If an account exists for ${email.trim()}, a password reset link is on its way. Check your inbox (and spam folder).`);
+          return;
+        } catch {}
+      }
       fail(err, 'forgot');
     }
   };
@@ -442,22 +446,42 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     e.preventDefault();
     setErrorMsg(null);
     setInfoMsg(null);
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+    const passError = validatePassword(password);
+    if (passError) {
+      setErrorMsg(passError);
       return;
     }
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
       return;
     }
+
     setBusy(true);
     try {
-      const { error } = await client.auth.updateUser({ password });
-      if (error) throw error;
+      const res = await api.resetPassword({
+        token: resetToken,
+        email: email.trim(),
+        newPassword: password,
+      });
       setBusy(false);
-      setInfoMsg('Password updated! You are signed in — loading your study data…');
-      setTimeout(() => onViewChange('signin'), 1500);
-    } catch (err) {
+      setInfoMsg(res.message || 'Password reset successfully! Redirecting to sign in...');
+      setTimeout(() => {
+        onViewChange('signin');
+        setPassword('');
+        setConfirmPassword('');
+      }, 2500);
+    } catch (err: any) {
+      if (client) {
+        try {
+          const { error } = await client.auth.updateUser({ password });
+          if (!error) {
+            setBusy(false);
+            setInfoMsg('Password updated! Redirecting to sign in...');
+            setTimeout(() => onViewChange('signin'), 1500);
+            return;
+          }
+        } catch {}
+      }
       fail(err, 'signin');
     }
   };
@@ -739,6 +763,19 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
             </div>
           </div>
           {passwordField('Password', true)}
+          <div className="flex items-center justify-end pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                onViewChange('forgot');
+                setErrorMsg(null);
+                setInfoMsg(null);
+              }}
+              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
+            >
+              Forgot Password?
+            </button>
+          </div>
           {submitButton('Sign In to Dashboard', 'signin')}
           <p className="text-[11px] text-slate-500 text-center">
             Your data syncs across devices and survives cache clearing.

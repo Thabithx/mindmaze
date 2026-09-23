@@ -1,8 +1,10 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User, { StreamType } from '../models/User.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
+import { sendPasswordResetEmail } from '../services/emailService.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'mind_maze_jwt_secret_key_2026_al_app';
@@ -375,6 +377,86 @@ router.post('/push-subscription', protect, async (req: AuthRequest, res: Respons
     res.json({ message: 'Push notification subscription saved' });
   } catch (error) {
     res.status(500).json({ message: 'Error saving push subscription' });
+  }
+});
+
+router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    let { email } = req.body;
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      res.status(400).json({ message: 'Please enter a valid email address' });
+      return;
+    }
+
+    email = email.trim().toLowerCase();
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      res.json({ message: `If an account exists for ${email}, a password reset link has been dispatched.` });
+      return;
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000);
+    await user.save();
+
+    const origin = (req.headers.origin || process.env.FRONTEND_URL || 'https://mindmaze.vercel.app').replace(/\/$/, '');
+    const resetUrl = `${origin}/?resetToken=${resetToken}&email=${encodeURIComponent(user.email)}`;
+
+    try {
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+    } catch (emailErr: any) {
+      console.error('Failed to send reset email:', emailErr);
+      res.status(500).json({ message: `Failed to dispatch reset email: ${emailErr.message}` });
+      return;
+    }
+
+    res.json({ message: `Password reset link sent to ${user.email}. Check your inbox & spam folder.` });
+  } catch (error: any) {
+    console.error('Forgot Password Error:', error);
+    res.status(500).json({ message: 'Server error processing password reset request' });
+  }
+});
+
+router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    let { email, token, newPassword } = req.body;
+
+    if (!email || !token || !newPassword || typeof email !== 'string' || typeof token !== 'string' || typeof newPassword !== 'string') {
+      res.status(400).json({ message: 'Email, token, and new password are required' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ message: 'New password must be at least 6 characters long' });
+      return;
+    }
+
+    email = email.trim().toLowerCase();
+    token = token.trim();
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: 'Invalid or expired password reset link. Please request a new one.' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordToken = '';
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Your password has been reset successfully! You can now log in.' });
+  } catch (error: any) {
+    console.error('Reset Password Error:', error);
+    res.status(500).json({ message: 'Server error resetting password' });
   }
 });
 
