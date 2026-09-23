@@ -52,6 +52,7 @@ import { NotificationsScreen } from './components/notifications/NotificationsScr
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
 import { isValidEmail, isValidPhoneNumber } from './lib/validators';
+import { supabase } from './lib/supabaseClient';
 
 import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap } from 'lucide-react';
 
@@ -63,7 +64,7 @@ export function App() {
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | null>(null);
 
   // Auth Inputs
   const [emailInput, setEmailInput] = useState('');
@@ -74,6 +75,7 @@ export function App() {
   const [electiveInput, setElectiveInput] = useState<'Chemistry' | 'ICT'>('Chemistry');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authForgotSent, setAuthForgotSent] = useState(false);
 
   // Profile Edit Modal State
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
@@ -253,6 +255,34 @@ export function App() {
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
       setAuthError(err.message || 'Invalid email or password. Please try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthForgotSent(false);
+
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      if (supabase) {
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: `${window.location.origin}`,
+        });
+        if (error) throw error;
+      }
+      setAuthForgotSent(true);
+    } catch (err: any) {
+      console.error('[Auth] Forgot password error:', err);
+      setAuthError(err.message || 'Failed to send password reset email. Please try again.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -1241,10 +1271,10 @@ export function App() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  {authModalMode === 'signin' ? 'Welcome Back' : 'Create Account'}
+                  {authModalMode === 'signin' ? 'Welcome Back' : authModalMode === 'signup' ? 'Create Account' : 'Reset Password'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {authModalMode === 'signin' ? 'Sign in to access your study planner' : 'Join Mind Maze GCE A/L Community'}
+                  {authModalMode === 'signin' ? 'Sign in to access your study planner' : authModalMode === 'signup' ? 'Join Mind Maze GCE A/L Community' : 'Enter your email to receive a reset link'}
                 </p>
               </div>
             </div>
@@ -1255,7 +1285,13 @@ export function App() {
               </div>
             )}
 
-            <form onSubmit={authModalMode === 'signin' ? handleSignIn : handleSignUp} className="space-y-4">
+            {authForgotSent && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+                Password reset instructions sent! Please check your email inbox.
+              </div>
+            )}
+
+            <form onSubmit={authModalMode === 'signin' ? handleSignIn : authModalMode === 'signup' ? handleSignUp : handleForgotPassword} className="space-y-4">
               {authModalMode === 'signup' && (
                 <>
                   <div>
@@ -1299,18 +1335,35 @@ export function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Password <span className="text-rose-400">*</span></label>
-                <input
-                  type="password"
-                  autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                  required
-                />
-              </div>
+              {authModalMode !== 'forgot' && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">Password <span className="text-rose-400">*</span></label>
+                    {authModalMode === 'signin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalMode('forgot');
+                          setAuthError(null);
+                          setAuthForgotSent(false);
+                        }}
+                        className="text-[11px] text-indigo-400 font-semibold hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    autoComplete={authModalMode === 'signin' ? 'current-password' : 'new-password'}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+                    required
+                  />
+                </div>
+              )}
 
               {authModalMode === 'signup' && (
                 <div className={streamInput === 'Physical Science' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
@@ -1353,9 +1406,13 @@ export function App() {
                   <>
                     <LogIn className="w-4 h-4" /> Sign In
                   </>
-                ) : (
+                ) : authModalMode === 'signup' ? (
                   <>
                     <UserPlus className="w-4 h-4" /> Create Account
+                  </>
+                ) : (
+                  <>
+                    Send Reset Link
                   </>
                 )}
               </button>
@@ -1365,15 +1422,22 @@ export function App() {
               {authModalMode === 'signin' ? (
                 <p>
                   Don't have an account?{' '}
-                  <button onClick={() => setAuthModalMode('signup')} className="text-indigo-400 font-bold hover:underline">
+                  <button onClick={() => { setAuthModalMode('signup'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
                     Sign Up
+                  </button>
+                </p>
+              ) : authModalMode === 'signup' ? (
+                <p>
+                  Already have an account?{' '}
+                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
+                    Sign In
                   </button>
                 </p>
               ) : (
                 <p>
-                  Already have an account?{' '}
-                  <button onClick={() => setAuthModalMode('signin')} className="text-indigo-400 font-bold hover:underline">
-                    Sign In
+                  Remember your password?{' '}
+                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
+                    Back to Sign In
                   </button>
                 </p>
               )}

@@ -60,6 +60,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   username,
   examDate = null,
   onNavigateToSettings,
+  onOpenProfileEdit,
   pomodoroSlot,
 }) => {
   const effectiveStream = stream || userSettings?.stream || 'Physical Science';
