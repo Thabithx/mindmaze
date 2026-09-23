@@ -94,15 +94,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Main Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/[0.06] bg-[#0D0F1E]/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isOpenMobile ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
+          isOpenMobile ? 'translate-x-0 w-80 max-w-[85vw]' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
       >
         {isOpenMobile && (
-          <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06] shrink-0 lg:hidden">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation Menu</span>
+          <div className="flex h-16 items-center justify-between px-5 border-b border-white/[0.08] shrink-0 lg:hidden bg-white/[0.02]">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span>Navigation Menu</span>
+            </span>
             <button
               onClick={onCloseMobile}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+              className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer border border-white/10"
+              aria-label="Close sidebar"
             >
               <X className="w-4 h-4" />
             </button>
@@ -110,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 py-5 lg:px-3 lg:py-4 pb-28 lg:pb-4 space-y-6 lg:space-y-5 scrollbar-thin">
           {navGroups.map((group) => (
             <div key={group.label}>
               {!isCollapsed && (
