@@ -531,23 +531,24 @@ export function App() {
                     onToggleSubtopic={(subtopicTitle) => {
                       const topicToUpdate = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
                       if (topicToUpdate) {
+                        const map = { ...(topicToUpdate.subtopicProgress || {}) };
+                        const current = map[subtopicTitle] || (topicToUpdate.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
+                        const targetVal = current >= 100 ? 0 : 100;
+                        map[subtopicTitle] = targetVal;
+
+                        const subs = topicToUpdate.subtopics || [];
+                        let completed = [...(topicToUpdate.completedSubtopics || [])].filter((s) => s !== subtopicTitle);
+                        if (targetVal === 100) completed.push(subtopicTitle);
+
+                        let newStatus: any = 'not_started';
+                        if (subs.length > 0) {
+                          const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
+                          if (totalPoints >= subs.length * 100) newStatus = 'completed';
+                          else if (totalPoints > 0) newStatus = 'in_progress';
+                        }
+
                         const updated = syllabusTopics.map((t) => {
                           if (t.id === topicToUpdate.id || t.topicTitle.toLowerCase() === topicToUpdate.topicTitle.toLowerCase()) {
-                            const map = { ...(t.subtopicProgress || {}) };
-                            const current = map[subtopicTitle] || (t.completedSubtopics?.includes(subtopicTitle) ? 100 : 0);
-                            const targetVal = current >= 100 ? 0 : 100;
-                            map[subtopicTitle] = targetVal;
-
-                            const subs = t.subtopics || [];
-                            let completed = [...(t.completedSubtopics || [])].filter((s) => s !== subtopicTitle);
-                            if (targetVal === 100) completed.push(subtopicTitle);
-
-                            let newStatus: any = 'not_started';
-                            if (subs.length > 0) {
-                              const totalPoints = subs.reduce((sum, s) => sum + (map[s] !== undefined ? map[s] : (completed.includes(s) ? 100 : 0)), 0);
-                              if (totalPoints >= subs.length * 100) newStatus = 'completed';
-                              else if (totalPoints > 0) newStatus = 'in_progress';
-                            }
                             return {
                               ...t,
                               subtopicProgress: map,
@@ -559,6 +560,18 @@ export function App() {
                         });
                         setSyllabusTopics(updated);
                         saveStoredSyllabusTopics(updated);
+
+                        if (getAuthToken()) {
+                          api.updateSubtopicProgress({
+                            topicId: topicToUpdate.id,
+                            subject: topicToUpdate.subject,
+                            unitNumber: topicToUpdate.unitNumber,
+                            unitTitle: topicToUpdate.unitTitle,
+                            topicTitle: topicToUpdate.topicTitle,
+                            subtopic: subtopicTitle,
+                            progress: targetVal,
+                          }).catch(() => {});
+                        }
                       }
                     }}
                     isMinimized={isPomodoroMinimized}
@@ -598,54 +611,64 @@ export function App() {
                         ) : null);
 
                       if (currentTopic) {
-                        // Complete ONLY the subtopics targeted for this block (or all topic subtopics if none specified)
-                        const targetSubs = activeSubtopics && activeSubtopics.length > 0
-                          ? activeSubtopics
-                          : currentTopic.subtopics || [];
-
-                        const newMap: Record<string, number> = { ...(currentTopic.subtopicProgress || {}) };
-                        targetSubs.forEach((s) => { newMap[s] = 100; });
-
-                        const existingCompleted = currentTopic.completedSubtopics || [];
-                        const mergedCompleted = Array.from(new Set([...existingCompleted, ...targetSubs]));
-
                         const allTopicSubs = currentTopic.subtopics || [];
-                        let newStatus: any = 'in_progress';
-                        if (allTopicSubs.length > 0) {
-                          const isAllDone = allTopicSubs.every((s) => newMap[s] === 100 || mergedCompleted.includes(s));
-                          if (isAllDone) newStatus = 'completed';
-                          else if (mergedCompleted.length > 0) newStatus = 'in_progress';
-                        } else {
-                          newStatus = 'completed';
-                        }
+                        const currentCompletedSubs = currentTopic.completedSubtopics || [];
+                        const currentProgressMap = { ...(currentTopic.subtopicProgress || {}) };
 
-                        const updated = syllabusTopics.map((t) => {
-                          if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
-                            return {
-                              ...t,
-                              status: newStatus,
-                              subtopicProgress: newMap,
-                              completedSubtopics: mergedCompleted,
-                            };
-                          }
-                          return t;
-                        });
-                        setSyllabusTopics(updated);
-                        saveStoredSyllabusTopics(updated);
-
-                        // Sync with backend API
-                        if (getAuthToken()) {
-                          targetSubs.forEach((subName) => {
-                            api.updateSubtopicProgress({
-                              topicId: currentTopic.id,
-                              subject: currentTopic.subject,
-                              unitNumber: currentTopic.unitNumber,
-                              unitTitle: currentTopic.unitTitle,
-                              topicTitle: currentTopic.topicTitle,
-                              subtopic: subName,
-                              progress: 100,
-                            }).catch(() => {});
+                        // If topic has no subtopics, marking finished completes the entire topic
+                        if (allTopicSubs.length === 0) {
+                          const updated = syllabusTopics.map((t) => {
+                            if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
+                              return {
+                                ...t,
+                                status: 'completed' as const,
+                              };
+                            }
+                            return t;
                           });
+                          setSyllabusTopics(updated);
+                          saveStoredSyllabusTopics(updated);
+                        } else {
+                          // Topic HAS subtopics: ONLY ticked off subtopics are completed!
+                          const tickedSubs = allTopicSubs.filter(s => currentCompletedSubs.includes(s) || (currentProgressMap[s] || 0) >= 100);
+
+                          let newStatus: any = 'in_progress';
+                          if (allTopicSubs.length > 0 && tickedSubs.length === allTopicSubs.length) {
+                            newStatus = 'completed';
+                          } else if (tickedSubs.length > 0) {
+                            newStatus = 'in_progress';
+                          } else {
+                            newStatus = currentTopic.status || 'in_progress';
+                          }
+
+                          const updated = syllabusTopics.map((t) => {
+                            if (t.id === currentTopic.id || t.topicTitle.toLowerCase() === currentTopic.topicTitle.toLowerCase()) {
+                              return {
+                                ...t,
+                                status: newStatus,
+                                subtopicProgress: currentProgressMap,
+                                completedSubtopics: tickedSubs,
+                              };
+                            }
+                            return t;
+                          });
+                          setSyllabusTopics(updated);
+                          saveStoredSyllabusTopics(updated);
+
+                          // Sync only the ticked subtopics to backend API
+                          if (getAuthToken()) {
+                            tickedSubs.forEach((subName) => {
+                              api.updateSubtopicProgress({
+                                topicId: currentTopic.id,
+                                subject: currentTopic.subject,
+                                unitNumber: currentTopic.unitNumber,
+                                unitTitle: currentTopic.unitTitle,
+                                topicTitle: currentTopic.topicTitle,
+                                subtopic: subName,
+                                progress: 100,
+                              }).catch(() => {});
+                            });
+                          }
                         }
                       }
 
