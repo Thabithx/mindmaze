@@ -740,15 +740,6 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
           </div>
           {passwordField('Password', true)}
           {submitButton('Sign In to Dashboard', 'signin')}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => { setErrorMsg(null); setInfoMsg(null); onViewChange('forgot'); }}
-              className="text-xs text-slate-400 hover:text-cyan-300 underline underline-offset-2 transition cursor-pointer"
-            >
-              Forgot password?
-            </button>
-          </div>
           <p className="text-[11px] text-slate-500 text-center">
             Your data syncs across devices and survives cache clearing.
           </p>
