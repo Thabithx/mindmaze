@@ -740,11 +740,11 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
           </div>
           {passwordField('Password', true)}
           {submitButton('Sign In to Dashboard', 'signin')}
-          <div className="text-center">
+          <div className="flex justify-end">
             <button
               type="button"
-              onClick={() => { setErrorMsg(null); onViewChange('forgot'); }}
-              className="text-xs text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer underline underline-offset-2"
+              onClick={() => { setErrorMsg(null); setInfoMsg(null); onViewChange('forgot'); }}
+              className="text-xs text-slate-400 hover:text-cyan-300 underline underline-offset-2 transition cursor-pointer"
             >
               Forgot password?
             </button>
