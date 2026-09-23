@@ -69,10 +69,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="whitespace-nowrap">{userProfile?.streakDays || 1}</span>
         </div>
 
-        {/* Header Notifications Bell Button */}
+        {/* Header Notifications Bell Button (Desktop/Tablet — Mobile in Sidebar) */}
         <button
           onClick={() => onNavigate('notifications')}
-          className={`relative p-2 rounded-xl border transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center ${
+          className={`hidden sm:flex relative p-2 rounded-xl border transition cursor-pointer min-h-[40px] min-w-[40px] items-center justify-center ${
             currentScreen === 'notifications'
               ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
               : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'

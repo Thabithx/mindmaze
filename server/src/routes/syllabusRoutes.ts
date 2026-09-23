@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import User from '../models/User.js';
+import Timetable from '../models/Timetable.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -11,30 +12,70 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
     const period = String(req.query.period || 'weekly');
 
     const users = await User.find({ isActive: true })
-      .select('name stream streakDays bestStreak xp createdAt')
-      .sort({ xp: -1, streakDays: -1 })
+      .select('name stream streakDays bestStreak xp completedDates createdAt')
+      .sort({ streakDays: -1, xp: -1 })
       .limit(limit)
       .lean();
 
+    const userIds = users.map((u: any) => u._id);
+
+    // Fetch user syllabus progress counts
+    const progressDocs = await SyllabusProgress.find({ user: { $in: userIds } }).lean();
+    const progressMap = new Map<string, number>();
+    progressDocs.forEach((doc: any) => {
+      const uId = doc.user.toString();
+      const count = doc.completedSubtopics ? doc.completedSubtopics.length : 0;
+      progressMap.set(uId, (progressMap.get(uId) || 0) + count);
+    });
+
+    // Fetch user timetable study hours
+    const timetableDocs = await Timetable.find({ user: { $in: userIds } }).lean();
+    const hoursMap = new Map<string, number>();
+    timetableDocs.forEach((slot: any) => {
+      const uId = slot.user.toString();
+      let durationHours = 1;
+      if (slot.startTime && slot.endTime) {
+        const [sh, sm] = slot.startTime.split(':').map(Number);
+        const [eh, em] = slot.endTime.split(':').map(Number);
+        if (!isNaN(sh) && !isNaN(eh)) {
+          const diffMins = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+          if (diffMins > 0) durationHours = diffMins / 60;
+        }
+      }
+      hoursMap.set(uId, (hoursMap.get(uId) || 0) + durationHours);
+    });
+
     const entries = users.map((u: any) => {
-      const streak = u.streakDays || 1;
-      const syllabusPercent = Math.min(100, Math.round(streak * 3.2 + 20));
-      const hours = Math.round((streak * 2.5 + (u.xp ? u.xp / 100 : 0)) * 10) / 10;
-      const tasks = Math.round(streak * 3 + (u.xp ? u.xp / 50 : 0));
+      const uId = u._id.toString();
+      const streak = Math.max(1, u.streakDays || 1);
+      
+      const realSubtopicsCount = progressMap.get(uId) || 0;
+      const computedSyllabusPercent = realSubtopicsCount > 0
+        ? Math.min(100, Math.round((realSubtopicsCount / 90) * 100))
+        : Math.min(100, Math.round(streak * 3.5 + 15));
+
+      const realHours = hoursMap.get(uId);
+      const computedHours = realHours !== undefined && realHours > 0
+        ? Math.round(realHours * 10) / 10
+        : Math.round((streak * 2.5 + (u.xp ? u.xp / 100 : 0)) * 10) / 10;
+
+      const completedTasks = Math.round(streak * 3 + (realSubtopicsCount || 0));
+
       return {
-        userId: u._id.toString(),
+        userId: uId,
         username: u.name || 'A/L Scholar',
         stream: u.stream || 'Physical Science',
-        completedHours: hours,
-        completedTasks: tasks,
+        completedHours: computedHours,
+        completedTasks: completedTasks,
         currentStreak: streak,
-        syllabusCompletedPercent: syllabusPercent,
+        syllabusCompletedPercent: computedSyllabusPercent,
       };
     });
 
+    // Sort by Completed Hours > Syllabus % > Streak
     entries.sort((a, b) => {
       if (b.completedHours !== a.completedHours) return b.completedHours - a.completedHours;
-      if (b.completedTasks !== a.completedTasks) return b.completedTasks - a.completedTasks;
+      if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
       return b.currentStreak - a.currentStreak;
     });
 

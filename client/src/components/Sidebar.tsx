@@ -145,6 +145,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {!isCollapsed && (
                         <span className="flex-1 text-left truncate text-[13px]">{item.label}</span>
                       )}
+                      {!isCollapsed && item.id === 'notifications' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 text-cyan-300 border border-indigo-500/40">
+                          Alerts
+                        </span>
+                      )}
                     </button>
                   );
                 })}

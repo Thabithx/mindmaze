@@ -138,89 +138,47 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Ambient soothing study music synth via Web Audio API
+  // Lo-Fi Study Music Player
+  const LOFI_TRACKS = [
+    {
+      id: 'lofi-1',
+      title: '1 A.M. Study Session (Chill Lo-Fi Beats)',
+      src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+    },
+    {
+      id: 'lofi-2',
+      title: 'Midnight Rain & Soft Beats',
+      src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
+    },
+    {
+      id: 'lofi-3',
+      title: 'Warm Study Glow (Ambient Piano)',
+      src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
+    },
+  ];
+
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const audioCtxRef = React.useRef<AudioContext | null>(null);
-  const gainNodeRef = React.useRef<GainNode | null>(null);
-  const oscillatorsRef = React.useRef<OscillatorNode[]>([]);
-
-  const startAmbientMusic = () => {
-    try {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'running') return;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
-
-      const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0.01, ctx.currentTime);
-      masterGain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 3); // Soft 3s fade in
-      masterGain.connect(ctx.destination);
-      gainNodeRef.current = masterGain;
-
-      // Lowpass filter for warm, soothing tone
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(450, ctx.currentTime);
-      filter.connect(masterGain);
-
-      // Calming binaural 432Hz A-major harmonic chord frequencies
-      const freqs = [216, 270, 324, 432]; // Warm soothing harmonics
-      const osclist: OscillatorNode[] = [];
-
-      freqs.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-        const subGain = ctx.createGain();
-        subGain.gain.setValueAtTime(0.25, ctx.currentTime);
-
-        osc.connect(subGain);
-        subGain.connect(filter);
-        osc.start();
-        osclist.push(osc);
-      });
-
-      oscillatorsRef.current = osclist;
-    } catch (err) {
-      console.warn('Ambient study audio:', err);
-    }
-  };
-
-  const stopAmbientMusic = () => {
-    try {
-      if (gainNodeRef.current && audioCtxRef.current) {
-        const ctx = audioCtxRef.current;
-        gainNodeRef.current.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-        setTimeout(() => {
-          oscillatorsRef.current.forEach((osc) => {
-            try { osc.stop(); } catch {}
-          });
-          oscillatorsRef.current = [];
-          if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-            audioCtxRef.current.close().catch(() => {});
-          }
-          audioCtxRef.current = null;
-        }, 850);
-      }
-    } catch (e) {
-      console.warn('Stop ambient music:', e);
-    }
-  };
+  const [audioVolume, setAudioVolume] = useState(0.45);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (isRunning && !isAudioMuted && mode === 'work') {
-      startAmbientMusic();
-    } else {
-      stopAmbientMusic();
+    if (audioRef.current) {
+      audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
     }
+  }, [audioVolume, isAudioMuted]);
 
-    return () => {
-      stopAmbientMusic();
-    };
-  }, [isRunning, isAudioMuted, mode]);
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (isRunning && !isAudioMuted && mode === 'work') {
+      audioRef.current.play().catch((err) => {
+        console.warn('Lo-Fi audio auto-play:', err);
+      });
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isRunning, isAudioMuted, mode, selectedTrackIndex]);
 
   const toggleTimer = () => {
     if (!isRunning && mode === 'work' && onStartSession) {
@@ -231,7 +189,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   const resetTimer = () => {
     setIsRunning(false);
-    stopAmbientMusic();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
     setTimeLeft(MODE_CONFIGS[mode].minutes * 60);
   };
 
@@ -570,8 +531,61 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </button>
       </div>
 
+      {/* Hidden Audio Element */}
+      <audio
+        ref={audioRef}
+        src={LOFI_TRACKS[selectedTrackIndex].src}
+        loop
+        preload="auto"
+      />
+
+      {/* Lo-Fi Music Control Bar */}
+      <div className="mt-4 p-3 rounded-2xl bg-black/30 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setIsAudioMuted(!isAudioMuted)}
+            className={`p-2 rounded-xl border transition cursor-pointer shrink-0 ${
+              !isAudioMuted && isRunning
+                ? 'bg-purple-500/20 text-purple-300 border-purple-400/40 animate-pulse'
+                : 'bg-white/5 text-slate-400 border-white/10'
+            }`}
+            title={isAudioMuted ? 'Unmute Lo-Fi Beats' : 'Mute Lo-Fi Beats'}
+          >
+            {!isAudioMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+          <select
+            value={selectedTrackIndex}
+            onChange={(e) => setSelectedTrackIndex(Number(e.target.value))}
+            className="flex-1 sm:flex-none bg-[#1a1c38] text-slate-200 border border-white/15 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold focus:outline-none focus:border-purple-400"
+          >
+            {LOFI_TRACKS.map((t, i) => (
+              <option key={t.id} value={i} className="bg-[#161831] text-white">
+                {t.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <span className="text-[10px] text-slate-400 font-semibold">Volume</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isAudioMuted ? 0 : audioVolume}
+            onChange={(e) => {
+              setAudioVolume(Number(e.target.value));
+              if (isAudioMuted) setIsAudioMuted(false);
+            }}
+            className="w-20 sm:w-24 accent-[#6B4EFF] cursor-pointer"
+          />
+        </div>
+      </div>
+
       {/* Completed Sessions & Finish Early */}
-      <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
         <span className="flex items-center gap-1.5">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
         </span>

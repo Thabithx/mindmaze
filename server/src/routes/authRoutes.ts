@@ -89,6 +89,47 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
+function updateStreakOnActivity(user: any): boolean {
+  try {
+    const userTz = user.timezone || 'Asia/Colombo';
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: userTz }).format(now);
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = new Intl.DateTimeFormat('en-CA', { timeZone: userTz }).format(yesterday);
+
+    const lastActive = user.lastCompletedDate;
+
+    if (lastActive === todayStr) {
+      if (!user.streakDays || user.streakDays < 1) {
+        user.streakDays = 1;
+        return true;
+      }
+      return false;
+    }
+
+    if (lastActive === yesterdayStr) {
+      user.streakDays = (user.streakDays || 0) + 1;
+    } else {
+      user.streakDays = 1;
+    }
+
+    user.lastCompletedDate = todayStr;
+    if (!user.completedDates) user.completedDates = [];
+    if (!user.completedDates.includes(todayStr)) {
+      user.completedDates.push(todayStr);
+    }
+
+    if (user.streakDays > (user.bestStreak || 0)) {
+      user.bestStreak = user.streakDays;
+    }
+
+    return true;
+  } catch (e) {
+    console.warn('Streak update error:', e);
+    return false;
+  }
+}
+
 router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     let { email, password } = req.body;
@@ -115,6 +156,11 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
     if (!isMatch) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
+    }
+
+    const streakUpdated = updateStreakOnActivity(user);
+    if (streakUpdated) {
+      await user.save();
     }
 
     const token = generateToken(user._id.toString());
@@ -146,7 +192,16 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
 });
 
 router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
-  res.json({ user: req.user });
+  try {
+    const user = req.user!;
+    const streakUpdated = updateStreakOnActivity(user);
+    if (streakUpdated) {
+      await (user as any).save();
+    }
+    res.json({ user });
+  } catch (e) {
+    res.json({ user: req.user });
+  }
 });
 
 router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
