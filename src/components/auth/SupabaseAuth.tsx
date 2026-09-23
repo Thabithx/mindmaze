@@ -12,7 +12,6 @@ import {
 } from '../../lib/cloudStore';
 import { getUserSettings, saveUserSettings } from '../../lib/storage';
 import { buildCompletedTopicsFromIds } from '../../lib/syllabusProgression';
-import { isValidEmail, isValidPhoneNumber } from '../../lib/validators';
 import { CompletedTopicsPicker } from './CompletedTopicsPicker';
 import {
   Mail,
@@ -191,13 +190,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
       setErrorMsg(nameError);
       return;
     }
-    if (!isValidEmail(email)) {
+    if (!email.trim() || !email.includes('@')) {
       setErrorMsg('Please enter a valid email address.');
-      return;
-    }
-    const cleanMobile = mobileNumber.trim();
-    if (cleanMobile && !isValidPhoneNumber(cleanMobile)) {
-      setErrorMsg('Please enter a valid mobile number (e.g. 0771234567 or +94771234567).');
       return;
     }
     if (password.length < 6) {
@@ -301,12 +295,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setErrorMsg(null);
     setInfoMsg(null);
     if (blockedByCooldown('signin')) return;
-    if (!isValidEmail(email)) {
-      setErrorMsg('Please enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+    if (!email.trim() || !password) {
+      setErrorMsg('Please enter both your email and password.');
       return;
     }
     setBusy(true);
@@ -326,8 +316,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setErrorMsg(null);
     setInfoMsg(null);
     if (blockedByCooldown('forgot')) return;
-    if (!isValidEmail(email)) {
-      setErrorMsg('Please enter a valid email address.');
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('Enter your account email above first.');
       return;
     }
     setBusy(true);
@@ -349,8 +339,8 @@ export const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ view, onViewChange, 
     setErrorMsg(null);
     setInfoMsg(null);
     if (blockedByCooldown('resend')) return;
-    if (!isValidEmail(email)) {
-      setErrorMsg('Please enter a valid email address.');
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('Enter your account email on the sign-up form first.');
       return;
     }
     setBusy(true);

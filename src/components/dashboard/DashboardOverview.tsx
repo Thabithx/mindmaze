@@ -60,7 +60,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   username,
   examDate = null,
   onNavigateToSettings,
-  onOpenProfileEdit,
   pomodoroSlot,
 }) => {
   const effectiveStream = stream || userSettings?.stream || 'Physical Science';
@@ -98,41 +97,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     return Math.max(0, Math.round((target.getTime() - today.getTime()) / 86400000));
   })();
 
-  const handleOpenDateInput = () => {
+  const handleOpenSettings = () => {
     if (onOpenProfileEdit) {
       onOpenProfileEdit();
-      setTimeout(() => {
-        const input = document.getElementById('target-exam-date-input') as HTMLInputElement | null;
-        if (input) {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          input.focus();
-          input.classList.add('ring-4', 'ring-indigo-500', 'border-indigo-400');
-          setTimeout(() => input.classList.remove('ring-4', 'ring-indigo-500', 'border-indigo-400'), 2500);
-        }
-      }, 150);
     } else if (onNavigateToSettings) {
       onNavigateToSettings();
-      setTimeout(() => {
-        const input = document.getElementById('settings-exam-date-input') as HTMLInputElement | null;
-        if (input) {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          input.focus();
-          input.classList.add('ring-4', 'ring-indigo-500', 'border-indigo-400');
-          setTimeout(() => input.classList.remove('ring-4', 'ring-indigo-500', 'border-indigo-400'), 2500);
-        }
-      }, 150);
     } else if (onNavigate) {
       onNavigate('settings');
-      setTimeout(() => {
-        const input = document.getElementById('settings-exam-date-input') as HTMLInputElement | null;
-        if (input) {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          input.focus();
-          input.classList.add('ring-4', 'ring-indigo-500', 'border-indigo-400');
-          setTimeout(() => input.classList.remove('ring-4', 'ring-indigo-500', 'border-indigo-400'), 2500);
-        }
-      }, 150);
     }
+
+    setTimeout(() => {
+      const el = document.getElementById('profile-target-exam-date') || document.getElementById('settings-target-exam-date');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+        el.classList.add('ring-4', 'ring-amber-400/80');
+        setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400/80'), 2500);
+      }
+    }, 250);
   };
 
   return (
@@ -169,11 +151,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </span>
             </div>
             <button
-              onClick={handleOpenDateInput}
+              onClick={handleOpenSettings}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-[10px] font-bold transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 sm:mt-2"
             >
               <Calendar className="w-3 h-3" />
-              <span>Change Date</span>
+              <span>Update Date</span>
             </button>
           </div>
         </div>

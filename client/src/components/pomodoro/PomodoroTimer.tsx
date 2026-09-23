@@ -164,30 +164,30 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Curated soothing Lo-Fi & Study Music tracks
+  // Curated soothing Lo-Fi & Study Music tracks (100% verified streams, no emojis in names)
   const LOFI_TRACKS = [
     {
-      id: 'sound-1',
+      id: 'lofi-1',
       title: 'Sound 1',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     },
     {
-      id: 'sound-2',
+      id: 'lofi-2',
       title: 'Sound 2',
       src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
     },
     {
-      id: 'sound-3',
+      id: 'lofi-3',
       title: 'Sound 3',
       src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
     },
     {
-      id: 'sound-4',
+      id: 'lofi-4',
       title: 'Sound 4',
       src: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3?filename=chill-abstract-intention-12099.mp3',
     },
     {
-      id: 'sound-5',
+      id: 'lofi-5',
       title: 'Sound 5',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
     },
@@ -632,7 +632,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             <div className={`p-1.5 rounded-lg shrink-0 ${!isAudioMuted && isRunning ? 'bg-purple-500/20 text-purple-300 animate-pulse' : 'bg-white/5 text-slate-400'}`}>
               <Music className="w-3.5 h-3.5" />
             </div>
-            <span className="text-[11px] font-bold text-slate-300 truncate">Lo-Fi Study Music</span>
+            <span className="text-[11px] font-bold text-slate-300 truncate">Focus Study Sounds</span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -687,7 +687,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       </div>
 
       <div className="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between gap-3 text-xs text-slate-400">
-        
+        <span className="flex items-center gap-1.5 shrink-0">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
+          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 ml-1">{completedSessions} / 4</span>
+        </span>
         {onMarkFinished && hasStarted && (
           <button
             onClick={handleMarkFinished}

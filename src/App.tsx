@@ -51,8 +51,6 @@ import { ProfileEditModal } from './components/profile/ProfileEditModal';
 import { NotificationsScreen } from './components/notifications/NotificationsScreen';
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
-import { isValidEmail, isValidPhoneNumber } from './lib/validators';
-import { supabase } from './lib/supabaseClient';
 
 import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap } from 'lucide-react';
 
@@ -74,8 +72,8 @@ export function App() {
   const [streamInput, setStreamInput] = useState<StreamType>('Physical Science');
   const [electiveInput, setElectiveInput] = useState<'Chemistry' | 'ICT'>('Chemistry');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [authForgotSent, setAuthForgotSent] = useState(false);
 
   // Profile Edit Modal State
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
@@ -220,17 +218,28 @@ export function App() {
     }
   };
 
+  const validateEmailFormat = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const validatePhoneFormat = (phone: string) => {
+    const clean = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(\+?\d{9,15}|\d{10})$/.test(clean);
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccess(null);
 
     const cleanEmail = emailInput.trim();
-    if (!cleanEmail || !isValidEmail(cleanEmail)) {
-      setAuthError('Please enter a valid email address.');
+    if (!cleanEmail) {
+      setAuthError('Please enter your email address.');
       return;
     }
-    if (!passwordInput || passwordInput.length < 6) {
-      setAuthError('Password must be at least 6 characters long.');
+    if (!validateEmailFormat(cleanEmail)) {
+      setAuthError('Please enter a valid email address (e.g. student@example.com).');
+      return;
+    }
+    if (!passwordInput) {
+      setAuthError('Please enter your password.');
       return;
     }
 
@@ -254,35 +263,7 @@ export function App() {
       }
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
-      setAuthError(err.message || 'Invalid email or password. Please try again.');
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthForgotSent(false);
-
-    const cleanEmail = emailInput.trim();
-    if (!cleanEmail || !isValidEmail(cleanEmail)) {
-      setAuthError('Please enter a valid email address.');
-      return;
-    }
-
-    setAuthSubmitting(true);
-    try {
-      if (supabase) {
-        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: `${window.location.origin}`,
-        });
-        if (error) throw error;
-      }
-      setAuthForgotSent(true);
-    } catch (err: any) {
-      console.error('[Auth] Forgot password error:', err);
-      setAuthError(err.message || 'Failed to send password reset email. Please try again.');
+      setAuthError(err.message || 'Invalid email or password. Please check your credentials.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -291,32 +272,28 @@ export function App() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccess(null);
 
     const cleanName = nameInput.trim();
     if (!cleanName || cleanName.length < 2) {
-      setAuthError('Please enter your full name (minimum 2 characters).');
+      setAuthError('Please enter your full name (at least 2 characters).');
       return;
     }
 
     const cleanEmail = emailInput.trim();
-    if (!cleanEmail || !isValidEmail(cleanEmail)) {
-      setAuthError('Please enter a valid email address.');
+    if (!cleanEmail || !validateEmailFormat(cleanEmail)) {
+      setAuthError('Please enter a valid email address (e.g. student@example.com).');
       return;
     }
 
-    const cleanPhone = whatsappInput.trim();
-    if (!cleanPhone || !isValidPhoneNumber(cleanPhone)) {
-      setAuthError('Please enter a valid WhatsApp / mobile number (e.g. 0771234567 or +94771234567).');
+    const cleanWhatsapp = whatsappInput.trim();
+    if (!cleanWhatsapp || !validatePhoneFormat(cleanWhatsapp)) {
+      setAuthError('Please enter a valid WhatsApp mobile number (e.g., +94 77 123 4567 or 0771234567).');
       return;
     }
 
     if (!passwordInput || passwordInput.length < 6) {
       setAuthError('Password must be at least 6 characters long.');
-      return;
-    }
-
-    if (!streamInput) {
-      setAuthError('Please select your A/L stream.');
       return;
     }
 
@@ -326,8 +303,7 @@ export function App() {
         name: cleanName,
         email: cleanEmail,
         password: passwordInput,
-        whatsappNumber: cleanPhone,
-        mobileNumber: cleanPhone,
+        whatsappNumber: cleanWhatsapp,
         stream: streamInput,
         physicalScienceElective: streamInput === 'Physical Science' ? electiveInput : undefined,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Colombo',
@@ -345,7 +321,28 @@ export function App() {
         api.syncTimetable(local).catch(() => {});
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Registration failed. Please try again.');
+      setAuthError(err.message || 'Registration failed. Please check your details and try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail || !validateEmailFormat(cleanEmail)) {
+      setAuthError('Please enter a valid email address to receive the password reset link.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      setAuthSuccess(`If an account exists for ${cleanEmail}, a password reset link has been sent! Please check your inbox and spam folder.`);
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to send reset link. Please try again.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -1274,7 +1271,11 @@ export function App() {
                   {authModalMode === 'signin' ? 'Welcome Back' : authModalMode === 'signup' ? 'Create Account' : 'Reset Password'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {authModalMode === 'signin' ? 'Sign in to access your study planner' : authModalMode === 'signup' ? 'Join Mind Maze GCE A/L Community' : 'Enter your email to receive a reset link'}
+                  {authModalMode === 'signin'
+                    ? 'Sign in to access your study planner'
+                    : authModalMode === 'signup'
+                    ? 'Join Mind Maze GCE A/L Community'
+                    : 'Enter your email to receive reset instructions'}
                 </p>
               </div>
             </div>
@@ -1285,13 +1286,13 @@ export function App() {
               </div>
             )}
 
-            {authForgotSent && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-                Password reset instructions sent! Please check your email inbox.
+            {authSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                <span>{authSuccess}</span>
               </div>
             )}
 
-            <form onSubmit={authModalMode === 'signin' ? handleSignIn : authModalMode === 'signup' ? handleSignUp : handleForgotPassword} className="space-y-4">
+            <form onSubmit={authModalMode === 'signin' ? handleSignIn : authModalMode === 'signup' ? handleSignUp : handleResetPassword} className="space-y-4">
               {authModalMode === 'signup' && (
                 <>
                   <div>
@@ -1342,12 +1343,8 @@ export function App() {
                     {authModalMode === 'signin' && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setAuthModalMode('forgot');
-                          setAuthError(null);
-                          setAuthForgotSent(false);
-                        }}
-                        className="text-[11px] text-indigo-400 font-semibold hover:underline"
+                        onClick={() => { setAuthModalMode('forgot'); setAuthError(null); setAuthSuccess(null); }}
+                        className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -1360,7 +1357,7 @@ export function App() {
                     onChange={(e) => setPasswordInput(e.target.value)}
                     placeholder="••••••••"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-                    required
+                    required={authModalMode !== 'forgot'}
                   />
                 </div>
               )}
@@ -1398,7 +1395,7 @@ export function App() {
               <button
                 type="submit"
                 disabled={authSubmitting}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
               >
                 {authSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1411,9 +1408,7 @@ export function App() {
                     <UserPlus className="w-4 h-4" /> Create Account
                   </>
                 ) : (
-                  <>
-                    Send Reset Link
-                  </>
+                  <span>Send Reset Link</span>
                 )}
               </button>
             </form>
@@ -1422,21 +1417,21 @@ export function App() {
               {authModalMode === 'signin' ? (
                 <p>
                   Don't have an account?{' '}
-                  <button onClick={() => { setAuthModalMode('signup'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
+                  <button onClick={() => { setAuthModalMode('signup'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
                     Sign Up
                   </button>
                 </p>
               ) : authModalMode === 'signup' ? (
                 <p>
                   Already have an account?{' '}
-                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
+                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
                     Sign In
                   </button>
                 </p>
               ) : (
                 <p>
-                  Remember your password?{' '}
-                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthForgotSent(false); }} className="text-indigo-400 font-bold hover:underline">
+                  Remembered your password?{' '}
+                  <button onClick={() => { setAuthModalMode('signin'); setAuthError(null); setAuthSuccess(null); }} className="text-indigo-400 font-bold hover:underline cursor-pointer">
                     Back to Sign In
                   </button>
                 </p>
