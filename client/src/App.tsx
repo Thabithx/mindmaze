@@ -196,29 +196,29 @@ export function App() {
         // Sync timetable with backend database
         try {
           const ttRes = await api.getTimetable();
-          if (ttRes?.timetable && ttRes.timetable.length > 0) {
-            const mapped: TimetableEntry[] = ttRes.timetable.map((s: any) => ({
-              id: s._id || s.id,
-              dayOfWeek: s.dayOfWeek,
-              subject: s.subject,
-              topic: s.topic,
-              blockType: s.blockType || 'study',
-              topicId: s.topicId || '',
-              subtopicTargets: s.subtopicTargets || [],
-              isCompleted: Boolean(s.isCompleted),
-              startTime: s.startTime,
-              endTime: s.endTime,
-              color: s.color || 'blue',
-              reminderEnabled: s.reminderEnabled !== undefined ? Boolean(s.reminderEnabled) : true,
-              reminderOffsetMinutes: s.reminderOffsetMinutes || 15,
-              notes: s.notes || '',
-            }));
-            setTimetable(mapped);
-            saveStoredTimetable(mapped);
-          } else {
-            const local = getStoredTimetable() || [];
-            if (local.length > 0) {
-              await api.syncTimetable(local);
+          if (Array.isArray(ttRes?.timetable)) {
+            if (ttRes.timetable.length > 0) {
+              const mapped: TimetableEntry[] = ttRes.timetable.map((s: any) => ({
+                id: s._id || s.id,
+                dayOfWeek: s.dayOfWeek,
+                subject: s.subject,
+                topic: s.topic,
+                blockType: s.blockType || 'study',
+                topicId: s.topicId || '',
+                subtopicTargets: s.subtopicTargets || [],
+                isCompleted: Boolean(s.isCompleted),
+                startTime: s.startTime,
+                endTime: s.endTime,
+                color: s.color || 'blue',
+                reminderEnabled: s.reminderEnabled !== undefined ? Boolean(s.reminderEnabled) : true,
+                reminderOffsetMinutes: s.reminderOffsetMinutes || 15,
+                notes: s.notes || '',
+              }));
+              setTimetable(mapped);
+              saveStoredTimetable(mapped);
+            } else {
+              setTimetable([]);
+              saveStoredTimetable([]);
             }
           }
         } catch (ttErr) {
@@ -228,20 +228,28 @@ export function App() {
         // Restore syllabus progress from DB
         try {
           const sylRes = await api.getSyllabusProgress();
-          if (sylRes?.progress && sylRes.progress.length > 0) {
+          if (Array.isArray(sylRes?.progress)) {
             const progressMap: Record<string, any> = {};
             sylRes.progress.forEach((p: any) => {
               progressMap[p.topicId] = p;
             });
-            setSyllabusTopics((prev) => {
-              const merged = prev.map((t) => {
+            setSyllabusTopics(() => {
+              const fresh = INITIAL_SYLLABUS_TOPICS;
+              const merged = fresh.map((t) => {
                 const dbp = progressMap[t.id];
-                if (!dbp) return t;
+                if (!dbp) {
+                  return {
+                    ...t,
+                    status: 'not_started' as const,
+                    completedSubtopics: [],
+                    subtopicProgress: {},
+                  };
+                }
                 return {
                   ...t,
                   status: dbp.status || t.status,
-                  completedSubtopics: dbp.completedSubtopics || t.completedSubtopics || [],
-                  subtopicProgress: dbp.subtopicProgress || t.subtopicProgress || {},
+                  completedSubtopics: dbp.completedSubtopics || [],
+                  subtopicProgress: dbp.subtopicProgress || {},
                 };
               });
               saveStoredSyllabusTopics(merged);
@@ -255,7 +263,7 @@ export function App() {
         // Restore mistakes from DB
         try {
           const mkRes = await api.getMistakes();
-          if (mkRes?.mistakes && mkRes.mistakes.length > 0) {
+          if (Array.isArray(mkRes?.mistakes)) {
             const mapped: MistakeItem[] = mkRes.mistakes.map((m: any) => ({
               id: m._id || m.id,
               subject: m.subject || '',
@@ -322,6 +330,7 @@ export function App() {
       if (local.length > 0) {
         api.syncTimetable(local).catch(() => {});
       }
+      await checkCurrentAuth();
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
       setAuthError(err.message || 'Invalid email or password. Please try again.');
@@ -356,6 +365,7 @@ export function App() {
       if (local.length > 0) {
         api.syncTimetable(local).catch(() => {});
       }
+      await checkCurrentAuth();
     } catch (err: any) {
       setAuthError(err.message || 'Registration failed.');
     } finally {
@@ -425,6 +435,19 @@ export function App() {
     removeAuthToken();
     removeStoredUser();
     setUser(null);
+    setMistakes([]);
+    setTimetable([]);
+    setTasks([]);
+    setSyllabusTopics(INITIAL_SYLLABUS_TOPICS);
+    setStreakDays(1);
+    try {
+      localStorage.removeItem('mindmaze_timetable_v2');
+      localStorage.removeItem('mindmaze_daily_tasks_v2');
+      localStorage.removeItem('mindmaze_syllabus_topics_v2');
+      localStorage.removeItem('mindmaze_mistakes_v2');
+      localStorage.removeItem('mindmaze_study_streak_v2');
+      localStorage.removeItem('mindmaze_last_activity_v2');
+    } catch {}
     setCurrentScreen('dashboard');
   };
 

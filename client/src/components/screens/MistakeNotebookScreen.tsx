@@ -41,18 +41,22 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
 
   // Extract unique topics and subjects
   const safeMistakes = mistakes || [];
-  const allSubjects = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.question?.subject).filter(Boolean)))];
-  const allTopics = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.question?.topic).filter(Boolean)))];
+  const allSubjects = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.subject || m?.question?.subject).filter(Boolean)))];
+  const allTopics = ['All', ...Array.from(new Set(safeMistakes.map((m) => m?.topic || m?.question?.topic).filter(Boolean)))];
 
   const filteredMistakes = safeMistakes.filter((m) => {
-    if (!m || !m.question) return false;
-    if (selectedSubject !== 'All' && m.question.subject !== selectedSubject) return false;
-    if (selectedTopic !== 'All' && m.question.topic !== selectedTopic) return false;
+    if (!m) return false;
+    const subj = m.subject || m.question?.subject || 'General';
+    const top = m.topic || m.question?.topic || 'General Topic';
+    const qText = m.questionText || m.question?.questionText || '';
+    if (selectedSubject !== 'All' && subj !== selectedSubject) return false;
+    if (selectedTopic !== 'All' && top !== selectedTopic) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchText = (m.question.questionText || '').toLowerCase().includes(q);
-      const matchTopic = (m.question.topic || '').toLowerCase().includes(q);
-      const matchConcept = (m.question.explanation?.conceptNote || '').toLowerCase().includes(q);
+      const matchText = qText.toLowerCase().includes(q);
+      const matchTopic = top.toLowerCase().includes(q);
+      const concept = typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || '');
+      const matchConcept = concept.toLowerCase().includes(q);
       if (!matchText && !matchTopic && !matchConcept) return false;
     }
     return true;
@@ -185,6 +189,17 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
         ) : (
           filteredMistakes.map((item) => {
             const isExpanded = expandedId === item.id;
+            const subj = item.subject || item.question?.subject || 'Physics';
+            const top = item.topic || item.question?.topic || 'General Topic';
+            const qText = item.questionText || item.question?.questionText || 'Question';
+            const paperYear = item.question?.paperYear || '';
+            const yourAns = item.yourAnswer || (item.userSelectedOptionId ? `Option ${item.userSelectedOptionId}` : 'Not selected');
+            const correctAns = item.correctAnswer || item.question?.explanation?.correctOptionText || (item.question?.explanation?.correctOptionId ? `Option ${item.question.explanation.correctOptionId}` : '');
+            const conceptNote = typeof item.explanation === 'string' ? item.explanation : (item.question?.explanation?.conceptNote || 'Review this question topic carefully.');
+            const stepByStepList: string[] = Array.isArray(item.question?.explanation?.stepByStep)
+              ? item.question.explanation.stepByStep
+              : (conceptNote ? [conceptNote] : []);
+
             return (
               <div
                 key={item.id}
@@ -199,11 +214,11 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                   <div className="space-y-1.5 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[10px] font-bold text-purple-300">
-                        {item.question.subject}
+                        {subj}
                       </span>
-                      <span className="text-slate-400 text-xs font-mono">{item.question.paperYear} A/L</span>
+                      {paperYear && <span className="text-slate-400 text-xs font-mono">{paperYear} A/L</span>}
                       <span className="text-xs font-semibold text-cyan-300">
-                        {item.question.topic}
+                        {top}
                       </span>
                       {item.isMastered && (
                         <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
@@ -213,14 +228,14 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                     </div>
 
                     <h4 className="text-sm font-semibold text-white leading-relaxed line-clamp-2">
-                      {item.question.questionText}
+                      {qText}
                     </h4>
 
                     <div className="text-[11px] text-slate-400 flex items-center gap-3">
-                      <span>Saved: {item.savedAt}</span>
+                      <span>Saved: {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : item.savedAt || 'Recently'}</span>
                       <span>•</span>
                       <span className="text-rose-400 font-medium">
-                        Your previous pick: Option {item.userSelectedOptionId}
+                        Your answer: {yourAns}
                       </span>
                     </div>
                   </div>
@@ -260,15 +275,17 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                 {isExpanded && (
                   <div className="border-t border-white/10 p-6 bg-black/30 rounded-b-3xl space-y-5 animate-in fade-in duration-200">
                     {/* Correct Answer Highlight */}
-                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-xs">
-                      <div>
-                        <span className="text-emerald-400 font-bold">Verified Correct Answer:</span>
-                        <span className="text-white font-semibold ml-2">
-                          Option {item.question.explanation.correctOptionId} ({item.question.explanation.correctOptionText})
-                        </span>
+                    {correctAns && (
+                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-xs">
+                        <div>
+                          <span className="text-emerald-400 font-bold">Verified Correct Answer:</span>
+                          <span className="text-white font-semibold ml-2">
+                            {correctAns}
+                          </span>
+                        </div>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       </div>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    </div>
+                    )}
 
                     {/* Concept Note */}
                     <div className="space-y-1.5">
@@ -277,25 +294,27 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                         <span>Core Concept Blueprint:</span>
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3.5 rounded-xl border border-white/5">
-                        {item.question.explanation.conceptNote}
+                        {conceptNote}
                       </p>
                     </div>
 
                     {/* Step-by-Step Method */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
-                        <ListOrdered className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Step-by-Step Method:</span>
+                    {stepByStepList.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
+                          <ListOrdered className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Step-by-Step Method:</span>
+                        </div>
+                        <div className="space-y-1.5 text-xs text-slate-300">
+                          {stepByStepList.map((step, idx) => (
+                            <div key={idx} className="flex items-start gap-2.5 bg-white/5 p-2.5 rounded-lg border border-white/5">
+                              <span className="text-cyan-300 font-bold">{idx + 1}.</span>
+                              <span>{step}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1.5 text-xs text-slate-300">
-                        {item.question.explanation.stepByStep.map((step, idx) => (
-                          <div key={idx} className="flex items-start gap-2.5 bg-white/5 p-2.5 rounded-lg border border-white/5">
-                            <span className="text-cyan-300 font-bold">{idx + 1}.</span>
-                            <span>{step}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    )}
 
                     {/* Personal Retention Note */}
                     {item.userNotes && (

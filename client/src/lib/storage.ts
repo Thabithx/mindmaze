@@ -12,17 +12,7 @@ export function getStoredMistakes(): MistakeItem[] {
   try {
     const raw = localStorage.getItem(MISTAKES_STORAGE_KEY);
     if (!raw) {
-      const initial: MistakeItem[] = [
-        {
-          id: 'm-1',
-          savedAt: '2026-09-20',
-          userSelectedOptionId: 'A',
-          isMastered: false,
-          question: PHYSICS_QUESTIONS[0],
-        },
-      ];
-      saveStoredMistakes(initial);
-      return initial;
+      return [];
     }
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
