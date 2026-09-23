@@ -373,6 +373,7 @@ router.post('/push-subscription', protect, async (req: AuthRequest, res: Respons
       }
     }
     res.json({ message: 'Push notification subscription saved' });
+  } catch (error) {
     res.status(500).json({ message: 'Error saving push subscription' });
   }
 });
