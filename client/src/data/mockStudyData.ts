@@ -11,8 +11,8 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
     stream: 'Maths',
     recommendedDailyHours: 3.5,
     dailyMCQTarget: 20,
-    progressPercentage: 50,
-    currentDay: 7,
+    progressPercentage: 0,
+    currentDay: 1,
     isActive: true,
     badgeUnlockTitle: 'Mechanics Mastery Milestone',
     keyOutcomes: [
@@ -29,7 +29,7 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
         focus: 'Apex radius of curvature, relative velocity, projectile on inclined planes',
         topics: ['Projectiles', 'Relative Velocity', 'Speed-Time Graphs'],
         targetPapers: '2005 - 2018 Mechanics MCQs',
-        status: 'completed',
+        status: 'upcoming',
       },
       {
         phaseNumber: 2,
@@ -38,7 +38,7 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
         focus: 'Moment of inertia of cylinders & spheres, rolling without slipping, angular momentum',
         topics: ['Rolling on Inclines', 'Angular Momentum Conservation', 'Torque & Equilibrium'],
         targetPapers: '2019 - 2024 Mechanics MCQs',
-        status: 'in-progress',
+        status: 'upcoming',
       },
       {
         phaseNumber: 3,
@@ -61,8 +61,8 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
     stream: 'Maths',
     recommendedDailyHours: 3.0,
     dailyMCQTarget: 18,
-    progressPercentage: 24,
-    currentDay: 5,
+    progressPercentage: 0,
+    currentDay: 1,
     isActive: false,
     badgeUnlockTitle: 'Waves & Thermal Milestone',
     keyOutcomes: [
@@ -79,7 +79,7 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
         focus: 'Superposition, Doppler reflections, organ pipes, beat frequencies',
         topics: ['Doppler Effect', 'Stationary Waves', 'Resonance Tube Correction'],
         targetPapers: '2012 - 2018 Past Papers',
-        status: 'completed',
+        status: 'upcoming',
       },
       {
         phaseNumber: 2,
@@ -88,7 +88,7 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
         focus: 'Young double slit, diffraction gratings, total internal reflection',
         topics: ['Interference Fringe Width', 'Diffraction Maxima', 'Refractive Index'],
         targetPapers: '2019 - 2023 Past Papers',
-        status: 'in-progress',
+        status: 'upcoming',
       },
       {
         phaseNumber: 3,
@@ -111,8 +111,8 @@ export const INITIAL_STUDY_PLANS: StudyPlan[] = [
     stream: 'Maths',
     recommendedDailyHours: 3.2,
     dailyMCQTarget: 20,
-    progressPercentage: 14,
-    currentDay: 2,
+    progressPercentage: 0,
+    currentDay: 1,
     isActive: false,
     badgeUnlockTitle: 'Fields & Electronics Milestone',
     keyOutcomes: [

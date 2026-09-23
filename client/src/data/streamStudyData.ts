@@ -52,8 +52,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Maths',
       recommendedDailyHours: 3.5,
       dailyMCQTarget: 20,
-      progressPercentage: 50,
-      currentDay: 7,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: true,
       badgeUnlockTitle: 'Mechanics & Calculus Milestone',
       keyOutcomes: [
@@ -70,7 +70,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Apex radius of curvature, relative velocity, speed-time graph geometry',
           topics: ['Projectiles', 'Relative Velocity', 'Speed-Time Graphs'],
           targetPapers: '2005 - 2018 Past Papers',
-          status: 'completed',
+          status: 'upcoming',
         },
         {
           phaseNumber: 2,
@@ -79,7 +79,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Moment of inertia, angular momentum conservation, torque equilibrium',
           topics: ['Rolling on Inclines', 'Angular Momentum', 'Calculus Integrals'],
           targetPapers: '2019 - 2024 Past Papers',
-          status: 'in-progress',
+          status: 'upcoming',
         },
         {
           phaseNumber: 3,
@@ -102,8 +102,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Maths',
       recommendedDailyHours: 4.0,
       dailyMCQTarget: 25,
-      progressPercentage: 30,
-      currentDay: 9,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: false,
       badgeUnlockTitle: 'Fields & Pure Maths Milestone',
       keyOutcomes: [
@@ -120,7 +120,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Gauss theorem, Potentiometer, Wheatstone bridge, Capacitor transients',
           topics: ['Electric Potential', 'Capacitor Networks', 'Internal Resistance'],
           targetPapers: '2014 - 2019 Past Papers',
-          status: 'completed',
+          status: 'upcoming',
         },
         {
           phaseNumber: 2,
@@ -129,7 +129,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Biot-Savart law, Mutual inductance, Trigonometric identities, Complex numbers',
           topics: ['Induced EMF', 'Lenz Law', 'De Moivre Theorem', 'Trigonometric Equations'],
           targetPapers: '2020 - 2024 Past Papers',
-          status: 'in-progress',
+          status: 'upcoming',
         },
         {
           phaseNumber: 3,
@@ -152,8 +152,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Maths',
       recommendedDailyHours: 4.5,
       dailyMCQTarget: 30,
-      progressPercentage: 15,
-      currentDay: 10,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: false,
       badgeUnlockTitle: 'Island Rank Scholar Milestone',
       keyOutcomes: [
@@ -169,7 +169,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Mechanics, Waves, Heat, and Pure Algebra',
           topics: ['Mechanics', 'Waves', 'Thermodynamics', 'Algebra'],
           targetPapers: '2000 - 2015 Papers',
-          status: 'in-progress',
+          status: 'upcoming',
         },
         {
           phaseNumber: 2,
@@ -204,8 +204,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Bio',
       recommendedDailyHours: 3.5,
       dailyMCQTarget: 20,
-      progressPercentage: 45,
-      currentDay: 6,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: true,
       badgeUnlockTitle: 'Genetics & Plant Master Milestone',
       keyOutcomes: [
@@ -222,7 +222,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'DNA replication enzymes, transcription, translation, Mendelian genetics',
           topics: ['DNA Polymerase', 'Protein Synthesis', 'Dihybrid Crosses'],
           targetPapers: '2010 - 2018 Bio MCQs',
-          status: 'completed',
+          status: 'upcoming',
         },
         {
           phaseNumber: 2,
@@ -231,7 +231,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Photosystem II & I, Rubisco, Kranz anatomy, Xylem cohesion-tension theory',
           topics: ['C3 vs C4', 'Stomatal Regulation', 'Phloem Translocation'],
           targetPapers: '2019 - 2023 Bio MCQs',
-          status: 'in-progress',
+          status: 'upcoming',
         },
         {
           phaseNumber: 3,
@@ -254,8 +254,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Bio',
       recommendedDailyHours: 4.0,
       dailyMCQTarget: 25,
-      progressPercentage: 20,
-      currentDay: 6,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: false,
       badgeUnlockTitle: 'Human Physiology & Organic Chemistry Milestone',
       keyOutcomes: [
@@ -272,7 +272,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Action potentials, cardiac output, loop of Henle, ADH & aldosterone',
           topics: ['Action Potential', 'Cardiac Cycle', 'Glomerular Filtration'],
           targetPapers: '2012 - 2018 Past Papers',
-          status: 'completed',
+          status: 'upcoming',
         },
         {
           phaseNumber: 2,
@@ -281,7 +281,7 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
           focus: 'Hypothalamus-pituitary axis, synapses, aldehydes, ketones, carboxylic acids',
           topics: ['Endocrine Control', 'Synaptic Transmission', 'Aldol & Esterification'],
           targetPapers: '2019 - 2023 Past Papers',
-          status: 'in-progress',
+          status: 'upcoming',
         },
         {
           phaseNumber: 3,
@@ -304,8 +304,8 @@ export const ALL_STREAM_STUDY_PLANS: Partial<Record<StreamType, StudyPlan[]>> = 
       stream: 'Bio',
       recommendedDailyHours: 4.5,
       dailyMCQTarget: 30,
-      progressPercentage: 10,
-      currentDay: 6,
+      progressPercentage: 0,
+      currentDay: 1,
       isActive: false,
       badgeUnlockTitle: 'Medical Faculty Aspirant Milestone',
       keyOutcomes: [

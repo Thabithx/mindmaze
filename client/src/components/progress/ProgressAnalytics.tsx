@@ -75,16 +75,17 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const completedSubtopics = streamProgression.completedSubtopics;
   const totalSubtopics = streamProgression.totalSubtopics;
 
-  // Calculate total weekly timetable hours
-  let totalWeeklyMinutes = 0;
+  // Calculate total weekly study hours (timer minutes + completed timetable slots)
+  const timerMins = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0;
+  let completedTimetableMins = 0;
   safeTimetable.forEach((entry) => {
-    if (!entry.startTime || !entry.endTime) return;
+    if (!entry.startTime || !entry.endTime || !entry.isCompleted) return;
     const [sh, sm] = entry.startTime.split(':').map(Number);
     const [eh, em] = entry.endTime.split(':').map(Number);
-    const diff = eh * 60 + em - (sh * 60 + sm);
-    if (diff > 0) totalWeeklyMinutes += diff;
+    const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+    if (diff > 0) completedTimetableMins += diff;
   });
-  const weeklyHours = Math.round((totalWeeklyMinutes / 60) * 10) / 10;
+  const weeklyHours = Math.round(((timerMins + completedTimetableMins) / 60) * 10) / 10;
   const weeklyGoalPercent = Math.min(100, Math.round((weeklyHours / weeklyGoal) * 100));
 
   // Daily task completion stats
