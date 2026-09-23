@@ -403,6 +403,19 @@ export function App() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  const handleFocusWithPomodoro = () => {
+    setIsPomodoroMinimized(false);
+    setCurrentScreen('dashboard');
+    setTimeout(() => {
+      const el = document.getElementById('pomodoro-timer-container');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-4', 'ring-indigo-500/50');
+        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500/50'), 2500);
+      }
+    }, 150);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Background Animated Maze Grid */}
@@ -472,7 +485,7 @@ export function App() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => setIsPomodoroMinimized(false)}
+                      onClick={handleFocusWithPomodoro}
                       className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 cursor-pointer hover:scale-105 active:scale-95"
                     >
                       Focus With Pomodoro

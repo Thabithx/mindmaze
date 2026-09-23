@@ -160,47 +160,32 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Curated soothing Lo-Fi & Study Music tracks
+  // Curated soothing Lo-Fi & Study Music tracks (100% verified streams, no emojis in names)
   const LOFI_TRACKS = [
     {
       id: 'lofi-1',
-      title: '🎧 1 A.M. Study Session (Chill Lo-Fi Beats)',
+      title: 'Chill Study Beats',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     },
     {
       id: 'lofi-2',
-      title: '🌧️ Midnight Rain & Soft Beats',
+      title: 'Midnight Lo-Fi',
       src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
     },
     {
       id: 'lofi-3',
-      title: '🎹 Deep Focus Piano & Ambient Strings',
+      title: 'Ambient Piano Flow',
       src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
     },
     {
       id: 'lofi-4',
-      title: '☕ Cozy Coffee Shop Study Flow',
-      src: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=study-110111.mp3',
-    },
-    {
-      id: 'lofi-5',
-      title: '🌿 Zen Meditation & Nature Flow',
-      src: 'https://cdn.pixabay.com/download/audio/2021/09/06/audio_8340d85ef4.mp3?filename=deep-meditation-192828.mp3',
-    },
-    {
-      id: 'lofi-6',
-      title: '🌌 Deep Space Synth & Night Ambient',
+      title: 'Deep Focus Ambient',
       src: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3?filename=chill-abstract-intention-12099.mp3',
     },
     {
-      id: 'lofi-7',
-      title: '🧠 Alpha Waves 432Hz Calm Drone',
+      id: 'lofi-5',
+      title: 'Soft Rain Sounds',
       src: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
-    },
-    {
-      id: 'lofi-8',
-      title: '📚 Library Peaceful Study Beats',
-      src: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_c3527e30de.mp3?filename=lofi-study-beat-110023.mp3',
     },
   ];
 
@@ -252,7 +237,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   // Minimized Compact Bar View
   if (isMinimized) {
     return (
-      <div className={`glass-card rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xl border border-white/15 transition-all select-none ${className}`}>
+      <div id="pomodoro-timer-container" className={`glass-card rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xl border border-white/15 transition-all select-none ${className}`}>
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 shrink-0">
             <Clock className="w-4 h-4" />
@@ -271,10 +256,11 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           {onMarkFinished && (
             <button
               onClick={onMarkFinished}
-              className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs font-black transition cursor-pointer shadow-md flex items-center gap-1.5"
               title="Mark Unit as Finished"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Mark Done</span>
             </button>
           )}
 
@@ -304,7 +290,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // Full Expanded View
   return (
-    <div className={`glass-card relative overflow-hidden rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/15 transition-all select-none ${className}`}>
+    <div id="pomodoro-timer-container" className={`glass-card relative overflow-hidden rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/15 transition-all select-none scroll-mt-24 ${className}`}>
       {/* Background Gradient Glow */}
       <div className={`absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${MODE_CONFIGS[mode].color} opacity-25 blur-3xl pointer-events-none`} />
 
@@ -332,7 +318,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       </div>
 
       {activeUnitTitle ? (
-        <div className="mb-4 p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm overflow-hidden">
+        <div className="mb-4 p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm overflow-hidden">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 shrink-0">
               <BookOpen className="w-4 h-4" />
@@ -381,10 +367,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             {onMarkFinished && (
               <button
                 onClick={onMarkFinished}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition shrink-0 cursor-pointer shadow hover:scale-105 active:scale-95"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-emerald-200 text-xs sm:text-sm font-black transition shrink-0 cursor-pointer shadow-lg shadow-emerald-950/40 hover:scale-105 active:scale-95 min-h-[44px]"
                 title="Mark this unit/task as finished"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Mark Finished</span>
               </button>
             )}
@@ -647,24 +633,20 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </div>
       </div>
 
-      {/* Completed Sessions & Finish Early */}
-      <div className="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-        <span className="flex items-center gap-1.5">
+      <div className="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between gap-3 text-xs text-slate-400">
+        <span className="flex items-center gap-1.5 shrink-0">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Focus Sessions
+          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 ml-1">{completedSessions} / 4</span>
         </span>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10">
-            {completedSessions} / 4
-          </span>
-          {onMarkFinished && (
-            <button
-              onClick={onMarkFinished}
-              className="text-[11px] font-bold text-emerald-400 hover:underline cursor-pointer"
-            >
-              Done Unit
-            </button>
-          )}
-        </div>
+        {onMarkFinished && (
+          <button
+            onClick={onMarkFinished}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border-2 border-emerald-400 text-sm font-black text-emerald-200 hover:text-white transition cursor-pointer hover:scale-105 active:scale-95 shadow-md shadow-emerald-900/30 min-h-[44px]"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Mark Finished</span>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -110,65 +110,91 @@ export const SubtopicTargetPicker: React.FC<SubtopicTargetPickerProps> = ({
   }
 
   return (
-    <div className="p-3 sm:p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2.5">
-      <div className="flex items-center justify-between">
-        <label className="text-cyan-300 font-semibold flex items-center gap-1.5 text-xs">
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>Syllabus Topic + Subtopic Targets</span>
-        </label>
-        <span className="text-[10px] text-cyan-400">drives progress %</span>
+    <div className="p-3.5 sm:p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 space-y-3 shadow-inner">
+      <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300">
+            <BookOpen className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">Link Syllabus Unit</span>
+            <span className="text-[10px] text-cyan-300/80">Connects directly to your syllabus master progress</span>
+          </div>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30">
+          {subject}
+        </span>
       </div>
 
-      <select
-        value={topicId}
-        onChange={(e) => {
-          onTopicChange(e.target.value);
-        }}
-        className="w-full rounded-xl bg-[#161831] border border-cyan-500/30 px-3 py-2 text-white font-medium focus:border-cyan-400 focus:outline-none text-xs"
-      >
-        <option value="">-- No specific topic linked --</option>
-        {subjectTopics.map((t) => {
-          const mathsGroup = getCombinedMathsGroup(t);
-          return (
-            <option key={t.id} value={t.id}>
-              {t.unitNumber ? `Unit ${t.unitNumber}: ` : ''}
-              {t.unitTitle && t.unitTitle.trim().toLowerCase() !== t.topicTitle.trim().toLowerCase()
-                ? `${t.unitTitle} – ${t.topicTitle}`
-                : t.topicTitle}
-              {mathsGroup === 'Pure Mathematics' ? ' · Pure' : mathsGroup === 'Applied Mathematics' ? ' · Applied' : ''}
-            </option>
-          );
-        })}
-      </select>
+      <div>
+        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+          Select Syllabus Topic / Unit
+        </label>
+        <select
+          value={topicId}
+          onChange={(e) => {
+            onTopicChange(e.target.value);
+          }}
+          className="w-full rounded-xl bg-[#161831] border border-cyan-500/35 px-3 py-2.5 text-white font-semibold focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none text-xs cursor-pointer truncate"
+        >
+          <option value="">-- No specific topic linked --</option>
+          {subjectTopics.map((t) => {
+            const mathsGroup = getCombinedMathsGroup(t);
+            return (
+              <option key={t.id} value={t.id} className="bg-[#161831] text-white">
+                {t.unitNumber ? `Unit ${t.unitNumber}: ` : ''}
+                {t.unitTitle && t.unitTitle.trim().toLowerCase() !== t.topicTitle.trim().toLowerCase()
+                  ? `${t.unitTitle} – ${t.topicTitle}`
+                  : t.topicTitle}
+                {mathsGroup === 'Pure Mathematics' ? ' · Pure' : mathsGroup === 'Applied Mathematics' ? ' · Applied' : ''}
+              </option>
+            );
+          })}
+        </select>
+      </div>
 
       {!currentTopic && (
-        <p className="text-[11px] text-slate-400 leading-relaxed">
-          Pick a syllabus topic above to select subtopics and set how much of each
-          you&apos;ll finish in this block (0 – 100%).
-        </p>
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-slate-400 flex items-center gap-2">
+          <span>💡 Select a syllabus topic above to break down and link specific subtopics.</span>
+        </div>
       )}
 
       {currentTopic && (!currentTopic.subtopics || currentTopic.subtopics.length === 0) && (
         <p className="text-[11px] text-slate-400 leading-relaxed">
-          This topic has no breakdown — completing the block marks the whole topic complete.
+          This topic has no subtopic breakdown — completing this block marks the entire unit complete.
         </p>
       )}
 
       {currentTopic && currentTopic.subtopics && currentTopic.subtopics.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 pt-1 border-t border-white/10">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-300">
-              Tap to select subtopics, then drag each slider (0 – 100%)
+            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+              <span>Target Subtopics ({targets.length}/{currentTopic.subtopics.length})</span>
             </span>
-            {targets.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => onTargetsChange([])}
-                className="text-[11px] font-bold text-slate-400 hover:text-rose-300 transition cursor-pointer"
+                onClick={() => {
+                  const allTargets = (currentTopic.subtopics || []).map((st) => ({
+                    subtopic: st,
+                    targetProgress: 100,
+                  }));
+                  onTargetsChange(allTargets);
+                }}
+                className="text-[10px] font-bold text-cyan-300 hover:underline cursor-pointer"
               >
-                Clear all
+                Select all
               </button>
-            )}
+              {targets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onTargetsChange([])}
+                  className="text-[10px] font-bold text-rose-300 hover:underline cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5 overscroll-contain">
