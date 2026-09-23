@@ -249,7 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setIsSubmitting(true);
     try {
-      const res = await api.forgotPassword(email.trim());
+      const res = await api.forgotPassword(email.trim(), window.location.origin);
       setInfoMsg(res.message || `Password reset link sent to ${email.trim()}! Please check your email inbox.`);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to send password reset email. Please try again.');

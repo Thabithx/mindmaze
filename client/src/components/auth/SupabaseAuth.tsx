@@ -336,20 +336,10 @@ import { validateEmail, validatePhone, validatePassword } from '../../lib/valida
     setBusy(true);
     recordAttempt('forgot');
     try {
-      const res = await api.forgotPassword(email.trim());
+      const res = await api.forgotPassword(email.trim(), window.location.origin);
       setBusy(false);
       setInfoMsg(res.message || `Password reset link sent to ${email.trim()}! Please check your email inbox and spam folder.`);
     } catch (err: any) {
-      if (client) {
-        try {
-          await client.auth.resetPasswordForEmail(email.trim(), {
-            redirectTo: window.location.origin,
-          });
-          setBusy(false);
-          setInfoMsg(`If an account exists for ${email.trim()}, a password reset link is on its way. Check your inbox (and spam folder).`);
-          return;
-        } catch {}
-      }
       fail(err, 'forgot');
     }
   };

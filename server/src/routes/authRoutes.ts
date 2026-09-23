@@ -382,7 +382,7 @@ router.post('/push-subscription', protect, async (req: AuthRequest, res: Respons
 
 router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { email } = req.body;
+    const { email, redirectUrl } = req.body;
     if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
       res.status(400).json({ message: 'Please provide a valid email address' });
       return;
@@ -404,8 +404,25 @@ router.post('/forgot-password', async (req: AuthRequest, res: Response): Promise
     await user.save();
 
     // Determine client host URL
-    const rawClientUrl = req.body.clientUrl || process.env.CLIENT_URL || process.env.FRONTEND_URL || req.headers.origin || req.headers.referer || 'http://localhost:3000';
-    const cleanClientUrl = String(rawClientUrl).trim().replace(/\/$/, '');
+    let baseUrl = redirectUrl || req.headers.origin;
+    if (!baseUrl && req.headers.referer) {
+      try {
+        baseUrl = new URL(req.headers.referer as string).origin;
+      } catch {
+        baseUrl = req.headers.referer as string;
+      }
+    }
+    if (!baseUrl) {
+      baseUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000';
+    }
+
+    let cleanClientUrl = String(baseUrl).trim();
+    try {
+      cleanClientUrl = new URL(cleanClientUrl).origin;
+    } catch {
+      cleanClientUrl = cleanClientUrl.replace(/\/+$/, '');
+    }
+
     const resetUrl = `${cleanClientUrl}/?resetToken=${token}&email=${encodeURIComponent(cleanEmail)}`;
 
     // Dispatch email

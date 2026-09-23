@@ -304,7 +304,7 @@ export function App() {
       return;
     }
     try {
-      const res = await api.forgotPassword(emailInput.trim());
+      const res = await api.forgotPassword(emailInput.trim(), window.location.origin);
       setAuthInfoMsg(res.message || `Password reset link sent to ${emailInput.trim()}! Please check your email inbox.`);
     } catch (err: any) {
       setAuthError(err.message || 'Failed to send password reset email. Please try again.');
