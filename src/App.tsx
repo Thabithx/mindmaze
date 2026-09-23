@@ -990,7 +990,6 @@ export function App() {
               timetable={timetable}
               dailyTasks={tasks}
               streakDays={streakDays}
-              streakData={streakData}
               stream={user?.stream || userSettings.stream}
               physicalScienceElective={user?.physicalScienceElective || userSettings.physicalScienceElective}
               onNavigate={setCurrentScreen}

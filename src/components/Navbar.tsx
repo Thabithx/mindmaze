@@ -54,6 +54,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="whitespace-nowrap">{userProfile?.streakDays || 1}</span>
         </div>
 
+        {/* Header Search Button (Directly right to Streak on PC & directly left of Menu on Mobile) */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition cursor-pointer min-h-[40px] min-w-[40px] sm:min-w-0 justify-center text-xs font-semibold"
+            title="Search (Cmd + K)"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4 text-cyan-400" />
+            <span className="hidden md:inline font-bold">Search</span>
+            <span className="hidden md:inline-block text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded border border-white/10 font-mono">
+              ⌘K
+            </span>
+          </button>
+        )}
+
         {/* Header Notifications Bell Button (Desktop/Tablet Only — Mobile in Sidebar) */}
         <button
           onClick={() => onNavigate('notifications')}
@@ -138,22 +154,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
         </div>
-
-        {/* Header Search Button (Directly left of Menu on Mobile) */}
-        {onOpenSearch && (
-          <button
-            onClick={onOpenSearch}
-            className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition cursor-pointer min-h-[40px] min-w-[40px] sm:min-w-0 justify-center text-xs font-semibold"
-            title="Search (Cmd + K)"
-            aria-label="Search"
-          >
-            <Search className="w-4 h-4 text-cyan-400" />
-            <span className="hidden md:inline font-bold">Search</span>
-            <span className="hidden md:inline-block text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded border border-white/10 font-mono">
-              ⌘K
-            </span>
-          </button>
-        )}
 
         {/* Mobile Navigation Hamburger Menu */}
         <button

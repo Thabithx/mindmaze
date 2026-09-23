@@ -162,19 +162,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           {[
             {
               step: '1',
-              icon: <CalendarDays className="w-4 h-4" />,
-              color: 'indigo',
-              title: 'Plan Week',
-              desc: 'Add study blocks',
-              screen: 'planner' as ScreenId,
-            },
-            {
-              step: '2',
               icon: <BookOpen className="w-4 h-4" />,
               color: 'cyan',
               title: 'Track Syllabus',
               desc: 'Tick off lessons',
               screen: 'topics' as ScreenId,
+            },
+            {
+              step: '2',
+              icon: <CalendarDays className="w-4 h-4" />,
+              color: 'indigo',
+              title: 'Plan Week',
+              desc: 'Add study blocks',
+              screen: 'planner' as ScreenId,
             },
             {
               step: '3',
