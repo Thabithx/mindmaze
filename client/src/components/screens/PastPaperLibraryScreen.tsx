@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { MediumType, PaperType, PastPaper, ScreenId, SyllabusType } from '../../types';
-import { MOCK_PAST_PAPERS } from '../../data/mockData';
 import {
   BookOpen,
   Search,
@@ -51,7 +50,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   const mediums = ['All', 'English', 'Sinhala', 'Tamil'];
   const yearRanges = ['All', '2026 (Model Papers)', '2020-2026', '2015-2019', '2010-2014', '2000-2009'];
 
-  const paperList = pastPapers && pastPapers.length > 0 ? pastPapers : MOCK_PAST_PAPERS;
+  const paperList = pastPapers ?? [];
 
   const filteredPapers = useMemo(() => {
     return paperList.filter((paper) => {

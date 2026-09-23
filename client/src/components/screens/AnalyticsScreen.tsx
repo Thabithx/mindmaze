@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScreenId, TopicMastery, UserProfile } from '../../types';
-import { MOCK_TOPIC_MASTERY } from '../../data/mockData';
+
 import {
   BarChart3,
   TrendingUp,
@@ -35,7 +35,9 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
   const [activeTab, setActiveTab] = useState<'mastery' | 'repeat-tracker'>('mastery');
   const [comingSoonModalSubject, setComingSoonModalSubject] = useState<string | null>(null);
 
-  const filteredTopics = MOCK_TOPIC_MASTERY.filter((item) => {
+  const allTopics: TopicMastery[] = []; // Real topic mastery data — coming soon
+
+  const filteredTopics = allTopics.filter((item) => {
     if (selectedSubjectFilter === 'All') return true;
     return item.subject === selectedSubjectFilter;
   });
@@ -49,6 +51,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
   );
 
   const isNonPhysicsSubject = selectedSubjectFilter !== 'All' && selectedSubjectFilter !== 'Physics';
+
 
   return (
     <div id="mind-maze-analytics-screen" className="space-y-8 pb-16 max-w-5xl mx-auto">

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { MilestoneBadge, ScreenId, TargetCard, UserProfile } from '../../types';
-import { MOCK_BADGES, MOCK_TARGET_CARDS } from '../../data/mockData';
 import {
   Target,
   Sparkles,
@@ -30,7 +29,8 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
   onUpdateProfile,
   onNavigate,
 }) => {
-  const [targetCards, setTargetCards] = useState<TargetCard[]>(MOCK_TARGET_CARDS);
+  const [targetCards, setTargetCards] = useState<TargetCard[]>([]);
+
   const [selectedTimeframe, setSelectedTimeframe] = useState<'All' | 'Daily' | 'Weekly' | 'Monthly'>('All');
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoalGrade, setTempGoalGrade] = useState(userProfile.targetGrade);
@@ -312,56 +312,13 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {MOCK_BADGES.map((badge) => {
-            const Icon = getBadgeIcon(badge.icon);
-            return (
-              <div
-                key={badge.id}
-                className={`rounded-2xl border p-4 backdrop-blur-sm flex items-start gap-3.5 transition-all ${
-                  badge.unlocked
-                    ? 'border-amber-400/30 bg-amber-400/10 shadow-sm'
-                    : 'border-white/5 bg-white/[0.02] opacity-70'
-                }`}
-              >
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
-                    badge.unlocked
-                      ? 'border-amber-400/40 bg-amber-400/20 text-amber-300'
-                      : 'border-white/10 bg-white/5 text-slate-500'
-                  }`}
-                >
-                  {badge.unlocked ? <Icon className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                </div>
-
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-white">{badge.title}</h4>
-                    {badge.unlocked && (
-                      <span className="text-[10px] text-amber-300 font-semibold bg-amber-400/20 px-1.5 py-0.5 rounded border border-amber-400/30">
-                        Unlocked
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">{badge.description}</p>
-
-                  {!badge.unlocked && (
-                    <div className="mt-2 space-y-1">
-                      <div className="flex justify-between text-[10px] text-slate-500">
-                        <span>Progress</span>
-                        <span>{badge.progress}/{badge.maxProgress}</span>
-                      </div>
-                      <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                        <div
-                          className="bg-[#6B4EFF] h-full"
-                          style={{ width: `${(badge.progress / badge.maxProgress) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+              <Award className="w-7 h-7 text-amber-400/60" />
+            </div>
+            <p className="text-sm font-semibold text-white/70">Badges Coming Soon</p>
+            <p className="text-xs text-slate-500 max-w-xs">Keep studying and completing tasks — badges will unlock as you hit milestones.</p>
+          </div>
         </div>
       </div>
     </div>

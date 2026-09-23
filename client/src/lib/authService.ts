@@ -1,5 +1,4 @@
 import { UserProfile, StreamType, SyllabusType, MediumType } from '../types';
-import { INITIAL_USER_PROFILE } from '../data/mockData';
 
 const SESSION_KEY = 'al_physics_auth_profile';
 const REGISTERED_USERS_KEY = 'al_physics_registered_users';
@@ -22,43 +21,6 @@ export interface StoredUserAccount {
   createdAt: string;
 }
 
-export const DEMO_ACCOUNTS: StoredUserAccount[] = [
-  {
-    id: 'demo-maths-1',
-    name: 'Kasun Perera',
-    email: 'kasun.al@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-    provider: 'google',
-    stream: 'Maths',
-    selectedSubjects: ['Combined Maths', 'Physics', 'Chemistry'],
-    targetGrade: "3 A's",
-    examDate: '2027-11-15',
-    syllabus: 'current',
-    medium: 'English',
-    xp: 1420,
-    streakDays: 6,
-    dailyGoalMCQs: 20,
-    createdAt: '2026-08-01',
-  },
-  {
-    id: 'demo-bio-2',
-    name: 'Nethmi Silva',
-    email: 'nethmi.bio@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-    provider: 'google',
-    stream: 'Bio',
-    selectedSubjects: ['Biology', 'Physics', 'Chemistry'],
-    targetGrade: "3 A's",
-    examDate: '2027-11-15',
-    syllabus: 'current',
-    medium: 'English',
-    xp: 1850,
-    streakDays: 14,
-    dailyGoalMCQs: 25,
-    createdAt: '2026-07-20',
-  },
-];
-
 export function getRegisteredUsers(): StoredUserAccount[] {
   try {
     const raw = localStorage.getItem(REGISTERED_USERS_KEY);
@@ -71,7 +33,7 @@ export function getRegisteredUsers(): StoredUserAccount[] {
   } catch (e) {
     console.error('Error reading registered users', e);
   }
-  return DEMO_ACCOUNTS;
+  return [];
 }
 
 export function saveRegisteredUser(account: StoredUserAccount): void {
@@ -92,24 +54,21 @@ export function saveRegisteredUser(account: StoredUserAccount): void {
 }
 
 export const GUEST_USER_PROFILE: UserProfile = {
-  ...INITIAL_USER_PROFILE,
   id: 'guest',
   name: 'Guest Student',
   email: '',
   avatar: '',
   provider: 'guest',
   isAuthenticated: false,
-  stream: 'Maths',
-  selectedSubjects: ['Combined Maths', 'Physics', 'Chemistry'],
-  targetGrade: "3 A's",
-  examDate: '2027-11-15',
-  dailyGoalMCQs: 20,
+  stream: 'Physical Science',
+  selectedSubjects: [],
+  targetGrade: '',
+  examDate: '',
+  dailyGoalMCQs: 0,
   dailyCompletedMCQs: 0,
   streakDays: 0,
-  streakFreezes: 1,
   xp: 0,
   syllabus: 'current',
-  currentOnlyFilter: true,
   medium: 'English',
 };
 
@@ -130,16 +89,7 @@ export function getStoredSession(): UserProfile {
     console.error('Error reading session', e);
   }
 
-  return {
-    ...INITIAL_USER_PROFILE,
-    id: 'demo-maths-1',
-    name: 'Kasun Perera',
-    email: 'kasun.al@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-    provider: 'google',
-    isAuthenticated: true,
-    medium: 'English',
-  };
+  return { ...GUEST_USER_PROFILE };
 }
 
 export function saveSession(profile: UserProfile): void {

@@ -173,6 +173,26 @@ export function App() {
           }));
         }
 
+        // Restore streak from DB so it's accurate across devices
+        if (res.user.streakDays !== undefined) {
+          setStreakDays(res.user.streakDays);
+          // Sync completedDates into localStorage so the local streak engine stays in sync
+          try {
+            const raw = JSON.parse(localStorage.getItem('mindmaze_study_streak_v2') || '{}');
+            const dbDates: string[] = res.user.completedDates || [];
+            const localDates: string[] = Array.isArray(raw.completedDates) ? raw.completedDates : [];
+            // Merge: keep all dates from both DB and local
+            const merged = Array.from(new Set([...dbDates, ...localDates])).sort();
+            const bestStreak = Math.max(res.user.bestStreak || 0, raw.bestStreak || 0);
+            localStorage.setItem('mindmaze_study_streak_v2', JSON.stringify({
+              currentStreak: res.user.streakDays,
+              bestStreak,
+              completedDates: merged,
+              lastCompletedDate: res.user.lastCompletedDate || raw.lastCompletedDate || '',
+            }));
+          } catch {}
+        }
+
         // Sync timetable with backend database
         try {
           const ttRes = await api.getTimetable();
