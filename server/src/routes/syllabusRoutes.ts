@@ -53,8 +53,7 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       const computedSyllabusPercent = Math.min(100, Math.round((realSubtopicsCount / 110) * 100));
 
       const timerHours = (u.totalStudyMinutes || 0) / 60;
-      const ttHours = hoursMap.get(uId) || 0;
-      const computedHours = Math.round((timerHours + ttHours) * 10) / 10;
+      const computedHours = Math.round(timerHours * 10) / 10;
 
       return {
         userId: uId,

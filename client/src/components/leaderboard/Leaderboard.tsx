@@ -54,17 +54,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const progression = calculateOverallStreamProgression(streamSubjects, syllabusTopics);
   const liveSyllabusPercent = progression.totalPercentage;
 
-  // Calculate real live study hours
-  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || 0;
-  let ttMinutes = 0;
-  timetable.forEach((entry) => {
-    if (!entry.startTime || !entry.endTime) return;
-    const [sh, sm] = entry.startTime.split(':').map(Number);
-    const [eh, em] = entry.endTime.split(':').map(Number);
-    const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
-    if (diff > 0 && entry.isCompleted) ttMinutes += diff;
-  });
-  const liveHours = Math.round(((dbTimerMinutes + ttMinutes) / 60) * 10) / 10;
+  // Calculate real live study hours strictly from completed timer minutes
+  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0;
+  const liveHours = Math.round((dbTimerMinutes / 60) * 10) / 10;
   const completedTaskCount = progression.completedTopics || 0;
   const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
 
