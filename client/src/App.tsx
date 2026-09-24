@@ -504,11 +504,19 @@ export function App() {
     }
   };
 
-  const handleSignOut = () => {
-    if (getAuthToken()) {
-      api.saveCompletedTopicsPicker(syllabusTopics).catch(() => {});
-      api.syncTasks(tasks).catch(() => {});
-      api.syncTimetable(timetable).catch(() => {});
+  const handleSignOut = async () => {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        // Await all saves BEFORE removing the token — otherwise server rejects with 401
+        await Promise.allSettled([
+          api.saveCompletedTopicsPicker(syllabusTopics),
+          api.syncTasks(tasks),
+          api.syncTimetable(timetable),
+        ]);
+      } catch {
+        // Ignore errors — token is removed regardless
+      }
     }
     removeAuthToken();
     removeStoredUser();
