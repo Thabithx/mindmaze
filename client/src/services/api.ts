@@ -127,6 +127,12 @@ export const api = {
   updateMistake: (id: string, body: any) => apiFetch(`/mistakes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteMistake: (id: string) => apiFetch(`/mistakes/${id}`, { method: 'DELETE' }),
 
+  // Tasks
+  getTasks: () => apiFetch('/tasks'),
+  syncTasks: (tasks: any[]) => apiFetch('/tasks/sync', { method: 'POST', body: JSON.stringify({ tasks }) }),
+  updateTask: (taskId: string, body: any) => apiFetch(`/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteTask: (taskId: string) => apiFetch(`/tasks/${taskId}`, { method: 'DELETE' }),
+
   // Admin
   getAdminUsers: () => apiFetch('/admin/users'),
   updateUserRole: (id: string, role: string) => apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),

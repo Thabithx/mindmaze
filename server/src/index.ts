@@ -10,6 +10,7 @@ import courseRoutes from './routes/courseRoutes.js';
 import timetableRoutes from './routes/timetableRoutes.js';
 import syllabusRoutes from './routes/syllabusRoutes.js';
 import mistakeRoutes from './routes/mistakeRoutes.js';
+import taskRoutes from './routes/taskRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 import Timetable from './models/Timetable.js';
@@ -51,6 +52,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/mistakes', mistakeRoutes);
+app.use('/api/tasks', taskRoutes);
 app.use('/api/admin', adminRoutes);
 
 function parseTimeToMinutes(timeStr: string): number | null {

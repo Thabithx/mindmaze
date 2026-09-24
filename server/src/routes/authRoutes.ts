@@ -328,6 +328,13 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
       }
     }
 
+    if (Array.isArray(req.body.completedDates)) {
+      user.completedDates = req.body.completedDates;
+    }
+    if (req.body.lastCompletedDate !== undefined) {
+      user.lastCompletedDate = String(req.body.lastCompletedDate).trim();
+    }
+
     if (req.body.totalStudyMinutes !== undefined) {
       const mins = Number(req.body.totalStudyMinutes);
       if (!isNaN(mins) && mins >= 0) {
@@ -368,8 +375,10 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
         totalStudyMinutes: user.totalStudyMinutes || 0,
-        streakDays: user.streakDays,
-        bestStreak: user.bestStreak,
+        streakDays: user.streakDays || 1,
+        bestStreak: user.bestStreak || 1,
+        completedDates: user.completedDates || [],
+        lastCompletedDate: user.lastCompletedDate || '',
         badges: user.badges,
       },
     });

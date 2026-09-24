@@ -124,7 +124,12 @@ export function App() {
     setStreakDays(streakState.currentStreak);
     const token = getAuthToken();
     if (token) {
-      api.updateProfile({ streakDays: streakState.currentStreak, bestStreak: streakState.bestStreak }).catch(() => {});
+      api.updateProfile({
+        streakDays: streakState.currentStreak,
+        bestStreak: streakState.bestStreak,
+        completedDates: streakState.completedDates,
+        lastCompletedDate: streakState.lastCompletedDate,
+      }).catch(() => {});
     }
 
     try {
@@ -301,6 +306,37 @@ export function App() {
         } catch (mkErr) {
           console.warn('[Mistakes] Initial fetch notice:', mkErr);
         }
+
+        // Restore daily tasks from DB
+        try {
+          const tkRes = await api.getTasks();
+          if (Array.isArray(tkRes?.tasks) && tkRes.tasks.length > 0) {
+            const mapped: DailyTask[] = tkRes.tasks.map((t: any) => ({
+              id: t.taskId || t.id,
+              date: t.date,
+              title: t.title,
+              subject: t.subject || '',
+              blockType: t.blockType || 'study',
+              topicId: t.topicId || '',
+              topicTitle: t.topicTitle || '',
+              subtopic: t.subtopic || '',
+              targetProgress: t.targetProgress !== undefined ? t.targetProgress : 100,
+              subtopicTargets: t.subtopicTargets || [],
+              isCompleted: Boolean(t.isCompleted),
+              completedAt: t.completedAt,
+              timeSlot: t.timeSlot,
+              startTime: t.startTime,
+              endTime: t.endTime,
+              estimatedMinutes: t.estimatedMinutes || 60,
+              priority: t.priority || 'Medium',
+              fromTimetableId: t.fromTimetableId,
+            }));
+            setTasks(mapped);
+            saveStoredDailyTasks(mapped);
+          }
+        } catch (tkErr) {
+          console.warn('[Tasks] Initial fetch notice:', tkErr);
+        }
       }
     } catch (e: any) {
       console.warn('[Auth] checkCurrentAuth warning:', e?.message || e);
@@ -354,6 +390,10 @@ export function App() {
       if (hasModifiedSyl) {
         await api.saveCompletedTopicsPicker(localSyl).catch(() => {});
       }
+      const localTasks = getStoredDailyTasks() || [];
+      if (localTasks.length > 0) {
+        api.syncTasks(localTasks).catch(() => {});
+      }
       await checkCurrentAuth();
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
@@ -393,6 +433,10 @@ export function App() {
       const hasModifiedSyl = localSyl.some(t => t.status !== 'not_started' || (t.completedSubtopics && t.completedSubtopics.length > 0));
       if (hasModifiedSyl) {
         await api.saveCompletedTopicsPicker(localSyl).catch(() => {});
+      }
+      const localTasks = getStoredDailyTasks() || [];
+      if (localTasks.length > 0) {
+        api.syncTasks(localTasks).catch(() => {});
       }
       await checkCurrentAuth();
     } catch (err: any) {
@@ -463,6 +507,8 @@ export function App() {
   const handleSignOut = () => {
     if (getAuthToken()) {
       api.saveCompletedTopicsPicker(syllabusTopics).catch(() => {});
+      api.syncTasks(tasks).catch(() => {});
+      api.syncTimetable(timetable).catch(() => {});
     }
     removeAuthToken();
     removeStoredUser();
@@ -899,14 +945,21 @@ export function App() {
 
                       // Refresh streak
                       const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
-                      // Save study time to DB on block completion
+                      // Save study time & streak to DB on block completion
                       if (getAuthToken()) {
-                        api.updateProfile({ addStudyMinutes: 25 }).then((res: any) => {
+                        api.updateProfile({
+                          addStudyMinutes: 25,
+                          streakDays: refreshedStreak.currentStreak,
+                          bestStreak: refreshedStreak.bestStreak,
+                          completedDates: refreshedStreak.completedDates,
+                          lastCompletedDate: refreshedStreak.lastCompletedDate,
+                        }).then((res: any) => {
                           if (res?.user) {
                             setUser(res.user);
                             setStoredUser(res.user);
                           }
                         }).catch(() => {});
+                        api.syncTasks(updatedTasks).catch(() => {});
                       }
 
                       setCelebration({
@@ -925,7 +978,14 @@ export function App() {
                           message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
                         });
                         if (getAuthToken()) {
-                          api.updateProfile({ addStudyMinutes: mins }).then((res: any) => {
+                          const streakState = recordDailyVisit();
+                          api.updateProfile({
+                            addStudyMinutes: mins,
+                            streakDays: streakState.currentStreak,
+                            bestStreak: streakState.bestStreak,
+                            completedDates: streakState.completedDates,
+                            lastCompletedDate: streakState.lastCompletedDate,
+                          }).then((res: any) => {
                             if (res?.user) {
                               setUser(res.user);
                               setStoredUser(res.user);
@@ -933,6 +993,7 @@ export function App() {
                           }).catch((err) => {
                             console.warn('[Timer] Error saving study minutes to DB:', err);
                           });
+                          api.syncTasks(tasks).catch(() => {});
                         }
                       }
                     }}
@@ -1219,6 +1280,9 @@ export function App() {
                   const updatedTasks = [...tasks, ...newDailyTasks];
                   setTasks(updatedTasks);
                   saveStoredDailyTasks(updatedTasks);
+                  if (getAuthToken()) {
+                    api.syncTasks(updatedTasks).catch(() => {});
+                  }
                 }
               }}
               onAddTask={(task) => {
@@ -1229,11 +1293,17 @@ export function App() {
                 const newTasks = [...tasks, { ...task, id: `t-${Date.now()}` }];
                 setTasks(newTasks);
                 saveStoredDailyTasks(newTasks);
+                if (getAuthToken()) {
+                  api.syncTasks(newTasks).catch(() => {});
+                }
               }}
               onDeleteTask={(taskId) => {
                 const newTasks = tasks.filter(t => t.id !== taskId);
                 setTasks(newTasks);
                 saveStoredDailyTasks(newTasks);
+                if (getAuthToken()) {
+                  api.syncTasks(newTasks).catch(() => {});
+                }
               }}
               onToggleTask={(taskId) => {
                 const newTasks = tasks.map(t => t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t);
@@ -1242,6 +1312,15 @@ export function App() {
                 const isDone = newTasks.find(t => t.id === taskId)?.isCompleted ?? false;
                 const refreshed = recordTaskCompletionAndRefreshStreak(newTasks, isDone);
                 setStreakDays(refreshed.currentStreak);
+                if (getAuthToken()) {
+                  api.syncTasks(newTasks).catch(() => {});
+                  api.updateProfile({
+                    streakDays: refreshed.currentStreak,
+                    bestStreak: refreshed.bestStreak,
+                    completedDates: refreshed.completedDates,
+                    lastCompletedDate: refreshed.lastCompletedDate,
+                  }).catch(() => {});
+                }
               }}
             />
           )}
