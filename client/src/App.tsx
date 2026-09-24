@@ -934,7 +934,12 @@ export function App() {
                         saveStoredTimetable(updatedTimetable);
 
                         if (getAuthToken()) {
-                          api.updateTimetableSlot(activePomodoroTopic.id, { isCompleted: true }).catch(() => {});
+                          // Only update timetable slot if the id is a real MongoDB ObjectId (24 hex chars)
+                          // — not a syllabus topicId like 'cm-04'
+                          const isObjectId = /^[a-f\d]{24}$/i.test(activePomodoroTopic.id);
+                          if (isObjectId) {
+                            api.updateTimetableSlot(activePomodoroTopic.id, { isCompleted: true }).catch(() => {});
+                          }
                         }
                       }
 

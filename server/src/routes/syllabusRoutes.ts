@@ -140,6 +140,7 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
 
     res.json({ item });
   } catch (error: any) {
+    console.error('[update-subtopic] Error:', error?.message, error?.stack?.slice(0, 300));
     res.status(500).json({ message: 'Error updating subtopic progress', error: error.message });
   }
 });
@@ -194,46 +195,66 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
       return;
     }
 
+    const errors: string[] = [];
+
     for (const t of topics) {
       const targetTopicId = t.topicId || t.id;
       if (!targetTopicId) continue;
 
-      let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId: targetTopicId });
-      if (!item) {
-        item = new SyllabusProgress({
-          user: req.user!._id,
-          topicId: targetTopicId,
-          subject: t.subject || 'General',
-          unitNumber: t.unitNumber || 1,
-          unitTitle: t.unitTitle || '',
-          topicTitle: t.topicTitle || targetTopicId,
-          status: t.status || (t.completedSubtopics?.length ? 'in_progress' : 'not_started'),
-          subtopicProgress: new Map(),
-          completedSubtopics: t.completedSubtopics || [],
-        });
-      } else {
-        if (t.status) item.status = t.status;
-        if (Array.isArray(t.completedSubtopics)) item.completedSubtopics = t.completedSubtopics;
-      }
+      // Skip topics with no meaningful progress to avoid unnecessary DB writes
+      const hasProgress =
+        (Array.isArray(t.completedSubtopics) && t.completedSubtopics.length > 0) ||
+        (t.status && t.status !== 'not_started') ||
+        (t.subtopicProgress && Object.keys(t.subtopicProgress).length > 0);
+      if (!hasProgress) continue;
 
-      if (t.subtopicProgress && typeof t.subtopicProgress === 'object') {
-        Object.entries(t.subtopicProgress).forEach(([sub, val]) => {
-          item!.subtopicProgress.set(sub, Number(val));
-        });
-      } else if (Array.isArray(t.completedSubtopics)) {
-        t.completedSubtopics.forEach((sub: string) => {
-          item!.subtopicProgress.set(sub, 100);
-        });
-      }
+      // Wrap each topic individually so one failure doesn't break the entire batch
+      try {
+        let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId: targetTopicId });
+        if (!item) {
+          item = new SyllabusProgress({
+            user: req.user!._id,
+            topicId: targetTopicId,
+            subject: t.subject || 'General',
+            unitNumber: t.unitNumber || 1,
+            unitTitle: t.unitTitle || '',
+            topicTitle: t.topicTitle || targetTopicId,
+            status: t.status || (t.completedSubtopics?.length ? 'in_progress' : 'not_started'),
+            subtopicProgress: new Map(),
+            completedSubtopics: t.completedSubtopics || [],
+          });
+        } else {
+          if (t.status) item.status = t.status;
+          if (Array.isArray(t.completedSubtopics)) item.completedSubtopics = t.completedSubtopics;
+        }
 
-      await item.save();
+        if (t.subtopicProgress && typeof t.subtopicProgress === 'object') {
+          Object.entries(t.subtopicProgress).forEach(([sub, val]) => {
+            item!.subtopicProgress.set(sub, Number(val));
+          });
+        } else if (Array.isArray(t.completedSubtopics)) {
+          t.completedSubtopics.forEach((sub: string) => {
+            item!.subtopicProgress.set(sub, 100);
+          });
+        }
+
+        await item.save();
+      } catch (docErr: any) {
+        console.error(`[completed-picker] Error saving topic ${targetTopicId}:`, docErr?.message);
+        errors.push(`${targetTopicId}: ${docErr?.message}`);
+      }
     }
 
-    res.json({ message: 'Syllabus progress saved successfully' });
+    if (errors.length > 0) {
+      res.json({ message: 'Syllabus progress saved with some errors', errors });
+    } else {
+      res.json({ message: 'Syllabus progress saved successfully' });
+    }
   } catch (error: any) {
     console.error('Error saving syllabus progress:', error);
     res.status(500).json({ message: 'Error saving syllabus progress', error: error.message });
   }
 });
+
 
 export default router;

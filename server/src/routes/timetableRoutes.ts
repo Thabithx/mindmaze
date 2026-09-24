@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import mongoose from 'mongoose';
 import Timetable from '../models/Timetable.js';
 import User from '../models/User.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
@@ -71,6 +72,11 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
 
 router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Guard: non-ObjectId strings like 'cm-04' cause Mongoose CastError → 500
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(404).json({ message: 'Timetable entry not found' });
+      return;
+    }
     const slot = await Timetable.findOne({ _id: req.params.id, user: req.user!._id });
     if (!slot) {
       res.status(404).json({ message: 'Timetable entry not found' });
@@ -78,18 +84,9 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
     }
 
     const fields = [
-      'dayOfWeek',
-      'subject',
-      'topic',
-      'blockType',
-      'subtopicTargets',
-      'startTime',
-      'endTime',
-      'color',
-      'reminderEnabled',
-      'reminderOffsetMinutes',
-      'notes',
-      'isCompleted',
+      'dayOfWeek', 'subject', 'topic', 'blockType', 'subtopicTargets',
+      'startTime', 'endTime', 'color', 'reminderEnabled', 'reminderOffsetMinutes',
+      'notes', 'isCompleted',
     ];
 
     fields.forEach((field) => {
@@ -117,12 +114,17 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
 
     res.json({ slot });
   } catch (error: any) {
-    res.status(500).json({ message: 'Error updating timetable slot' });
+    console.error('[Timetable PUT] Error:', error?.message);
+    res.status(500).json({ message: 'Error updating timetable slot', error: error?.message });
   }
 });
 
 router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(404).json({ message: 'Timetable entry not found' });
+      return;
+    }
     const slot = await Timetable.findOneAndDelete({ _id: req.params.id, user: req.user!._id });
     if (!slot) {
       res.status(404).json({ message: 'Timetable entry not found' });
@@ -130,9 +132,11 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
     }
     res.json({ message: 'Timetable entry deleted' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Error deleting timetable slot' });
+    console.error('[Timetable DELETE] Error:', error?.message);
+    res.status(500).json({ message: 'Error deleting timetable slot', error: error?.message });
   }
 });
+
 
 router.post('/sync', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
