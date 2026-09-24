@@ -188,32 +188,40 @@ router.put('/update-topic', protect, async (req: AuthRequest, res: Response): Pr
 
 router.post('/completed-picker', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { topics } = req.body; // Array of { topicId, subject, unitNumber, topicTitle, subtopics }
+    const { topics } = req.body;
     if (!Array.isArray(topics)) {
       res.status(400).json({ message: 'topics must be an array' });
       return;
     }
 
     for (const t of topics) {
-      let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId: t.topicId });
+      const targetTopicId = t.topicId || t.id;
+      if (!targetTopicId) continue;
+
+      let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId: targetTopicId });
       if (!item) {
         item = new SyllabusProgress({
           user: req.user!._id,
-          topicId: t.topicId,
-          subject: t.subject,
+          topicId: targetTopicId,
+          subject: t.subject || 'General',
           unitNumber: t.unitNumber || 1,
-          topicTitle: t.topicTitle,
-          status: 'completed',
+          unitTitle: t.unitTitle || '',
+          topicTitle: t.topicTitle || targetTopicId,
+          status: t.status || (t.completedSubtopics?.length ? 'in_progress' : 'not_started'),
           subtopicProgress: new Map(),
-          completedSubtopics: t.subtopics || [],
+          completedSubtopics: t.completedSubtopics || [],
         });
       } else {
-        item.status = 'completed';
-        item.completedSubtopics = t.subtopics || item.completedSubtopics;
+        if (t.status) item.status = t.status;
+        if (Array.isArray(t.completedSubtopics)) item.completedSubtopics = t.completedSubtopics;
       }
 
-      if (t.subtopics && Array.isArray(t.subtopics)) {
-        t.subtopics.forEach((sub: string) => {
+      if (t.subtopicProgress && typeof t.subtopicProgress === 'object') {
+        Object.entries(t.subtopicProgress).forEach(([sub, val]) => {
+          item!.subtopicProgress.set(sub, Number(val));
+        });
+      } else if (Array.isArray(t.completedSubtopics)) {
+        t.completedSubtopics.forEach((sub: string) => {
           item!.subtopicProgress.set(sub, 100);
         });
       }
@@ -221,9 +229,10 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
       await item.save();
     }
 
-    res.json({ message: 'Completed topics saved successfully' });
+    res.json({ message: 'Syllabus progress saved successfully' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Error saving completed topics' });
+    console.error('Error saving syllabus progress:', error);
+    res.status(500).json({ message: 'Error saving syllabus progress', error: error.message });
   }
 });
 

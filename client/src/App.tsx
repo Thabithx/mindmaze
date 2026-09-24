@@ -228,28 +228,35 @@ export function App() {
         // Restore syllabus progress from DB
         try {
           const sylRes = await api.getSyllabusProgress();
-          if (Array.isArray(sylRes?.progress)) {
+          if (Array.isArray(sylRes?.progress) && sylRes.progress.length > 0) {
             const progressMap: Record<string, any> = {};
             sylRes.progress.forEach((p: any) => {
-              progressMap[p.topicId] = p;
+              if (p.topicId) {
+                progressMap[p.topicId] = p;
+              }
             });
-            setSyllabusTopics(() => {
-              const fresh = INITIAL_SYLLABUS_TOPICS;
-              const merged = fresh.map((t) => {
+            setSyllabusTopics((prevTopics) => {
+              const base = prevTopics && prevTopics.length > 0 ? prevTopics : INITIAL_SYLLABUS_TOPICS;
+              const merged = base.map((t) => {
                 const dbp = progressMap[t.id];
-                if (!dbp) {
-                  return {
-                    ...t,
-                    status: 'not_started' as const,
-                    completedSubtopics: [],
-                    subtopicProgress: {},
-                  };
+                if (!dbp) return t;
+                
+                let parsedSubMap: Record<string, number> = {};
+                if (dbp.subtopicProgress) {
+                  if (dbp.subtopicProgress instanceof Map) {
+                    dbp.subtopicProgress.forEach((val: number, key: string) => {
+                      parsedSubMap[key] = val;
+                    });
+                  } else if (typeof dbp.subtopicProgress === 'object') {
+                    parsedSubMap = { ...dbp.subtopicProgress };
+                  }
                 }
+
                 return {
                   ...t,
                   status: dbp.status || t.status,
-                  completedSubtopics: dbp.completedSubtopics || [],
-                  subtopicProgress: dbp.subtopicProgress || {},
+                  completedSubtopics: Array.isArray(dbp.completedSubtopics) ? dbp.completedSubtopics : (t.completedSubtopics || []),
+                  subtopicProgress: Object.keys(parsedSubMap).length > 0 ? parsedSubMap : (t.subtopicProgress || {}),
                 };
               });
               saveStoredSyllabusTopics(merged);
@@ -970,7 +977,11 @@ export function App() {
                     const topic = updated.find(t => t.id === topicId);
                     if (topic) {
                       api.updateTopicProgress({
-                        topicId,
+                        topicId: topic.id,
+                        subject: topic.subject,
+                        unitNumber: topic.unitNumber,
+                        unitTitle: topic.unitTitle,
+                        topicTitle: topic.topicTitle,
                         status: topic.status,
                         completedSubtopics: topic.completedSubtopics || [],
                         subtopicProgress: topic.subtopicProgress || {},
@@ -1011,7 +1022,11 @@ export function App() {
                     const topic = updated.find(t => t.id === topicId);
                     if (topic) {
                       api.updateTopicProgress({
-                        topicId,
+                        topicId: topic.id,
+                        subject: topic.subject,
+                        unitNumber: topic.unitNumber,
+                        unitTitle: topic.unitTitle,
+                        topicTitle: topic.topicTitle,
                         status: topic.status,
                         completedSubtopics: topic.completedSubtopics || [],
                         subtopicProgress: topic.subtopicProgress || {},
