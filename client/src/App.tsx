@@ -394,6 +394,22 @@ export function App() {
       if (localTasks.length > 0) {
         api.syncTasks(localTasks).catch(() => {});
       }
+      const localMistakes = getStoredMistakes() || [];
+      if (localMistakes.length > 0) {
+        for (const m of localMistakes) {
+          api.saveMistake({
+            subject: m.subject || '',
+            topic: m.topic || '',
+            questionText: m.questionText || '',
+            yourAnswer: m.yourAnswer || '',
+            correctAnswer: m.correctAnswer || '',
+            explanation: m.explanation || '',
+            reviewStatus: m.reviewStatus || 'Needs Review',
+            isMastered: Boolean(m.isMastered),
+            dateAdded: m.dateAdded || new Date().toISOString(),
+          }).catch(() => {});
+        }
+      }
       await checkCurrentAuth();
     } catch (err: any) {
       console.error('[Auth] Login error:', err);
@@ -437,6 +453,22 @@ export function App() {
       const localTasks = getStoredDailyTasks() || [];
       if (localTasks.length > 0) {
         api.syncTasks(localTasks).catch(() => {});
+      }
+      const localMistakes = getStoredMistakes() || [];
+      if (localMistakes.length > 0) {
+        for (const m of localMistakes) {
+          api.saveMistake({
+            subject: m.subject || '',
+            topic: m.topic || '',
+            questionText: m.questionText || '',
+            yourAnswer: m.yourAnswer || '',
+            correctAnswer: m.correctAnswer || '',
+            explanation: m.explanation || '',
+            reviewStatus: m.reviewStatus || 'Needs Review',
+            isMastered: Boolean(m.isMastered),
+            dateAdded: m.dateAdded || new Date().toISOString(),
+          }).catch(() => {});
+        }
       }
       await checkCurrentAuth();
     } catch (err: any) {

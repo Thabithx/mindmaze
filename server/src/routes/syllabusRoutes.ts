@@ -83,10 +83,58 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
+function formatSubtopicProgressToObj(rawProgress: any): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (Array.isArray(rawProgress)) {
+    rawProgress.forEach((item: any) => {
+      if (item && typeof item.subtopic === 'string') {
+        result[item.subtopic] = Number(item.progress) || 0;
+      }
+    });
+  } else if (rawProgress && typeof rawProgress === 'object') {
+    if (rawProgress instanceof Map) {
+      rawProgress.forEach((val: any, key: string) => {
+        result[key] = Number(val) || 0;
+      });
+    } else {
+      Object.entries(rawProgress).forEach(([k, v]) => {
+        result[k] = Number(v) || 0;
+      });
+    }
+  }
+  return result;
+}
+
+function subtopicObjToArray(obj: any): Array<{ subtopic: string; progress: number }> {
+  const arr: Array<{ subtopic: string; progress: number }> = [];
+  if (Array.isArray(obj)) {
+    obj.forEach((item: any) => {
+      if (item && typeof item.subtopic === 'string') {
+        arr.push({ subtopic: item.subtopic, progress: Number(item.progress) || 0 });
+      }
+    });
+  } else if (obj && typeof obj === 'object') {
+    if (obj instanceof Map) {
+      obj.forEach((val: any, key: string) => {
+        arr.push({ subtopic: key, progress: Number(val) || 0 });
+      });
+    } else {
+      Object.entries(obj).forEach(([k, v]) => {
+        arr.push({ subtopic: k, progress: Number(v) || 0 });
+      });
+    }
+  }
+  return arr;
+}
+
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const progressList = await SyllabusProgress.find({ user: req.user!._id }).lean();
-    res.json({ progress: progressList });
+    const formatted = progressList.map((doc: any) => ({
+      ...doc,
+      subtopicProgress: formatSubtopicProgressToObj(doc.subtopicProgress),
+    }));
+    res.json({ progress: formatted });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching syllabus progress' });
   }
@@ -110,24 +158,34 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
         unitNumber: unitNumber || 1,
         unitTitle: unitTitle || '',
         topicTitle: topicTitle || topicId,
-        subtopicProgress: new Map(),
+        subtopicProgress: [],
         completedSubtopics: [],
         status: 'in_progress',
       });
     }
 
-    // Set map value
-    item.subtopicProgress.set(subtopic, Math.min(100, Math.max(0, Number(progress))));
+    if (!Array.isArray(item.subtopicProgress)) {
+      item.subtopicProgress = subtopicObjToArray(item.subtopicProgress);
+    }
+
+    const numericProg = Math.min(100, Math.max(0, Number(progress)));
+    const existingIndex = item.subtopicProgress.findIndex((sp) => sp.subtopic === subtopic);
+
+    if (existingIndex >= 0) {
+      item.subtopicProgress[existingIndex].progress = numericProg;
+    } else {
+      item.subtopicProgress.push({ subtopic, progress: numericProg });
+    }
 
     // Update completedSubtopics list
-    if (progress === 100 && !item.completedSubtopics.includes(subtopic)) {
+    if (numericProg === 100 && !item.completedSubtopics.includes(subtopic)) {
       item.completedSubtopics.push(subtopic);
-    } else if (progress < 100 && item.completedSubtopics.includes(subtopic)) {
+    } else if (numericProg < 100 && item.completedSubtopics.includes(subtopic)) {
       item.completedSubtopics = item.completedSubtopics.filter((s) => s !== subtopic);
     }
 
     // Check overall topic status
-    const values = Array.from(item.subtopicProgress.values());
+    const values = item.subtopicProgress.map((sp) => sp.progress);
     if (values.length > 0 && values.every((v) => v === 100)) {
       item.status = 'completed';
     } else if (values.some((v) => v > 0)) {
@@ -138,7 +196,12 @@ router.post('/update-subtopic', protect, async (req: AuthRequest, res: Response)
 
     await item.save();
 
-    res.json({ item });
+    const formattedItem = {
+      ...item.toObject(),
+      subtopicProgress: formatSubtopicProgressToObj(item.subtopicProgress),
+    };
+
+    res.json({ item: formattedItem });
   } catch (error: any) {
     console.error('[update-subtopic] Error:', error?.message, error?.stack?.slice(0, 300));
     res.status(500).json({ message: 'Error updating subtopic progress', error: error.message });
@@ -164,7 +227,7 @@ router.put('/update-topic', protect, async (req: AuthRequest, res: Response): Pr
         unitNumber: unitNumber || 1,
         unitTitle: unitTitle || '',
         topicTitle: topicTitle || topicId,
-        subtopicProgress: new Map(),
+        subtopicProgress: [],
         completedSubtopics: [],
         status: 'not_started',
       });
@@ -172,20 +235,22 @@ router.put('/update-topic', protect, async (req: AuthRequest, res: Response): Pr
 
     if (status) item.status = status;
     if (Array.isArray(completedSubtopics)) item.completedSubtopics = completedSubtopics;
-    if (subtopicProgress && typeof subtopicProgress === 'object') {
-      const newMap = new Map<string, number>();
-      Object.entries(subtopicProgress).forEach(([k, v]) => newMap.set(k, Number(v)));
-      item.subtopicProgress = newMap;
+    if (subtopicProgress !== undefined) {
+      item.subtopicProgress = subtopicObjToArray(subtopicProgress);
     }
 
     await item.save();
-    res.json({ item });
+
+    const formattedItem = {
+      ...item.toObject(),
+      subtopicProgress: formatSubtopicProgressToObj(item.subtopicProgress),
+    };
+
+    res.json({ item: formattedItem });
   } catch (error: any) {
     res.status(500).json({ message: 'Error updating topic progress', error: error.message });
   }
 });
-
-
 
 router.post('/completed-picker', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -201,14 +266,12 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
       const targetTopicId = t.topicId || t.id;
       if (!targetTopicId) continue;
 
-      // Skip topics with no meaningful progress to avoid unnecessary DB writes
       const hasProgress =
         (Array.isArray(t.completedSubtopics) && t.completedSubtopics.length > 0) ||
         (t.status && t.status !== 'not_started') ||
         (t.subtopicProgress && Object.keys(t.subtopicProgress).length > 0);
       if (!hasProgress) continue;
 
-      // Wrap each topic individually so one failure doesn't break the entire batch
       try {
         let item = await SyllabusProgress.findOne({ user: req.user!._id, topicId: targetTopicId });
         if (!item) {
@@ -220,7 +283,7 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
             unitTitle: t.unitTitle || '',
             topicTitle: t.topicTitle || targetTopicId,
             status: t.status || (t.completedSubtopics?.length ? 'in_progress' : 'not_started'),
-            subtopicProgress: new Map(),
+            subtopicProgress: [],
             completedSubtopics: t.completedSubtopics || [],
           });
         } else {
@@ -229,13 +292,13 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
         }
 
         if (t.subtopicProgress && typeof t.subtopicProgress === 'object') {
-          Object.entries(t.subtopicProgress).forEach(([sub, val]) => {
-            item!.subtopicProgress.set(sub, Number(val));
-          });
+          item.subtopicProgress = subtopicObjToArray(t.subtopicProgress);
         } else if (Array.isArray(t.completedSubtopics)) {
+          const arr: Array<{ subtopic: string; progress: number }> = [];
           t.completedSubtopics.forEach((sub: string) => {
-            item!.subtopicProgress.set(sub, 100);
+            arr.push({ subtopic: sub, progress: 100 });
           });
+          item.subtopicProgress = arr;
         }
 
         await item.save();
@@ -255,6 +318,5 @@ router.post('/completed-picker', protect, async (req: AuthRequest, res: Response
     res.status(500).json({ message: 'Error saving syllabus progress', error: error.message });
   }
 });
-
 
 export default router;

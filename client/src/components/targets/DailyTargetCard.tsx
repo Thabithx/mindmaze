@@ -47,6 +47,7 @@ export const DailyTargetCard: React.FC<DailyTargetCardProps> = ({
           <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-400/40 shrink-0">
             <Target className="w-5 h-5 text-amber-300" />
           </div>
+          <div>
             <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
               Daily Target
               {p.targetMet && (

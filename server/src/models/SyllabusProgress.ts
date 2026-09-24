@@ -1,5 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface ISubtopicProgressItem {
+  subtopic: string;
+  progress: number;
+}
+
 export interface ISyllabusProgress extends Document {
   user: mongoose.Types.ObjectId;
   topicId: string;
@@ -9,7 +14,7 @@ export interface ISyllabusProgress extends Document {
   topicTitle: string;
   status: 'not_started' | 'in_progress' | 'completed';
   completedSubtopics: string[];
-  subtopicProgress: Map<string, number>;
+  subtopicProgress: ISubtopicProgressItem[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,11 +33,13 @@ const SyllabusProgressSchema = new Schema<ISyllabusProgress>(
       default: 'not_started',
     },
     completedSubtopics: [{ type: String }],
-    subtopicProgress: {
-      type: Map,
-      of: Number,
-      default: {},
-    },
+    subtopicProgress: [
+      {
+        _id: false,
+        subtopic: { type: String, required: true },
+        progress: { type: Number, default: 0 },
+      },
+    ],
   },
   { timestamps: true }
 );
