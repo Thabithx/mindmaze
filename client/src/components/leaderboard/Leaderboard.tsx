@@ -55,7 +55,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const liveSyllabusPercent = progression.totalPercentage;
 
   // Calculate real live study hours strictly from completed timer minutes
-  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0;
+  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || 0;
   const liveHours = Math.round((dbTimerMinutes / 60) * 10) / 10;
   const completedTaskCount = progression.completedTopics || 0;
   const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
