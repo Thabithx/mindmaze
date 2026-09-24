@@ -85,7 +85,7 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
 
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const progressList = await SyllabusProgress.find({ user: req.user!._id });
+    const progressList = await SyllabusProgress.find({ user: req.user!._id }).lean();
     res.json({ progress: progressList });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching syllabus progress' });

@@ -235,9 +235,8 @@ export function App() {
                 progressMap[p.topicId] = p;
               }
             });
-            setSyllabusTopics((prevTopics) => {
-              const base = prevTopics && prevTopics.length > 0 ? prevTopics : INITIAL_SYLLABUS_TOPICS;
-              const merged = base.map((t) => {
+            setSyllabusTopics(() => {
+              const merged = INITIAL_SYLLABUS_TOPICS.map((t) => {
                 const dbp = progressMap[t.id];
                 if (!dbp) return t;
                 
@@ -252,11 +251,24 @@ export function App() {
                   }
                 }
 
+                const completedSubs: string[] = Array.isArray(dbp.completedSubtopics) ? dbp.completedSubtopics : [];
+                completedSubs.forEach((s: string) => {
+                  parsedSubMap[s] = 100;
+                });
+
+                const allSubtopics = t.subtopics || [];
+                let computedStatus: any = dbp.status || t.status;
+                if (allSubtopics.length > 0 && completedSubs.length >= allSubtopics.length) {
+                  computedStatus = 'completed';
+                } else if (completedSubs.length > 0) {
+                  computedStatus = 'in_progress';
+                }
+
                 return {
                   ...t,
-                  status: dbp.status || t.status,
-                  completedSubtopics: Array.isArray(dbp.completedSubtopics) ? dbp.completedSubtopics : (t.completedSubtopics || []),
-                  subtopicProgress: Object.keys(parsedSubMap).length > 0 ? parsedSubMap : (t.subtopicProgress || {}),
+                  status: computedStatus,
+                  completedSubtopics: completedSubs,
+                  subtopicProgress: parsedSubMap,
                 };
               });
               saveStoredSyllabusTopics(merged);
@@ -333,9 +345,14 @@ export function App() {
         setCurrentScreen('admin');
       }
 
-      const local = getStoredTimetable() || [];
-      if (local.length > 0) {
-        api.syncTimetable(local).catch(() => {});
+      const localTt = getStoredTimetable() || [];
+      if (localTt.length > 0) {
+        api.syncTimetable(localTt).catch(() => {});
+      }
+      const localSyl = getStoredSyllabusTopics() || [];
+      const hasModifiedSyl = localSyl.some(t => t.status !== 'not_started' || (t.completedSubtopics && t.completedSubtopics.length > 0));
+      if (hasModifiedSyl) {
+        await api.saveCompletedTopicsPicker(localSyl).catch(() => {});
       }
       await checkCurrentAuth();
     } catch (err: any) {
@@ -368,9 +385,14 @@ export function App() {
         setCurrentScreen('admin');
       }
 
-      const local = getStoredTimetable() || [];
-      if (local.length > 0) {
-        api.syncTimetable(local).catch(() => {});
+      const localTt = getStoredTimetable() || [];
+      if (localTt.length > 0) {
+        api.syncTimetable(localTt).catch(() => {});
+      }
+      const localSyl = getStoredSyllabusTopics() || [];
+      const hasModifiedSyl = localSyl.some(t => t.status !== 'not_started' || (t.completedSubtopics && t.completedSubtopics.length > 0));
+      if (hasModifiedSyl) {
+        await api.saveCompletedTopicsPicker(localSyl).catch(() => {});
       }
       await checkCurrentAuth();
     } catch (err: any) {
@@ -439,6 +461,9 @@ export function App() {
   };
 
   const handleSignOut = () => {
+    if (getAuthToken()) {
+      api.saveCompletedTopicsPicker(syllabusTopics).catch(() => {});
+    }
     removeAuthToken();
     removeStoredUser();
     setUser(null);
