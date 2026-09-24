@@ -222,30 +222,37 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
         <>
           {top3.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              {top3.map((e, i) => (
-                <div
-                  key={e.userId}
-                  className={`rounded-2xl border p-3 text-center ${
-                    isMe(e)
-                      ? 'border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/40'
-                      : i === 0
-                        ? 'border-amber-400/50 bg-amber-500/10'
-                        : 'border-white/10 bg-white/[0.03]'
-                  }`}
-                >
-                  <div className="flex justify-center">{medal(i)}</div>
-                  <div className="text-xs font-black text-white truncate mt-1 flex items-center justify-center gap-1">
-                    <span>@{e.username}</span>
-                    {isMe(e) && (
-                      <span className="text-[8px] font-black px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
-                    )}
+              {top3.map((e, i) => {
+                const totalMins = Math.round((e.completedHours || 0) * 60);
+                const h = Math.floor(totalMins / 60);
+                const m = totalMins % 60;
+                const timeLabel = h === 0 ? `${totalMins}m` : m === 0 ? `${h}h (${totalMins}m)` : `${h}h ${m}m (${totalMins}m)`;
+
+                return (
+                  <div
+                    key={e.userId}
+                    className={`rounded-2xl border p-3 text-center ${
+                      isMe(e)
+                        ? 'border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/40'
+                        : i === 0
+                          ? 'border-amber-400/50 bg-amber-500/10'
+                          : 'border-white/10 bg-white/[0.03]'
+                    }`}
+                  >
+                    <div className="flex justify-center">{medal(i)}</div>
+                    <div className="text-xs font-black text-white truncate mt-1 flex items-center justify-center gap-1">
+                      <span>@{e.username}</span>
+                      {isMe(e) && (
+                        <span className="text-[8px] font-black px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
+                      )}
+                    </div>
+                    <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
+                    <div className="text-[10px] text-slate-400 font-medium">
+                      {timeLabel} • {e.currentStreak}d streak
+                    </div>
                   </div>
-                  <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
-                  <div className="text-[10px] text-slate-400">
-                    {e.completedHours}h study • {e.currentStreak}d streak
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {rest.length > 0 && (
@@ -255,32 +262,39 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/10">
                     <th className="py-2 pr-3 font-bold">#</th>
                     <th className="py-2 pr-3 font-bold">Student</th>
-                    <th className="py-2 pr-3 font-bold">Hours</th>
+                    <th className="py-2 pr-3 font-bold">Study Time</th>
                     <th className="py-2 pr-3 font-bold">Syllabus %</th>
                     <th className="py-2 font-bold">Streak</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rest.map((e, i) => (
-                    <tr
-                      key={e.userId}
-                      className={`border-b border-white/5 ${isMe(e) ? 'bg-cyan-500/10' : ''}`}
-                    >
-                      <td className="py-2 pr-3 font-black text-slate-400">{i + 4}</td>
-                      <td className="py-2 pr-3 font-bold text-white">
-                        @{e.username}
-                        {isMe(e) && (
-                          <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 font-black text-amber-300">{e.completedHours}h</td>
-                      <td className="py-2 pr-3 font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</td>
-                      <td className="py-2 text-slate-300 flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-amber-400" />
-                        {e.currentStreak}d
-                      </td>
-                    </tr>
-                  ))}
+                  {rest.map((e, i) => {
+                    const totalMins = Math.round((e.completedHours || 0) * 60);
+                    const h = Math.floor(totalMins / 60);
+                    const m = totalMins % 60;
+                    const timeLabel = h === 0 ? `${totalMins}m` : m === 0 ? `${h}h (${totalMins}m)` : `${h}h ${m}m (${totalMins}m)`;
+
+                    return (
+                      <tr
+                        key={e.userId}
+                        className={`border-b border-white/5 ${isMe(e) ? 'bg-cyan-500/10' : ''}`}
+                      >
+                        <td className="py-2 pr-3 font-black text-slate-400">{i + 4}</td>
+                        <td className="py-2 pr-3 font-bold text-white">
+                          @{e.username}
+                          {isMe(e) && (
+                            <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 font-black text-amber-300">{timeLabel}</td>
+                        <td className="py-2 pr-3 font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</td>
+                        <td className="py-2 text-slate-300 flex items-center gap-1">
+                          <Flame className="w-3 h-3 text-amber-400" />
+                          {e.currentStreak}d
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

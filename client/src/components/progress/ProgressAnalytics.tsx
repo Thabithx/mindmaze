@@ -504,12 +504,16 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
             {/* Daily Goal vs Weekly Target */}
             <div className="rounded-2xl border border-white/10 bg-[#161831]/80 p-5 backdrop-blur-md shadow-lg space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                <span>Daily Study Hour Goal</span>
+                <span>Total Study Time Completed</span>
                 <Clock className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">{weeklyHours}</span>
-                <span className="text-xs text-slate-400">/ {weeklyGoal} hrs this week ({dailyGoal} hrs/day goal)</span>
+                <span className="text-3xl font-black text-white">
+                  {Math.floor(timerMins / 60) > 0
+                    ? `${Math.floor(timerMins / 60)}h ${timerMins % 60}m`
+                    : `${timerMins} mins`}
+                </span>
+                <span className="text-xs font-bold text-cyan-300">({timerMins} total mins / {weeklyHours} hrs)</span>
               </div>
               <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -518,7 +522,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 />
               </div>
               <p className="text-[11px] text-slate-400">
-                {weeklyGoalPercent >= 100 ? 'Daily goal smashed — weekly time goal exceeded!' : `${Math.round((weeklyGoal - weeklyHours) * 10) / 10} more hours needed this week (about ${dailyGoal} hrs/day).`}
+                {weeklyGoalPercent >= 100 ? 'Daily goal smashed — weekly time goal exceeded!' : `${weeklyHours} hrs / ${weeklyGoal} hrs target this week (${dailyGoal} hrs/day goal).`}
               </p>
             </div>
 
