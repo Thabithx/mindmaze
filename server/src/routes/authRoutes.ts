@@ -326,6 +326,11 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
       if (!isNaN(mins) && mins > 0) {
         user.totalStudyMinutes = (user.totalStudyMinutes || 0) + mins;
       }
+    } else if (req.body.totalStudyMinutes !== undefined) {
+      const mins = Number(req.body.totalStudyMinutes);
+      if (!isNaN(mins) && mins >= 0) {
+        user.totalStudyMinutes = Math.max(user.totalStudyMinutes || 0, mins);
+      }
     }
 
     if (Array.isArray(req.body.completedDates)) {
@@ -333,13 +338,6 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
     }
     if (req.body.lastCompletedDate !== undefined) {
       user.lastCompletedDate = String(req.body.lastCompletedDate).trim();
-    }
-
-    if (req.body.totalStudyMinutes !== undefined) {
-      const mins = Number(req.body.totalStudyMinutes);
-      if (!isNaN(mins) && mins >= 0) {
-        user.totalStudyMinutes = mins;
-      }
     }
 
     if (req.body.streakDays !== undefined) {

@@ -13,8 +13,6 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
 
     const users = await User.find({ isActive: true })
       .select('name stream streakDays bestStreak xp completedDates totalStudyMinutes createdAt')
-      .sort({ streakDays: -1, xp: -1 })
-      .limit(limit)
       .lean();
 
     const userIds = users.map((u: any) => u._id);
@@ -26,23 +24,6 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       const uId = doc.user.toString();
       const count = doc.completedSubtopics ? doc.completedSubtopics.length : 0;
       progressMap.set(uId, (progressMap.get(uId) || 0) + count);
-    });
-
-    // Fetch user timetable study hours
-    const timetableDocs = await Timetable.find({ user: { $in: userIds } }).lean();
-    const hoursMap = new Map<string, number>();
-    timetableDocs.forEach((slot: any) => {
-      const uId = slot.user.toString();
-      let durationHours = 1;
-      if (slot.startTime && slot.endTime) {
-        const [sh, sm] = slot.startTime.split(':').map(Number);
-        const [eh, em] = slot.endTime.split(':').map(Number);
-        if (!isNaN(sh) && !isNaN(eh)) {
-          const diffMins = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
-          if (diffMins > 0) durationHours = diffMins / 60;
-        }
-      }
-      hoursMap.set(uId, (hoursMap.get(uId) || 0) + durationHours);
     });
 
     const entries = users.map((u: any) => {
@@ -77,7 +58,7 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       return b.currentStreak - a.currentStreak;
     });
 
-    res.json({ entries, period, needsSetup: false });
+    res.json({ entries: entries.slice(0, limit), period, needsSetup: false });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching leaderboard', error: error.message });
   }

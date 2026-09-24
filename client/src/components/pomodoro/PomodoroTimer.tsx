@@ -126,12 +126,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     }
   };
 
+  const workSecondsRef = React.useRef<number>(0);
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
     if (isRunning && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft((prev) => prev - 1);
+        if (mode === 'work') {
+          workSecondsRef.current += 1;
+          if (workSecondsRef.current >= 60) {
+            workSecondsRef.current -= 60;
+            if (onSessionComplete) onSessionComplete('work', 1);
+          }
+        }
       }, 1000);
     } else if (isRunning && timeLeft === 0) {
       playChime();
@@ -140,7 +149,12 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       if (mode === 'work') {
         const newCount = completedSessions + 1;
         setCompletedSessions(newCount);
-        if (onSessionComplete) onSessionComplete('work', MODE_CONFIGS.work.minutes);
+        if (workSecondsRef.current >= 30) {
+          workSecondsRef.current = 0;
+          if (onSessionComplete) onSessionComplete('work', 1);
+        } else {
+          workSecondsRef.current = 0;
+        }
 
         if (newCount % 4 === 0) {
           switchMode('longBreak');

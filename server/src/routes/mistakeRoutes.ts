@@ -15,27 +15,31 @@ router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> 
 
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { subject, topic, questionText, yourAnswer, correctAnswer, explanation } = req.body;
-
-    if (!questionText) {
-      res.status(400).json({ message: 'Question text is required' });
-      return;
-    }
+    const rawQuestionText = req.body.questionText || req.body.question?.questionText || req.body.question?.text || req.body.topic;
+    const subject = req.body.subject || req.body.question?.subject || 'General';
+    const topic = req.body.topic || req.body.question?.topic || 'General Topic';
+    const questionText = rawQuestionText || `${subject} - ${topic}`;
+    const yourAnswer = req.body.yourAnswer || req.body.userSelectedOptionId || '';
+    const correctAnswer = req.body.correctAnswer || (req.body.question?.options?.find((o: any) => o.isCorrect)?.text) || '';
+    const explanation = typeof req.body.explanation === 'string'
+      ? req.body.explanation
+      : (req.body.question?.explanation?.conceptNote || req.body.question?.explanation || '');
 
     const mistake = await Mistake.create({
       user: req.user!._id,
-      subject: subject || 'General',
-      topic: topic || 'General',
+      subject,
+      topic,
       questionText,
-      yourAnswer: yourAnswer || '',
-      correctAnswer: correctAnswer || '',
-      explanation: explanation || '',
-      reviewStatus: 'Needs Review',
-      isMastered: false,
+      yourAnswer,
+      correctAnswer,
+      explanation,
+      reviewStatus: req.body.reviewStatus || 'Needs Review',
+      isMastered: Boolean(req.body.isMastered),
     });
 
-    res.status(201).json({ mistake });
+    res.json({ mistake });
   } catch (error: any) {
+    console.error('Error saving mistake:', error);
     res.status(500).json({ message: 'Error saving mistake' });
   }
 });

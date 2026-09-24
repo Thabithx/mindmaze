@@ -398,12 +398,12 @@ export function App() {
       if (localMistakes.length > 0) {
         for (const m of localMistakes) {
           api.saveMistake({
-            subject: m.subject || '',
-            topic: m.topic || '',
-            questionText: m.questionText || '',
-            yourAnswer: m.yourAnswer || '',
-            correctAnswer: m.correctAnswer || '',
-            explanation: m.explanation || '',
+            subject: m.subject || m.question?.subject || 'General',
+            topic: m.topic || m.question?.topic || 'General Topic',
+            questionText: m.questionText || m.question?.questionText || m.question?.text || m.topic || 'Practice Question',
+            yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
+            correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
+            explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
             reviewStatus: m.reviewStatus || 'Needs Review',
             isMastered: Boolean(m.isMastered),
             dateAdded: m.dateAdded || new Date().toISOString(),
@@ -458,12 +458,12 @@ export function App() {
       if (localMistakes.length > 0) {
         for (const m of localMistakes) {
           api.saveMistake({
-            subject: m.subject || '',
-            topic: m.topic || '',
-            questionText: m.questionText || '',
-            yourAnswer: m.yourAnswer || '',
-            correctAnswer: m.correctAnswer || '',
-            explanation: m.explanation || '',
+            subject: m.subject || m.question?.subject || 'General',
+            topic: m.topic || m.question?.topic || 'General Topic',
+            questionText: m.questionText || m.question?.questionText || m.question?.text || m.topic || 'Practice Question',
+            yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
+            correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
+            explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
             reviewStatus: m.reviewStatus || 'Needs Review',
             isMastered: Boolean(m.isMastered),
             dateAdded: m.dateAdded || new Date().toISOString(),
@@ -1384,12 +1384,12 @@ export function App() {
                 saveStoredMistakes(updated);
                 if (getAuthToken()) {
                   api.saveMistake({
-                    subject: m.subject || '',
-                    topic: m.topic || '',
-                    questionText: m.questionText || '',
-                    yourAnswer: m.yourAnswer || '',
-                    correctAnswer: m.correctAnswer || '',
-                    explanation: m.explanation || '',
+                    subject: m.subject || m.question?.subject || 'General',
+                    topic: m.topic || m.question?.topic || 'General Topic',
+                    questionText: m.questionText || m.question?.questionText || m.question?.text || m.topic || 'Practice Question',
+                    yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
+                    correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
+                    explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
                     reviewStatus: m.reviewStatus || 'Needs Review',
                     isMastered: Boolean(m.isMastered),
                     dateAdded: m.dateAdded || new Date().toISOString(),
