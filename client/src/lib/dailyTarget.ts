@@ -1,5 +1,4 @@
 import { DailyTask } from '../types';
-import { supabase } from './supabaseClient';
 import { calculateMinutesBetween, getTodayDateString } from './storage';
 
 export interface DailyTarget {
@@ -58,40 +57,19 @@ export function saveStoredDailyTarget(t: DailyTarget): void {
 }
 
 export async function fetchDailyTarget(): Promise<DailyTarget> {
-  const fallback = getStoredDailyTarget();
-  if (!supabase) return fallback;
-  try {
-    const { data, error } = await supabase.rpc('get_app_config');
-    if (error) throw error;
-    const rows = (data ?? []) as { key: string; value: string }[];
-    if (rows.length === 0) return fallback;
-    const byKey = new Map(rows.map((r) => [r.key, r.value]));
-    const next: DailyTarget = {
-      hours: clampTarget(byKey.get('daily_target_hours'), fallback.hours),
-      tasks: clampTarget(byKey.get('daily_target_tasks'), fallback.tasks),
-      quizChannelUrl: byKey.get('quiz_channel_url') || fallback.quizChannelUrl,
-      fromCloud: true,
-    };
-    saveStoredDailyTarget(next);
-    return next;
-  } catch {
-    return fallback;
-  }
+  return getStoredDailyTarget();
 }
 
 export async function updateDailyTarget(hours: number, tasks: number): Promise<DailyTarget> {
-  if (!supabase) throw new Error('Cloud sync is not configured on this device.');
   const cleanHours = clampTarget(hours, NaN);
   const cleanTasks = clampTarget(tasks, NaN);
   if (!Number.isFinite(cleanHours) || !Number.isFinite(cleanTasks)) {
     throw new Error('Target must be a number between 0 and 24.');
   }
-  const h = await supabase.rpc('set_app_config', { p_key: 'daily_target_hours', p_value: String(cleanHours) });
-  if (h.error) throw new Error(h.error.message || 'Could not save the daily target.');
-  const t = await supabase.rpc('set_app_config', { p_key: 'daily_target_tasks', p_value: String(cleanTasks) });
-  if (t.error) throw new Error(t.error.message || 'Could not save the daily target.');
-  const next = await fetchDailyTarget();
-  return next;
+  const current = getStoredDailyTarget();
+  const updated: DailyTarget = { ...current, hours: cleanHours, tasks: cleanTasks };
+  saveStoredDailyTarget(updated);
+  return updated;
 }
 
 

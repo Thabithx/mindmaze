@@ -1,6 +1,7 @@
 import { TimetableEntry, DailyTask } from '../types';
 import { generateSmartStudyReminder, generateDailyCountdown } from './notificationMessages';
 import { getTodayDateString } from './storage';
+import { api, getAuthToken } from '../services/api';
 
 const COUNTDOWN_SENT_KEY = 'mindmaze_countdown_sent_day';
 
@@ -141,18 +142,14 @@ export async function subscribeForPush(): Promise<boolean> {
       return false;
     }
 
-    const { supabase } = await import('./supabaseClient');
-    if (!supabase) return false;
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) return false;
+    const token = getAuthToken();
+    if (!token) return false;
 
     let reg = await getReadyRegistration();
     if (!reg) {
       reg = await registerServiceWorker();
     }
     if (!reg) {
-      // DEV-only note: registerServiceWorker() deliberately stays
       if (import.meta.env.DEV) {
         console.info('[Push] No service worker in DEV; skipping silent re-subscribe (expected — test with vite preview).');
       }
@@ -161,12 +158,7 @@ export async function subscribeForPush(): Promise<boolean> {
 
     let sub = await reg.pushManager.getSubscription();
     if (sub && !subscriptionUsesCurrentKey(sub, keyBytes)) {
-      const staleEndpoint = sub.endpoint;
       await sub.unsubscribe().catch(() => undefined);
-      try {
-        await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', staleEndpoint);
-      } catch {
-      }
       sub = null;
     }
 
@@ -180,9 +172,7 @@ export async function subscribeForPush(): Promise<boolean> {
         try {
           const ghost = await reg.pushManager.getSubscription();
           if (ghost) {
-            const ghostEndpoint = ghost.endpoint;
             await ghost.unsubscribe().catch(() => undefined);
-            await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', ghostEndpoint);
           }
         } catch {
         }
@@ -194,25 +184,15 @@ export async function subscribeForPush(): Promise<boolean> {
     }
 
     const json = sub.toJSON();
-    const p256dh = json.keys?.p256dh;
-    const authKey = json.keys?.auth;
-    if (!p256dh || !authKey) return false;
+    if (!json.endpoint) return false;
 
-    const { error } = await supabase.from('push_subscriptions').upsert(
-      {
-        user_id: userId,
-        endpoint: sub.endpoint,
-        p256dh,
-        auth: authKey,
-        user_agent: navigator.userAgent,
-      },
-      { onConflict: 'user_id,endpoint' }
-    );
-    if (error) {
-      console.warn('[Push] Failed to save subscription:', error.message);
+    try {
+      await api.savePushSubscription(json);
+      return true;
+    } catch (err: any) {
+      console.warn('[Push] Failed to save push subscription to API:', err?.message || err);
       return false;
     }
-    return true;
   } catch (err) {
     console.warn('[Push] subscribeForPush failed:', err);
     return false;
@@ -226,12 +206,7 @@ export async function cleanupStalePushSubscription(): Promise<void> {
     const reg = await getReadyRegistration(2000);
     if (!reg) return;
     const sub = await reg.pushManager.getSubscription();
-    if (!sub) return;
-    const endpoint = sub.endpoint;
-    await sub.unsubscribe().catch(() => undefined);
-    const { supabase } = await import('./supabaseClient');
-    if (!supabase) return;
-    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    if (sub) await sub.unsubscribe().catch(() => undefined);
   } catch (err) {
     console.warn('[Push] cleanupStalePushSubscription failed:', err);
   }
@@ -243,12 +218,7 @@ export async function unsubscribeFromPush(): Promise<void> {
     const reg = await getReadyRegistration(2000);
     if (!reg) return;
     const sub = await reg.pushManager.getSubscription();
-    const endpoint = sub?.endpoint;
     if (sub) await sub.unsubscribe().catch(() => undefined);
-    if (!endpoint) return;
-    const { supabase } = await import('./supabaseClient');
-    if (!supabase) return;
-    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
   } catch (err) {
     console.warn('[Push] unsubscribeFromPush failed:', err);
   }
@@ -323,22 +293,9 @@ export async function getLocalPushState(): Promise<LocalPushState> {
     if (!reg) return 'no-service-worker';
     const sub = await reg.pushManager.getSubscription().catch(() => null);
     if (!sub) return 'not-subscribed';
-    try {
-      const { supabase } = await import('./supabaseClient');
-      if (!supabase) return 'unknown';
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user?.id) return 'not-synced';
-      const { data, error } = await supabase
-        .from('push_subscriptions')
-        .select('endpoint')
-        .eq('user_id', userData.user.id)
-        .eq('endpoint', sub.endpoint)
-        .maybeSingle();
-      if (error) return 'unknown';
-      return data ? 'active' : 'not-synced';
-    } catch {
-      return 'unknown';
-    }
+    const token = getAuthToken();
+    if (!token) return 'not-synced';
+    return 'active';
   } catch {
     return 'unknown';
   }
