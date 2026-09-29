@@ -64,12 +64,11 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     }
   })();
 
-  const dbTimerMinutes =
-    currentUserProfile?.totalStudyMinutes ??
-    currentUserProfile?.user?.totalStudyMinutes ??
-    storedUserObj?.totalStudyMinutes ??
-    0;
-  const liveHours = dbTimerMinutes / 60;
+  const dbTimerMinutes = Math.max(
+    Number(currentUserProfile?.totalStudyMinutes || 0),
+    Number(currentUserProfile?.user?.totalStudyMinutes || 0),
+    Number(storedUserObj?.totalStudyMinutes || 0)
+  );
   const completedTaskCount = progression.completedTopics || 0;
   const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
 
@@ -93,33 +92,50 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const myUsername = currentUserProfile?.name || currentUserProfile?.username || storedStudentName || 'A/L Scholar';
   const myUserId = currentUserId || currentUserProfile?.id || currentUserProfile?._id || currentUserProfile?.email || 'current-user';
 
+  const isMe = useCallback((e: LeaderboardEntry) => {
+    if (myUserId && myUserId !== 'current-user' && (e.userId === myUserId || String(e.userId) === String(myUserId))) {
+      return true;
+    }
+    if (myUsername && e.username && e.username.trim().toLowerCase() === myUsername.trim().toLowerCase()) {
+      return true;
+    }
+    return false;
+  }, [myUserId, myUsername]);
+
   // Merge current user's live entry into leaderboard entries
   const entries = useMemo(() => {
     const list = [...rawEntries];
-    const userIndex = list.findIndex(
-      (e) => (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase()
-    );
+    const userIndex = list.findIndex(isMe);
+
+    const serverMins = userIndex >= 0 ? Number(list[userIndex].totalStudyMinutes || 0) : 0;
+    const finalStudyMinutes = Math.max(dbTimerMinutes, serverMins);
+    const finalHours = finalStudyMinutes / 60;
 
     const myEntry: LeaderboardEntry = {
       userId: myUserId,
       username: myUsername,
       stream: effectiveStream,
-      completedHours: liveHours,
-      totalStudyMinutes: dbTimerMinutes,
+      completedHours: finalHours,
+      totalStudyMinutes: finalStudyMinutes,
       completedTasks: completedTaskCount,
       currentStreak: liveStreak,
       syllabusCompletedPercent: liveSyllabusPercent,
     };
 
     if (userIndex >= 0) {
-      list[userIndex] = { ...list[userIndex], ...myEntry };
+      list[userIndex] = {
+        ...list[userIndex],
+        ...myEntry,
+        totalStudyMinutes: finalStudyMinutes,
+        completedHours: finalHours,
+      };
     } else {
       list.push(myEntry);
     }
 
     const sorted = sortLeaderboardEntries(list);
     return compact ? sorted.slice(0, 5) : sorted;
-  }, [rawEntries, myUserId, myUsername, effectiveStream, liveHours, dbTimerMinutes, completedTaskCount, progression.completedTopics, liveStreak, liveSyllabusPercent, compact]);
+  }, [rawEntries, isMe, myUserId, myUsername, effectiveStream, dbTimerMinutes, completedTaskCount, liveStreak, liveSyllabusPercent, compact]);
 
   const load = useCallback(async (p: LeaderboardPeriod) => {
     setLoading(true);
@@ -151,8 +167,6 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     (e) => (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase()
   );
 
-  const isMe = (e: LeaderboardEntry) =>
-    (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase();
 
   const medal = (i: number) =>
     i === 0 ? (

@@ -906,7 +906,7 @@ export function App() {
                         saveStoredSyllabusTopics(updated);
                       }
                     }}
-                    onMarkFinished={() => {
+                    onMarkFinished={(studiedMinutes) => {
                       const title = activePomodoroTopic?.title || activeSyllabusTopic?.topicTitle || 'this study unit';
                       if (!window.confirm(`Are you sure you want to mark "${title}" as finished?`)) {
                         return;
@@ -1024,12 +1024,28 @@ export function App() {
 
                       // Refresh streak
                       const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
+
+                      // Use actual studied time (at least 1 minute to count session)
+                      const minsToSave = studiedMinutes > 0 ? studiedMinutes : 1;
+
+                      // Optimistic update: reflect in UI immediately
+                      setUser((prev: any) => {
+                        const updated = {
+                          ...(prev || {}),
+                          totalStudyMinutes: (Number(prev?.totalStudyMinutes || 0)) + minsToSave,
+                        };
+                        setStoredUser(updated);
+                        return updated;
+                      });
+                      window.dispatchEvent(new CustomEvent('mindmaze_study_time_updated', { detail: { addedMinutes: minsToSave } }));
+
                       // Save study time & streak to DB on block completion
                       if (getAuthToken()) {
-                        api.addStudyMinutes(25).then((res: any) => {
+                        api.addStudyMinutes(minsToSave).then((res: any) => {
                           if (res?.user) {
                             setUser(res.user);
                             setStoredUser(res.user);
+                            window.dispatchEvent(new CustomEvent('mindmaze_study_time_updated', { detail: { addedMinutes: minsToSave } }));
                           }
                         }).catch(() => {});
                         api.updateProfile({
@@ -1043,7 +1059,7 @@ export function App() {
 
                       setCelebration({
                         title: 'Study Task Completed! 🎉',
-                        message: `Awesome job! You finished "${title}". 25 study minutes saved to database!`,
+                        message: `Awesome job! You finished "${title}". ${minsToSave} study minute${minsToSave !== 1 ? 's' : ''} saved!`,
                       });
                       if (activePomodoroTopic?.id) {
                         setDismissedBlockIds((prev) => [...prev, activePomodoroTopic.id!]);

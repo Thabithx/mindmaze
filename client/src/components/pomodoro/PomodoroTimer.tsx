@@ -29,7 +29,7 @@ export interface PomodoroTimerProps {
   onSelectTopic?: (topic: SyllabusTopic) => void;
   onToggleSubtopic?: (subtopic: string) => void;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
-  onMarkFinished?: () => void;
+  onMarkFinished?: (studiedMinutes: number) => void;
   onStartSession?: () => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
@@ -127,6 +127,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   };
 
   const workSecondsRef = React.useRef<number>(0);
+  const sessionStudiedMinutesRef = React.useRef<number>(0);
   const lastTickRef = React.useRef<number>(Date.now());
 
   // High-precision, zero-drift timer loop using timestamp deltas
@@ -136,6 +137,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       // credit 1 full minute to their permanent record
       if (mode === 'work' && workSecondsRef.current >= 30) {
         workSecondsRef.current = 0;
+        sessionStudiedMinutesRef.current += 1;
         if (onSessionComplete) onSessionComplete('work', 1);
       }
       return;
@@ -153,6 +155,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           workSecondsRef.current += elapsedSec;
           while (workSecondsRef.current >= 60) {
             workSecondsRef.current -= 60;
+            sessionStudiedMinutesRef.current += 1;
             if (onSessionComplete) onSessionComplete('work', 1);
           }
         }
@@ -175,6 +178,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         setCompletedSessions(newCount);
         if (workSecondsRef.current >= 20) {
           workSecondsRef.current = 0;
+          sessionStudiedMinutesRef.current += 1;
           if (onSessionComplete) onSessionComplete('work', 1);
         } else {
           workSecondsRef.current = 0;
@@ -196,6 +200,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     // Credit any pending study time before switching modes
     if (mode === 'work' && workSecondsRef.current >= 30) {
       workSecondsRef.current = 0;
+      sessionStudiedMinutesRef.current += 1;
       if (onSessionComplete) onSessionComplete('work', 1);
     }
     setMode(newMode);
@@ -285,12 +290,19 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // Called when user marks a unit finished — fully resets timer back to initial state
   const handleMarkFinished = () => {
+    // Capture actual studied time BEFORE resetting anything
+    // Credit any pending seconds >= 30 as a final minute
+    const pendingMins = workSecondsRef.current >= 30 ? 1 : 0;
+    const totalStudied = sessionStudiedMinutesRef.current + pendingMins;
+
     // Stop and reset audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
     // Reset all internal state
+    workSecondsRef.current = 0;
+    sessionStudiedMinutesRef.current = 0;
     setIsRunning(false);
     setMode('work');
     setTimeLeft(MODE_CONFIGS.work.minutes * 60);
@@ -298,8 +310,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setHasStarted(false);
     setSelectedUnitId('');
     setSelectedSubject(activeSubject || '');
-    // Then call the parent callback
-    if (onMarkFinished) onMarkFinished();
+    // Pass actual minutes to the parent callback
+    if (onMarkFinished) onMarkFinished(totalStudied);
   };
 
   const formatTime = (seconds: number): string => {
