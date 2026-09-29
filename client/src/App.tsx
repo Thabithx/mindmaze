@@ -620,6 +620,7 @@ export function App() {
     targetZScore: user?.targetZScore || '',
     examDate: globalExamDate || user?.targetExamDate || (studentBatchYear === '2027' ? '2027-11-25' : '2026-11-25'),
     dailyCompletedMCQs: 0,
+    totalStudyMinutes: user?.totalStudyMinutes ?? 0,
     isAuthenticated: !!user,
   };
 

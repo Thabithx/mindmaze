@@ -7,6 +7,7 @@ export interface LeaderboardEntry {
   username: string;
   stream: string | null;
   completedHours: number;
+  totalStudyMinutes?: number;
   completedTasks: number;
   currentStreak: number;
   syllabusCompletedPercent: number;
@@ -37,9 +38,11 @@ export const sortLeaderboardEntries = (entries: LeaderboardEntry[]): Leaderboard
     if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) {
       return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
     }
-    // 2. Study Hours (highest first)
-    if (b.completedHours !== a.completedHours) {
-      return b.completedHours - a.completedHours;
+    // 2. Total Study Minutes (highest first)
+    const minsA = a.totalStudyMinutes !== undefined ? a.totalStudyMinutes : Math.round((a.completedHours || 0) * 60);
+    const minsB = b.totalStudyMinutes !== undefined ? b.totalStudyMinutes : Math.round((b.completedHours || 0) * 60);
+    if (minsB !== minsA) {
+      return minsB - minsA;
     }
     // 3. Current Streak (highest first)
     return b.currentStreak - a.currentStreak;

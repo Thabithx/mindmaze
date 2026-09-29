@@ -55,8 +55,21 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const liveSyllabusPercent = progression.totalPercentage;
 
   // Calculate real live study hours strictly from completed timer minutes
-  const dbTimerMinutes = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || 0;
-  const liveHours = Math.round((dbTimerMinutes / 60) * 10) / 10;
+  const storedUserObj = (() => {
+    try {
+      const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const dbTimerMinutes =
+    currentUserProfile?.totalStudyMinutes ??
+    currentUserProfile?.user?.totalStudyMinutes ??
+    storedUserObj?.totalStudyMinutes ??
+    0;
+  const liveHours = dbTimerMinutes / 60;
   const completedTaskCount = progression.completedTopics || 0;
   const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
 
@@ -92,6 +105,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       username: myUsername,
       stream: effectiveStream,
       completedHours: liveHours,
+      totalStudyMinutes: dbTimerMinutes,
       completedTasks: completedTaskCount,
       currentStreak: liveStreak,
       syllabusCompletedPercent: liveSyllabusPercent,
@@ -105,7 +119,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
     const sorted = sortLeaderboardEntries(list);
     return compact ? sorted.slice(0, 5) : sorted;
-  }, [rawEntries, myUserId, myUsername, effectiveStream, liveHours, completedTaskCount, progression.completedTopics, liveStreak, liveSyllabusPercent, compact]);
+  }, [rawEntries, myUserId, myUsername, effectiveStream, liveHours, dbTimerMinutes, completedTaskCount, progression.completedTopics, liveStreak, liveSyllabusPercent, compact]);
 
   const load = useCallback(async (p: LeaderboardPeriod) => {
     setLoading(true);
@@ -141,6 +155,17 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     ) : (
       <Medal className="w-4 h-4 text-amber-600" />
     );
+
+  const formatStudyTime = (e: LeaderboardEntry) => {
+    const totalMins =
+      e.totalStudyMinutes !== undefined
+        ? Math.round(e.totalStudyMinutes)
+        : Math.round((e.completedHours || 0) * 60);
+    if (totalMins < 60) return `${totalMins}m`;
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  };
 
   return (
     <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 border border-white/15">
@@ -223,10 +248,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
           {top3.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
               {top3.map((e, i) => {
-                const totalMins = Math.round((e.completedHours || 0) * 60);
-                const h = Math.floor(totalMins / 60);
-                const m = totalMins % 60;
-                const timeLabel = h === 0 ? `${totalMins}m` : m === 0 ? `${h}h (${totalMins}m)` : `${h}h ${m}m (${totalMins}m)`;
+                const timeLabel = formatStudyTime(e);
 
                 return (
                   <div
@@ -269,10 +291,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                 </thead>
                 <tbody>
                   {rest.map((e, i) => {
-                    const totalMins = Math.round((e.completedHours || 0) * 60);
-                    const h = Math.floor(totalMins / 60);
-                    const m = totalMins % 60;
-                    const timeLabel = h === 0 ? `${totalMins}m` : m === 0 ? `${h}h (${totalMins}m)` : `${h}h ${m}m (${totalMins}m)`;
+                    const timeLabel = formatStudyTime(e);
 
                     return (
                       <tr

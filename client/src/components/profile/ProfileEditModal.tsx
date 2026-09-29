@@ -23,7 +23,6 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [stream, setStream] = useState<StreamType>(currentUser?.stream || 'Physical Science');
   const [elective, setElective] = useState<'Chemistry' | 'ICT'>(currentUser?.physicalScienceElective || 'Chemistry');
   const [targetExamYear, setTargetExamYear] = useState(currentUser?.targetExamYear || '2026');
-  const [targetExamDate, setTargetExamDate] = useState(currentUser?.targetExamDate || '');
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || '');
   const [mobileNumber, setMobileNumber] = useState(currentUser?.mobileNumber || '');
   const [motivationNote, setMotivationNote] = useState(currentUser?.motivationNote || '');
@@ -32,25 +31,6 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        const inputEl = document.getElementById('profile-exam-date-input');
-        const sectionEl = document.getElementById('section-exam-date');
-        if (sectionEl) {
-          sectionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          sectionEl.classList.add('ring-2', 'ring-indigo-500', 'p-2', 'rounded-xl', 'bg-indigo-500/10', 'transition-all');
-          setTimeout(() => {
-            sectionEl.classList.remove('ring-2', 'ring-indigo-500', 'p-2', 'bg-indigo-500/10');
-          }, 2500);
-        }
-        if (inputEl) {
-          inputEl.focus();
-        }
-      }, 150);
-    }
-  }, [isOpen]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +64,6 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         stream,
         physicalScienceElective: elective,
         targetExamYear,
-        targetExamDate,
         targetZScore,
         mobileNumber,
         motivationNote,
@@ -162,31 +141,19 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             )}
           </div>
 
-          <div id="section-exam-date" className="grid grid-cols-2 gap-3 transition-all duration-300">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Target Exam Year</label>
-              <input
-                type="text"
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Target A/L Batch</label>
+              <select
                 value={targetExamYear}
                 onChange={(e) => setTargetExamYear(e.target.value)}
-                placeholder="2026"
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-              />
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
+              >
+                <option value="2026">2026 A/L Batch</option>
+                <option value="2027">2027 A/L Batch</option>
+              </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Expected Exam Date</label>
-              <input
-                id="profile-exam-date-input"
-                type="date"
-                value={targetExamDate}
-                onChange={(e) => setTargetExamDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Target Z-Score</label>
               <input
@@ -197,23 +164,23 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Mobile Contact No. <span className="text-slate-500 font-normal">(10 digits)</span>
-              </label>
-              <input
-                type="tel"
-                value={mobileNumber}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-                  setMobileNumber(digits);
-                }}
-                maxLength={10}
-                placeholder="0771234567"
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Mobile Contact No. <span className="text-slate-500 font-normal">(10 digits)</span>
+            </label>
+            <input
+              type="tel"
+              value={mobileNumber}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setMobileNumber(digits);
+              }}
+              maxLength={10}
+              placeholder="0771234567"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

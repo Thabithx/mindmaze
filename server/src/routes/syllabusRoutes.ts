@@ -33,27 +33,28 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
       const realSubtopicsCount = progressMap.get(uId) || 0;
       const computedSyllabusPercent = Math.min(100, Math.round((realSubtopicsCount / 110) * 100));
 
-      const timerHours = (u.totalStudyMinutes || 0) / 60;
-      const computedHours = Math.round(timerHours * 10) / 10;
+      const totalMinutes = u.totalStudyMinutes || 0;
+      const computedHours = totalMinutes / 60;
 
       return {
         userId: uId,
         username: u.name || 'A/L Scholar',
         stream: u.stream || 'Physical Science',
         completedHours: computedHours,
+        totalStudyMinutes: totalMinutes,
         completedTasks: realSubtopicsCount,
         currentStreak: streak,
         syllabusCompletedPercent: computedSyllabusPercent,
       };
     });
 
-    // Sort strictly by Syllabus % > Completed Hours > Streak
+    // Sort strictly by Syllabus % > Total Study Minutes > Streak
     entries.sort((a, b) => {
       if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) {
         return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
       }
-      if (b.completedHours !== a.completedHours) {
-        return b.completedHours - a.completedHours;
+      if ((b.totalStudyMinutes || 0) !== (a.totalStudyMinutes || 0)) {
+        return (b.totalStudyMinutes || 0) - (a.totalStudyMinutes || 0);
       }
       return b.currentStreak - a.currentStreak;
     });

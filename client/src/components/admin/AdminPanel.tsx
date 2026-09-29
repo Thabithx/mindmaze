@@ -497,16 +497,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-amber-500/20 backdrop-blur-xl shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-white flex items-center gap-2">
-                <span className="text-amber-400">📅</span>
-                <span>Set Upcoming A/L Exam Dates (2 Batches)</span>
+                <span>Set Upcoming A/L Exam Dates </span>
               </h3>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 border border-amber-400/30 text-amber-300">
                 2 Batches Active
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Set the national GCE A/L examination dates for both active student batches. Each student's dashboard will automatically show the countdown corresponding to their batch year.
-            </p>
             <form onSubmit={handleSaveGlobalExamDate} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
@@ -556,7 +552,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <span>Saving Both Batches...</span>
                     </>
                   ) : (
-                    <span>Save Exam Dates (Both Batches)</span>
+                    <span>Save Exam Dates</span>
                   )}
                 </button>
               </div>
@@ -597,7 +593,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
                 {broadcastStatus.error.toLowerCase().includes('not configured') && (
                   <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                    <p className="text-amber-300 text-xs font-bold">Setup Required — Add one of these to Render Environment Variables:</p>
+                    <p className="text-amber-300 text-xs font-bold">Setup Required : Add one of these to Render Environment Variables:</p>
                     <div className="space-y-1 font-mono text-[10px] text-slate-300">
                       <p className="text-slate-400 font-bold">Option A — Gmail App Password (recommended):</p>
                       <p>EMAIL_USER=<span className="text-cyan-300">your@gmail.com</span></p>

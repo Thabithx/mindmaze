@@ -582,32 +582,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Target Exam Year
+                Target A/L Batch
               </label>
-              <input
-                type="text"
+              <select
                 disabled={isGuest}
                 value={targetExamYear}
                 onChange={(e) => setTargetExamYear(e.target.value)}
-                placeholder="2026"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Expected Exam Date
-              </label>
-              <input
-                type="date"
-                disabled={isGuest}
-                value={targetExamDate}
-                onChange={(e) => setTargetExamDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+              >
+                <option value="2026" className="bg-slate-900 text-white">2026 A/L Batch (Senior)</option>
+                <option value="2027" className="bg-slate-900 text-white">2027 A/L Batch (Junior)</option>
+              </select>
             </div>
 
             <div>

@@ -135,6 +135,7 @@ export interface UserProfile {
   xp: number;
   streakDays: number;
   streakFreezes?: number;
+  totalStudyMinutes?: number;
   dailyCompletedMCQs: number;
   dailyGoalMCQs?: number;
   [key: string]: any;
