@@ -92,6 +92,8 @@ export const api = {
   resetPassword: (body: { token: string; email?: string; newPassword: string }) => apiFetch('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) }),
   getProfile: () => apiFetch('/auth/profile'),
   updateProfile: (body: any) => apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
+  addStudyMinutes: (minutes: number) => apiFetch('/auth/add-study-minutes', { method: 'POST', body: JSON.stringify({ minutes }) }),
+  deleteAccount: () => apiFetch('/auth/account', { method: 'DELETE' }),
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
@@ -137,9 +139,14 @@ export const api = {
   getAdminUsers: () => apiFetch('/admin/users'),
   updateUserRole: (id: string, role: string) => apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   updateUserStatus: (id: string, isActive: boolean) => apiFetch(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
+  deleteUser: (id: string) => apiFetch(`/admin/users/${id}`, { method: 'DELETE' }),
   sendBroadcastEmail: (body: any) => apiFetch('/admin/broadcast-email', { method: 'POST', body: JSON.stringify(body) }),
   testAdminEmail: (body?: { email?: string }) => apiFetch('/admin/test-email', { method: 'POST', body: JSON.stringify(body || {}) }),
   getAdminStats: () => apiFetch('/admin/stats'),
   getAdminExamDate: () => apiFetch('/admin/site-config/exam-date'),
-  setAdminExamDate: (examDate: string) => apiFetch('/admin/site-config/exam-date', { method: 'PUT', body: JSON.stringify({ examDate }) }),
+  setAdminExamDate: (payload: { examDate2026?: string; examDate2027?: string; examDate?: string } | string) =>
+    apiFetch('/admin/site-config/exam-date', {
+      method: 'PUT',
+      body: JSON.stringify(typeof payload === 'string' ? { examDate: payload, examDate2026: payload } : payload),
+    }),
 };

@@ -24,6 +24,7 @@ import {
   Flame,
   Eye,
   EyeOff,
+  Trash2,
 } from 'lucide-react';
 import { BrowserReenableSteps } from '../notifications/BrowserReenableSteps';
 import { validateName, validatePhone, validateEmail, validateYear } from '../../lib/validation';
@@ -234,6 +235,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
     setTestSent(true);
     setTimeout(() => setTestSent(false), 4000);
+  };
+
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    const confirmation = window.prompt(
+      '⚠️ Are you sure you want to permanently delete your account?\n\nThis will PERMANENTLY ERASE your study profile, streak, timetables, tasks, mistakes notebook, and syllabus progress from the database.\n\nType "DELETE" to confirm:'
+    );
+    if (confirmation !== 'DELETE') {
+      if (confirmation !== null) alert('Account deletion cancelled. You must type "DELETE" exactly.');
+      return;
+    }
+
+    try {
+      setDeletingAccount(true);
+      await api.deleteAccount();
+      alert('Your account and study data have been permanently deleted.');
+      if (onSignOut) {
+        onSignOut();
+      } else {
+        localStorage.clear();
+        window.location.reload();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete account. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const isGuest = !currentUser && !userProfile?.isAuthenticated;
@@ -707,6 +736,49 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
           )}
         </div>
+
+        {/* ── Danger Zone (Delete Account) ── */}
+        {!isGuest && (
+          <div className="rounded-3xl border border-rose-500/20 bg-rose-950/20 p-5 sm:p-7 backdrop-blur-xl shadow-xl space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-rose-500/20 pb-3">
+              <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400">
+                <Trash2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-rose-300">Danger Zone</h2>
+                <p className="text-[11px] text-slate-400">Irreversible account actions</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-bold text-white">Delete Student Account</h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Permanently erase your account, study history, timetable, mistakes notebook, and syllabus progress.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={deletingAccount}
+                onClick={handleDeleteAccount}
+                className="px-4 py-2.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition shadow-lg flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+              >
+                {deletingAccount ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete My Account</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Submit Save Button */}
         <div className="sticky bottom-4 z-20 flex items-center justify-end gap-3 p-4 rounded-2xl bg-[#0F1123]/95 border border-white/15 backdrop-blur-2xl shadow-2xl">

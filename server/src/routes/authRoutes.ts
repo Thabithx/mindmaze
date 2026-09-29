@@ -3,6 +3,10 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User, { StreamType } from '../models/User.js';
+import Timetable from '../models/Timetable.js';
+import Task from '../models/Task.js';
+import Mistake from '../models/Mistake.js';
+import SyllabusProgress from '../models/SyllabusProgress.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 import { sendPasswordResetEmail } from '../services/emailService.js';
 
@@ -41,6 +45,22 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
     if (existingUser) {
       res.status(400).json({ message: 'User with this email already exists' });
       return;
+    }
+
+    const userPhone = (req.body.whatsappNumber || req.body.mobileNumber || req.body.phoneNumber || req.body.phone || '').trim().replace(/[\s\-\(\)]/g, '');
+    if (userPhone) {
+      const existingPhone = await User.findOne({
+        $or: [
+          { mobileNumber: userPhone },
+          { whatsappNumber: userPhone },
+          { phoneNumber: userPhone },
+          { phone: userPhone },
+        ],
+      });
+      if (existingPhone) {
+        res.status(400).json({ message: 'This phone number is already registered with another account.' });
+        return;
+      }
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -298,7 +318,22 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
     
     const incomingPhone = req.body.mobileNumber || req.body.whatsappNumber || req.body.phoneNumber || req.body.phone;
     if (incomingPhone !== undefined) {
-      const cleanPhone = String(incomingPhone).trim();
+      const cleanPhone = String(incomingPhone).trim().replace(/[\s\-\(\)]/g, '');
+      if (cleanPhone) {
+        const existingPhone = await User.findOne({
+          _id: { $ne: user._id },
+          $or: [
+            { mobileNumber: cleanPhone },
+            { whatsappNumber: cleanPhone },
+            { phoneNumber: cleanPhone },
+            { phone: cleanPhone },
+          ],
+        });
+        if (existingPhone) {
+          res.status(400).json({ message: 'This phone number is already in use by another account.' });
+          return;
+        }
+      }
       user.mobileNumber = cleanPhone;
       user.whatsappNumber = cleanPhone;
       user.phoneNumber = cleanPhone;
@@ -495,6 +530,54 @@ router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<
   } catch (error: any) {
     console.error('Reset Password Error:', error);
     res.status(500).json({ message: 'Error resetting password', error: error.message });
+  }
+});
+
+// Atomic Study Minutes increment (permanently saved to MongoDB)
+router.post('/add-study-minutes', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mins = Number(req.body.minutes ?? req.body.addStudyMinutes ?? 0);
+    if (isNaN(mins) || mins <= 0) {
+      res.status(400).json({ message: 'Valid study minutes amount is required' });
+      return;
+    }
+    const user = await User.findByIdAndUpdate(
+      req.user!._id,
+      { $inc: { totalStudyMinutes: mins } },
+      { new: true }
+    ).select('-passwordHash');
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    res.json({
+      message: `${mins} study minute(s) added successfully`,
+      totalStudyMinutes: user.totalStudyMinutes,
+      user,
+    });
+  } catch (error: any) {
+    console.error('Add Study Minutes Error:', error);
+    res.status(500).json({ message: 'Error adding study minutes', error: error.message });
+  }
+});
+
+// Delete student account and all their study data permanently
+router.delete('/account', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!._id;
+    await Promise.all([
+      User.findByIdAndDelete(userId),
+      Timetable.deleteMany({ user: userId }),
+      Task.deleteMany({ user: userId }),
+      Mistake.deleteMany({ user: userId }),
+      SyllabusProgress.deleteMany({ user: userId }),
+    ]);
+    res.json({ message: 'Your account and all associated study data have been permanently deleted.' });
+  } catch (error: any) {
+    console.error('Delete Account Error:', error);
+    res.status(500).json({ message: 'Error deleting account', error: error.message });
   }
 });
 

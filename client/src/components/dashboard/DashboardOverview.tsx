@@ -138,12 +138,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="flex items-baseline sm:flex-col sm:items-center gap-1.5 sm:gap-0">
               <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft}</span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:mt-1">
-                Days to A/L
+                Days to {userSettings?.targetExamYear || userProfile?.targetYear || '2026'} A/L
               </span>
             </div>
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] font-bold sm:mt-2">
               <Calendar className="w-3 h-3" />
-              <span>Exam Day</span>
+              <span>{userSettings?.targetExamYear || userProfile?.targetYear || '2026'} Batch</span>
             </div>
           </div>
         </div>

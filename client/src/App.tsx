@@ -133,11 +133,11 @@ export function App() {
       }).catch(() => {});
     }
 
-    // Fetch site-wide exam date from MongoDB
+    // Fetch site-wide exam dates for 2 batches from MongoDB
     api.getAdminExamDate().then((res) => {
-      if (res?.examDate) {
-        localStorage.setItem('mindmaze_global_exam_date', res.examDate);
-      }
+      if (res?.examDate2026) localStorage.setItem('mindmaze_global_exam_date_2026', res.examDate2026);
+      if (res?.examDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', res.examDate2027);
+      if (res?.examDate) localStorage.setItem('mindmaze_global_exam_date', res.examDate);
     }).catch(() => {});
 
     try {
@@ -598,11 +598,15 @@ export function App() {
     setAuthModalMode('signin');
   };
 
+  const studentBatchYear = String(user?.targetExamYear || userSettings?.targetExamYear || '2026');
   const globalExamDate = (() => {
     try {
-      return localStorage.getItem('mindmaze_global_exam_date') || '';
+      if (studentBatchYear === '2027') {
+        return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
+      }
+      return localStorage.getItem('mindmaze_global_exam_date_2026') || localStorage.getItem('mindmaze_global_exam_date') || '2026-11-25';
     } catch {
-      return '';
+      return studentBatchYear === '2027' ? '2027-11-25' : '2026-11-25';
     }
   })();
 
@@ -614,7 +618,7 @@ export function App() {
     streakDays: streakDays || user?.streakDays || 1,
     targetYear: user?.targetExamYear || '2026',
     targetZScore: user?.targetZScore || '',
-    examDate: globalExamDate || user?.targetExamDate || '2026-11-25',
+    examDate: globalExamDate || user?.targetExamDate || (studentBatchYear === '2027' ? '2027-11-25' : '2026-11-25'),
     dailyCompletedMCQs: 0,
     isAuthenticated: !!user,
   };
@@ -1021,17 +1025,17 @@ export function App() {
                       const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
                       // Save study time & streak to DB on block completion
                       if (getAuthToken()) {
-                        api.updateProfile({
-                          addStudyMinutes: 25,
-                          streakDays: refreshedStreak.currentStreak,
-                          bestStreak: refreshedStreak.bestStreak,
-                          completedDates: refreshedStreak.completedDates,
-                          lastCompletedDate: refreshedStreak.lastCompletedDate,
-                        }).then((res: any) => {
+                        api.addStudyMinutes(25).then((res: any) => {
                           if (res?.user) {
                             setUser(res.user);
                             setStoredUser(res.user);
                           }
+                        }).catch(() => {});
+                        api.updateProfile({
+                          streakDays: refreshedStreak.currentStreak,
+                          bestStreak: refreshedStreak.bestStreak,
+                          completedDates: refreshedStreak.completedDates,
+                          lastCompletedDate: refreshedStreak.lastCompletedDate,
                         }).catch(() => {});
                         api.syncTasks(updatedTasks).catch(() => {});
                       }
@@ -1046,20 +1050,16 @@ export function App() {
                       setActivePomodoroTopic(null);
                     }}
                     onSessionComplete={(type, mins) => {
-                      if (type === 'work') {
-                        setCelebration({
-                          title: 'Pomodoro Completed! ⏱️',
-                          message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
-                        });
+                      if (type === 'work' && mins > 0) {
+                        if (mins >= 5) {
+                          setCelebration({
+                            title: 'Pomodoro Completed! ⏱️',
+                            message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
+                          });
+                        }
                         if (getAuthToken()) {
                           const streakState = recordDailyVisit();
-                          api.updateProfile({
-                            addStudyMinutes: mins,
-                            streakDays: streakState.currentStreak,
-                            bestStreak: streakState.bestStreak,
-                            completedDates: streakState.completedDates,
-                            lastCompletedDate: streakState.lastCompletedDate,
-                          }).then((res: any) => {
+                          api.addStudyMinutes(mins).then((res: any) => {
                             if (res?.user) {
                               setUser(res.user);
                               setStoredUser(res.user);
@@ -1067,6 +1067,13 @@ export function App() {
                           }).catch((err) => {
                             console.warn('[Timer] Error saving study minutes to DB:', err);
                           });
+
+                          api.updateProfile({
+                            streakDays: streakState.currentStreak,
+                            bestStreak: streakState.bestStreak,
+                            completedDates: streakState.completedDates,
+                            lastCompletedDate: streakState.lastCompletedDate,
+                          }).catch(() => {});
                           api.syncTasks(tasks).catch(() => {});
                         }
                       }

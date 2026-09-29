@@ -59,15 +59,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: string; error?: string } | null>(null);
 
-  // Global Exam Date State (stored in MongoDB via admin API)
-  const [adminExamDate, setAdminExamDate] = useState('');
+  // Global Exam Dates State for 2 batches (stored in MongoDB via admin API)
+  const [adminExamDate2026, setAdminExamDate2026] = useState('2026-11-25');
+  const [adminExamDate2027, setAdminExamDate2027] = useState('2027-11-25');
   const [examDateSaving, setExamDateSaving] = useState(false);
   const [examDateSavedMsg, setExamDateSavedMsg] = useState<{ success?: string; error?: string } | null>(null);
 
   const fetchExamDate = async () => {
     try {
       const res = await api.getAdminExamDate();
-      if (res?.examDate) setAdminExamDate(res.examDate);
+      if (res?.examDate2026) setAdminExamDate2026(res.examDate2026);
+      if (res?.examDate2027) setAdminExamDate2027(res.examDate2027);
     } catch {
       // fail silently
     }
@@ -75,20 +77,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveGlobalExamDate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminExamDate || !/^\d{4}-\d{2}-\d{2}$/.test(adminExamDate)) {
-      setExamDateSavedMsg({ error: 'Please select a valid exam date.' });
+    if (!adminExamDate2026 && !adminExamDate2027) {
+      setExamDateSavedMsg({ error: 'Please select at least one valid exam date.' });
       return;
     }
     try {
       setExamDateSaving(true);
       setExamDateSavedMsg(null);
-      await api.setAdminExamDate(adminExamDate);
-      // Also update localStorage so dashboard picks it up immediately
-      localStorage.setItem('mindmaze_global_exam_date', adminExamDate);
-      setExamDateSavedMsg({ success: `Upcoming exam date set to ${adminExamDate} — all students will see this!` });
+      await api.setAdminExamDate({
+        examDate2026: adminExamDate2026,
+        examDate2027: adminExamDate2027,
+      });
+      // Update localStorage for immediate local usage
+      if (adminExamDate2026) localStorage.setItem('mindmaze_global_exam_date_2026', adminExamDate2026);
+      if (adminExamDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', adminExamDate2027);
+      if (adminExamDate2026) localStorage.setItem('mindmaze_global_exam_date', adminExamDate2026);
+
+      setExamDateSavedMsg({
+        success: `Upcoming exam dates saved! (2026 Batch: ${adminExamDate2026}, 2027 Batch: ${adminExamDate2027})`,
+      });
       setTimeout(() => setExamDateSavedMsg(null), 5000);
     } catch (err: any) {
-      setExamDateSavedMsg({ error: err?.message || 'Failed to save exam date.' });
+      setExamDateSavedMsg({ error: err?.message || 'Failed to save exam dates.' });
     } finally {
       setExamDateSaving(false);
     }
@@ -171,6 +181,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       );
     } catch (err: any) {
       alert(err.message || 'Failed to update user role');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user "${userName}"? This will delete all their study tasks, timetables, and progress data.`)) {
+      return;
+    }
+
+    try {
+      await api.deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u._id !== userId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user');
     }
   };
 
@@ -470,41 +493,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {/* ── Upcoming Exam Date (Admin Sets for All Students) ── */}
+          {/* ── Upcoming Exam Dates (Admin Sets for Both 2026 & 2027 Batches) ── */}
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-amber-500/20 backdrop-blur-xl shadow-xl space-y-4">
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <span className="text-amber-400">📅</span>
-              <span>Set Upcoming A/L Exam Date</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <span className="text-amber-400">📅</span>
+                <span>Set Upcoming A/L Exam Dates (2 Batches)</span>
+              </h3>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 border border-amber-400/30 text-amber-300">
+                2 Batches Active
+              </span>
+            </div>
             <p className="text-xs text-slate-400">
-              Set the national A/L exam date. This will be shown on every student's dashboard countdown.
+              Set the national GCE A/L examination dates for both active student batches. Each student's dashboard will automatically show the countdown corresponding to their batch year.
             </p>
-            <form onSubmit={handleSaveGlobalExamDate} className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
-              <div className="flex-1 w-full">
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">Exam Date <span className="text-rose-400">*</span></label>
-                <input
-                  type="date"
-                  value={adminExamDate}
-                  onChange={(e) => setAdminExamDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-amber-400/30 text-white text-sm focus:outline-none focus:border-amber-400 cursor-pointer"
-                  required
-                />
+            <form onSubmit={handleSaveGlobalExamDate} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-amber-300">
+                      2026 A/L Batch Exam Date <span className="text-rose-400">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-slate-400">Current Senior Batch</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={adminExamDate2026}
+                    onChange={(e) => setAdminExamDate2026(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-400/30 text-white text-sm focus:outline-none focus:border-amber-400 cursor-pointer"
+                    required
+                  />
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-cyan-300">
+                      2027 A/L Batch Exam Date <span className="text-rose-400">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-slate-400">New Junior Batch</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={adminExamDate2027}
+                    onChange={(e) => setAdminExamDate2027(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-400/30 text-white text-sm focus:outline-none focus:border-cyan-400 cursor-pointer"
+                    required
+                  />
+                </div>
               </div>
-              <button
-                type="submit"
-                disabled={examDateSaving || !adminExamDate}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-white text-sm font-bold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-              >
-                {examDateSaving ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <span>Save Exam Date</span>
-                )}
-              </button>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={examDateSaving || (!adminExamDate2026 && !adminExamDate2027)}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-white text-sm font-bold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                >
+                  {examDateSaving ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Saving Both Batches...</span>
+                    </>
+                  ) : (
+                    <span>Save Exam Dates (Both Batches)</span>
+                  )}
+                </button>
+              </div>
             </form>
             {examDateSavedMsg?.success && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
@@ -720,7 +775,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
                               className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer min-w-[84px] ${
                                 u.isActive !== false
-                                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                   : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               }`}
                             >
@@ -735,6 +790,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   <span>Activate</span>
                                 </>
                               )}
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteUser(u._id, u.name)}
+                              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer"
+                              title="Delete Account & Data"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
