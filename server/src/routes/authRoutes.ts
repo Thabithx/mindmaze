@@ -72,8 +72,6 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
     const validStreams = ['Physical Science', 'Biological Science', 'Maths', 'Bio'];
     const selectedStream = validStreams.includes(stream) ? stream : 'Physical Science';
 
-    const userPhone = (req.body.whatsappNumber || req.body.mobileNumber || req.body.phoneNumber || req.body.phone || '').trim();
-
     const user = await User.create({
       name,
       email,
