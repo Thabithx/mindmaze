@@ -127,29 +127,53 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   };
 
   const workSecondsRef = React.useRef<number>(0);
+  const lastTickRef = React.useRef<number>(Date.now());
 
+  // High-precision, zero-drift timer loop using timestamp deltas
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    if (!isRunning) {
+      // If student paused after studying >= 30 seconds that haven't been credited yet,
+      // credit 1 full minute to their permanent record
+      if (mode === 'work' && workSecondsRef.current >= 30) {
+        workSecondsRef.current = 0;
+        if (onSessionComplete) onSessionComplete('work', 1);
+      }
+      return;
+    }
 
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
+    lastTickRef.current = Date.now();
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsedSec = Math.floor((now - lastTickRef.current) / 1000);
+      if (elapsedSec >= 1) {
+        lastTickRef.current += elapsedSec * 1000;
+        setTimeLeft((prev) => Math.max(0, prev - elapsedSec));
+
         if (mode === 'work') {
-          workSecondsRef.current += 1;
-          if (workSecondsRef.current >= 60) {
+          workSecondsRef.current += elapsedSec;
+          while (workSecondsRef.current >= 60) {
             workSecondsRef.current -= 60;
             if (onSessionComplete) onSessionComplete('work', 1);
           }
         }
-      }, 1000);
-    } else if (isRunning && timeLeft === 0) {
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isRunning, mode]);
+
+  // Handle completion when timeLeft reaches 0
+  useEffect(() => {
+    if (timeLeft === 0 && isRunning) {
       playChime();
       setIsRunning(false);
 
       if (mode === 'work') {
         const newCount = completedSessions + 1;
         setCompletedSessions(newCount);
-        if (workSecondsRef.current >= 30) {
+        if (workSecondsRef.current >= 20) {
           workSecondsRef.current = 0;
           if (onSessionComplete) onSessionComplete('work', 1);
         } else {
@@ -166,13 +190,14 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         switchMode('work');
       }
     }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRunning, timeLeft, mode]);
+  }, [timeLeft, isRunning, mode, completedSessions]);
 
   const switchMode = (newMode: TimerMode) => {
+    // Credit any pending study time before switching modes
+    if (mode === 'work' && workSecondsRef.current >= 30) {
+      workSecondsRef.current = 0;
+      if (onSessionComplete) onSessionComplete('work', 1);
+    }
     setMode(newMode);
     setIsRunning(false);
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
@@ -234,9 +259,13 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const hasUnitSelected = !!(activeUnitTitle || selectedUnitId);
 
   const toggleTimer = () => {
-    // Require a subject + unit to be selected before starting
+    // If no unit is currently chosen, auto-select the first unit in the stream
     if (!isRunning && !hasUnitSelected) {
-      return; // blocked — UI shows prompt instead
+      if (filteredTopics.length > 0) {
+        const first = filteredTopics[0];
+        setSelectedUnitId(first.id);
+        if (onSelectTopic) onSelectTopic(first);
+      }
     }
     if (!isRunning && mode === 'work' && onStartSession) {
       onStartSession();
@@ -603,13 +632,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
           <button
             onClick={toggleTimer}
-            disabled={!isRunning && !hasUnitSelected}
-            title={!isRunning && !hasUnitSelected ? 'Select a subject and unit above to start' : ''}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} ${
-              !isRunning && !hasUnitSelected
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:brightness-110 active:scale-95 cursor-pointer'
-            }`}
+            title={isRunning ? 'Pause Timer' : 'Start Focus Session'}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110 active:scale-95 cursor-pointer`}
           >
             {isRunning ? (
               <>
@@ -622,13 +646,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             )}
           </button>
         </div>
-
-        {/* Prompt shown when no unit is selected */}
-        {!isRunning && !hasUnitSelected && (
-          <p className="text-[11px] text-amber-300 font-semibold text-center flex items-center gap-1.5">
-            <span>⚠</span> Select a subject and syllabus unit above to start the timer
-          </p>
-        )}
       </div>
 
       {/* Hidden Audio Element */}

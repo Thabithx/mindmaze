@@ -136,6 +136,13 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
   useEffect(() => {
     void load(period);
+    const handleStudyTimeUpdated = () => {
+      void load(period);
+    };
+    window.addEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
+    return () => {
+      window.removeEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
+    };
   }, [period, load]);
 
   const top3 = entries.slice(0, 3);
@@ -230,7 +237,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                     <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                   )}
                 </span>
-                <span className="text-xs font-black text-cyan-300">{e.syllabusCompletedPercent || 0}% Syllabus</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                    {formatStudyTime(e)}
+                  </span>
+                  <span className="text-xs font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</span>
+                </div>
               </div>
             ))}
           </div>

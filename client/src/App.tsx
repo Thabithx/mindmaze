@@ -1058,12 +1058,35 @@ export function App() {
                             message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
                           });
                         }
+
+                        // Optimistically update live user totalStudyMinutes immediately
+                        setUser((prev: any) => {
+                          const currentMins = Number(prev?.totalStudyMinutes || 0);
+                          const updated = {
+                            ...(prev || {}),
+                            totalStudyMinutes: currentMins + mins,
+                          };
+                          setStoredUser(updated);
+                          return updated;
+                        });
+
+                        window.dispatchEvent(
+                          new CustomEvent('mindmaze_study_time_updated', {
+                            detail: { addedMinutes: mins },
+                          })
+                        );
+
                         if (getAuthToken()) {
                           const streakState = recordDailyVisit();
                           api.addStudyMinutes(mins).then((res: any) => {
                             if (res?.user) {
                               setUser(res.user);
                               setStoredUser(res.user);
+                              window.dispatchEvent(
+                                new CustomEvent('mindmaze_study_time_updated', {
+                                  detail: res.user,
+                                })
+                              );
                             }
                           }).catch((err) => {
                             console.warn('[Timer] Error saving study minutes to DB:', err);

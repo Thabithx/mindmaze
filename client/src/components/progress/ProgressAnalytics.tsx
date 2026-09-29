@@ -76,7 +76,34 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const totalSubtopics = streamProgression.totalSubtopics;
 
   // Calculate total study hours strictly from completed timer minutes
-  const timerMins = currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0;
+  const [liveStudyMins, setLiveStudyMins] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return currentUserProfile?.totalStudyMinutes ?? currentUserProfile?.user?.totalStudyMinutes ?? userProfile?.totalStudyMinutes ?? parsed?.totalStudyMinutes ?? 0;
+    } catch {
+      return currentUserProfile?.totalStudyMinutes ?? currentUserProfile?.user?.totalStudyMinutes ?? userProfile?.totalStudyMinutes ?? 0;
+    }
+  });
+
+  useEffect(() => {
+    const handleStudyTimeUpdated = (e: any) => {
+      try {
+        const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
+        const parsed = raw ? JSON.parse(raw) : null;
+        setLiveStudyMins(e?.detail?.totalStudyMinutes ?? parsed?.totalStudyMinutes ?? liveStudyMins);
+      } catch {}
+    };
+    window.addEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
+    return () => {
+      window.removeEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
+    };
+  }, [liveStudyMins]);
+
+  const timerMins = Math.max(
+    liveStudyMins,
+    currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0
+  );
   const weeklyHours = Math.round((timerMins / 60) * 10) / 10;
   const weeklyGoalPercent = Math.min(100, Math.round((weeklyHours / weeklyGoal) * 100));
 
