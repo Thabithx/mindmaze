@@ -26,6 +26,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { BrowserReenableSteps } from '../notifications/BrowserReenableSteps';
+import { validateName, validatePhone, validateEmail, validateYear } from '../../lib/validation';
 
 interface SettingsScreenProps {
   settings: UserSettings;
@@ -130,6 +131,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         setErrorMessage('Please sign in or create an account to save your profile.');
       }
       return;
+    }
+
+    const nameErr = validateName(name, 'Full Name');
+    if (nameErr) { setErrorMessage(nameErr); return; }
+
+    const emailErr = validateEmail(email);
+    if (emailErr) { setErrorMessage(emailErr); return; }
+
+    const phoneErr = validatePhone(mobileNumber, false);
+    if (phoneErr) { setErrorMessage(phoneErr); return; }
+
+    if (targetExamYear) {
+      const yearErr = validateYear(targetExamYear, 2000, 2035);
+      if (yearErr) { setErrorMessage(yearErr); return; }
     }
 
     if (showPasswordSection && newPassword) {
@@ -388,15 +403,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                WhatsApp / Mobile Number
+                WhatsApp / Mobile Number <span className="text-slate-500 font-normal">(10 digits)</span>
               </label>
               <div className="relative">
                 <input
                   type="tel"
                   disabled={isGuest}
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  placeholder={isGuest ? 'Sign in to edit' : '0771234567 or +94 77 123 4567'}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setMobileNumber(digits);
+                  }}
+                  maxLength={10}
+                  placeholder={isGuest ? 'Sign in to edit' : '0771234567'}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>

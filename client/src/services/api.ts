@@ -140,4 +140,6 @@ export const api = {
   sendBroadcastEmail: (body: any) => apiFetch('/admin/broadcast-email', { method: 'POST', body: JSON.stringify(body) }),
   testAdminEmail: (body?: { email?: string }) => apiFetch('/admin/test-email', { method: 'POST', body: JSON.stringify(body || {}) }),
   getAdminStats: () => apiFetch('/admin/stats'),
+  getAdminExamDate: () => apiFetch('/admin/site-config/exam-date'),
+  setAdminExamDate: (examDate: string) => apiFetch('/admin/site-config/exam-date', { method: 'PUT', body: JSON.stringify({ examDate }) }),
 };

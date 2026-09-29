@@ -59,25 +59,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: string; error?: string } | null>(null);
 
-  // Search & Filter state
-  // Global Exam Date State
-  const [adminExamDate, setAdminExamDate] = useState(() => {
-    try {
-      return localStorage.getItem('mindmaze_global_exam_date') || '2026-11-25';
-    } catch {
-      return '2026-11-25';
-    }
-  });
-  const [examDateSavedMsg, setExamDateSavedMsg] = useState(false);
+  // Global Exam Date State (stored in MongoDB via admin API)
+  const [adminExamDate, setAdminExamDate] = useState('');
+  const [examDateSaving, setExamDateSaving] = useState(false);
+  const [examDateSavedMsg, setExamDateSavedMsg] = useState<{ success?: string; error?: string } | null>(null);
 
-  const handleSaveGlobalExamDate = (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchExamDate = async () => {
     try {
+      const res = await api.getAdminExamDate();
+      if (res?.examDate) setAdminExamDate(res.examDate);
+    } catch {
+      // fail silently
+    }
+  };
+
+  const handleSaveGlobalExamDate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminExamDate || !/^\d{4}-\d{2}-\d{2}$/.test(adminExamDate)) {
+      setExamDateSavedMsg({ error: 'Please select a valid exam date.' });
+      return;
+    }
+    try {
+      setExamDateSaving(true);
+      setExamDateSavedMsg(null);
+      await api.setAdminExamDate(adminExamDate);
+      // Also update localStorage so dashboard picks it up immediately
       localStorage.setItem('mindmaze_global_exam_date', adminExamDate);
-      setExamDateSavedMsg(true);
-      setTimeout(() => setExamDateSavedMsg(false), 3000);
-    } catch (err) {
-      console.warn(err);
+      setExamDateSavedMsg({ success: `Upcoming exam date set to ${adminExamDate} — all students will see this!` });
+      setTimeout(() => setExamDateSavedMsg(null), 5000);
+    } catch (err: any) {
+      setExamDateSavedMsg({ error: err?.message || 'Failed to save exam date.' });
+    } finally {
+      setExamDateSaving(false);
     }
   };
 
@@ -114,6 +127,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   useEffect(() => {
     fetchAdminData();
+    fetchExamDate();
   }, []);
 
   const fetchAdminData = async () => {
@@ -455,6 +469,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
           )}
+
+          {/* ── Upcoming Exam Date (Admin Sets for All Students) ── */}
+          <div className="p-6 rounded-3xl bg-[#161831]/80 border border-amber-500/20 backdrop-blur-xl shadow-xl space-y-4">
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <span className="text-amber-400">📅</span>
+              <span>Set Upcoming A/L Exam Date</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Set the national A/L exam date. This will be shown on every student's dashboard countdown.
+            </p>
+            <form onSubmit={handleSaveGlobalExamDate} className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">Exam Date <span className="text-rose-400">*</span></label>
+                <input
+                  type="date"
+                  value={adminExamDate}
+                  onChange={(e) => setAdminExamDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-amber-400/30 text-white text-sm focus:outline-none focus:border-amber-400 cursor-pointer"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={examDateSaving || !adminExamDate}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-white text-sm font-bold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+              >
+                {examDateSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Exam Date</span>
+                )}
+              </button>
+            </form>
+            {examDateSavedMsg?.success && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                <span>{examDateSavedMsg.success}</span>
+              </div>
+            )}
+            {examDateSavedMsg?.error && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{examDateSavedMsg.error}</span>
+              </div>
+            )}
+          </div>
 
           {/* Broadcast Email Form */}
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-white/10 backdrop-blur-xl shadow-xl space-y-4">

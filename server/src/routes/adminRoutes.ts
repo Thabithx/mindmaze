@@ -2,10 +2,40 @@ import { Router, Response } from 'express';
 import User from '../models/User.js';
 import Course from '../models/Course.js';
 import Timetable from '../models/Timetable.js';
+import SiteConfig from '../models/SiteConfig.js';
 import { protect, adminOnly, AuthRequest } from '../middleware/authMiddleware.js';
 import { sendAdminBroadcastEmail, sendTestEmail } from '../services/emailService.js';
 
 const router = Router();
+
+// GET site-wide exam date (public – used by all clients)
+router.get('/site-config/exam-date', async (req, res: Response): Promise<void> => {
+  try {
+    const config = await SiteConfig.findOne({ key: 'upcoming_exam_date' });
+    res.json({ examDate: config?.value || '' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error fetching exam date' });
+  }
+});
+
+// PUT site-wide exam date (admin only)
+router.put('/site-config/exam-date', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { examDate } = req.body;
+    if (!examDate || !/^\d{4}-\d{2}-\d{2}$/.test(examDate)) {
+      res.status(400).json({ message: 'Invalid exam date format. Use YYYY-MM-DD.' });
+      return;
+    }
+    await SiteConfig.findOneAndUpdate(
+      { key: 'upcoming_exam_date' },
+      { key: 'upcoming_exam_date', value: examDate },
+      { upsert: true, new: true }
+    );
+    res.json({ message: 'Upcoming exam date updated successfully', examDate });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error updating exam date' });
+  }
+});
 
 router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {

@@ -5,9 +5,9 @@
 // Email regex matching standard format (e.g. name@domain.com)
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-// Phone / WhatsApp regex: Supports Sri Lanka & international formats:
-// e.g., 0771234567, +94771234567, 94771234567, 0112345678, or 9-15 digits with optional +
-export const PHONE_REGEX = /^(\+?[0-9]{9,15}|0[0-9]{9})$/;
+// Phone regex: exactly 10 digits starting with 0 (Sri Lanka mobile format)
+// e.g., 0771234567, 0112345678
+export const PHONE_REGEX = /^0[0-9]{9}$/;
 
 /**
  * Validates email address.
@@ -25,17 +25,21 @@ export function validateEmail(email: string): string | null {
 }
 
 /**
- * Validates phone / WhatsApp number.
- * Allows empty if not required, but if provided, must be a valid phone number.
+ * Validates phone number.
+ * Must be exactly 10 digits starting with 0 (Sri Lanka format).
+ * Allows empty if not required.
  */
 export function validatePhone(phone: string, required = false): string | null {
   const clean = (phone || '').trim().replace(/[\s\-\(\)]/g, '');
   if (!clean) {
-    if (required) return 'Please enter your phone or WhatsApp contact number.';
+    if (required) return 'Please enter your phone number.';
     return null;
   }
-  if (!PHONE_REGEX.test(clean) && (clean.length < 9 || clean.length > 15)) {
-    return 'Please enter a valid 9-10 digit mobile or WhatsApp phone number (e.g. 0771234567 or +94771234567).';
+  if (clean.length > 10) {
+    return 'Phone number cannot exceed 10 digits (e.g. 0771234567).';
+  }
+  if (!PHONE_REGEX.test(clean)) {
+    return 'Please enter a valid 10-digit phone number starting with 0 (e.g. 0771234567).';
   }
   return null;
 }

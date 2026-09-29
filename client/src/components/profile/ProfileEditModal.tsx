@@ -199,11 +199,17 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Mobile Contact No.</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Mobile Contact No. <span className="text-slate-500 font-normal">(10 digits)</span>
+              </label>
               <input
                 type="tel"
                 value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setMobileNumber(digits);
+                }}
+                maxLength={10}
                 placeholder="0771234567"
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
               />

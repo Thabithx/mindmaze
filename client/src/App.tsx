@@ -23,6 +23,7 @@ import {
 import { getInitialTimetableForStream, INITIAL_SYLLABUS_TOPICS } from './data/alSyllabusData';
 import { MOCK_QUESTIONS } from './data/mockData';
 import { recordDailyVisit, calculateStreak, recordTaskCompletionAndRefreshStreak } from './lib/streakService';
+import { validateEmail, validatePassword, validateName, validatePhone } from './lib/validation';
 
 // Layout & Common Components
 import { Navbar } from './components/Navbar';
@@ -62,7 +63,7 @@ export function App() {
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-password' | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-password' | null>(() => getStoredUser() ? null : 'signup');
 
   // Auth Inputs
   const [emailInput, setEmailInput] = useState('');
@@ -132,6 +133,13 @@ export function App() {
       }).catch(() => {});
     }
 
+    // Fetch site-wide exam date from MongoDB
+    api.getAdminExamDate().then((res) => {
+      if (res?.examDate) {
+        localStorage.setItem('mindmaze_global_exam_date', res.examDate);
+      }
+    }).catch(() => {});
+
     try {
       const params = new URLSearchParams(window.location.search);
       const resetToken = params.get('resetToken') || params.get('token');
@@ -155,6 +163,10 @@ export function App() {
     }
 
     if (!token) {
+      if (!cachedUser) {
+        setUser(null);
+        setAuthModalMode('signup');
+      }
       setAuthLoading(false);
       return;
     }
@@ -366,6 +378,11 @@ export function App() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailErr = validateEmail(emailInput.trim());
+    if (emailErr) { setAuthError(emailErr); return; }
+    const passErr = validatePassword(passwordInput);
+    if (passErr) { setAuthError(passErr); return; }
+
     setAuthSubmitting(true);
     setAuthError(null);
     try {
@@ -421,6 +438,17 @@ export function App() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate all signup fields
+    const nameErr = validateName(nameInput, 'Full Name');
+    if (nameErr) { setAuthError(nameErr); return; }
+    const phoneErr = validatePhone(whatsappInput, true);
+    if (phoneErr) { setAuthError(phoneErr); return; }
+    const emailErr = validateEmail(emailInput.trim());
+    if (emailErr) { setAuthError(emailErr); return; }
+    const passErr = validatePassword(passwordInput);
+    if (passErr) { setAuthError(passErr); return; }
+    if (!streamInput) { setAuthError('Please select your A/L stream.'); return; }
+
     try {
       setAuthSubmitting(true);
       setAuthError(null);
@@ -567,6 +595,7 @@ export function App() {
       localStorage.removeItem('mindmaze_last_activity_v2');
     } catch {}
     setCurrentScreen('dashboard');
+    setAuthModalMode('signin');
   };
 
   const globalExamDate = (() => {
@@ -1586,16 +1615,18 @@ export function App() {
       {authModalMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
           <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
-            <button
-              onClick={() => {
-                setAuthModalMode(null);
-                setAuthError(null);
-                setAuthInfoMsg(null);
-              }}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {user && (
+              <button
+                onClick={() => {
+                  setAuthModalMode(null);
+                  setAuthError(null);
+                  setAuthInfoMsg(null);
+                }}
+                className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
 
             <div className="flex items-center gap-3 mb-4">
               <div className="shrink-0 flex items-center justify-center bg-transparent">
@@ -1743,13 +1774,18 @@ export function App() {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        WhatsApp Number <span className="text-rose-400">*</span>
+                        Phone Number <span className="text-rose-400">*</span>
+                        <span className="text-slate-500 font-normal ml-1">(10 digits)</span>
                       </label>
                       <input
                         type="tel"
                         value={whatsappInput}
-                        onChange={(e) => setWhatsappInput(e.target.value)}
-                        placeholder="+94 77 123 4567"
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setWhatsappInput(digits);
+                        }}
+                        placeholder="0771234567"
+                        maxLength={10}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
                         required
                       />

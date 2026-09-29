@@ -141,13 +141,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 Days to A/L
               </span>
             </div>
-            <button
-              onClick={handleOpenSettings}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-[10px] font-bold transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 sm:mt-2"
-            >
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] font-bold sm:mt-2">
               <Calendar className="w-3 h-3" />
-              <span>Change Date</span>
-            </button>
+              <span>Exam Day</span>
+            </div>
           </div>
         </div>
       </div>
