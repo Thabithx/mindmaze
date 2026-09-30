@@ -143,7 +143,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const phoneErr = validatePhone(mobileNumber, false);
     if (phoneErr) { setErrorMessage(phoneErr); return; }
 
-    if (targetExamYear) {
+    if (targetExamYear && !targetExamYear.startsWith('Batch')) {
       const yearErr = validateYear(targetExamYear, 2000, 2035);
       if (yearErr) { setErrorMessage(yearErr); return; }
     }
@@ -593,8 +593,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="2026" className="bg-slate-900 text-white">2026 A/L Batch (Senior)</option>
-                <option value="2027" className="bg-slate-900 text-white">2027 A/L Batch (Junior)</option>
+                <option value="Batch 1" className="bg-slate-900 text-white">Batch 1</option>
+                <option value="Batch 2" className="bg-slate-900 text-white">Batch 2</option>
               </select>
             </div>
 

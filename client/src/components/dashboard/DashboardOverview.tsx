@@ -154,35 +154,35 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
           {/* Exam Days Badges for Both Batches */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            {/* 2026 Batch Badge */}
+            {/* Batch 1 Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === '2026'
+              myBatchYear === 'Batch 1' || myBatchYear === '2026'
                 ? 'bg-amber-500/15 border-2 border-amber-400/60 ring-2 ring-amber-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
               <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft2026}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to 2026 A/L
+                Days to Batch 1 Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>2026 Batch</span>
+                <span>Batch 1</span>
               </div>
             </div>
 
-            {/* 2027 Batch Badge */}
+            {/* Batch 2 Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === '2027'
+              myBatchYear === 'Batch 2' || myBatchYear === '2027'
                 ? 'bg-cyan-500/15 border-2 border-cyan-400/60 ring-2 ring-cyan-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
               <span className="text-xl sm:text-2xl font-black text-cyan-300 tracking-tight leading-none">{examDaysLeft2027}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to 2027 A/L
+                Days to Batch 2 Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>2027 Batch</span>
+                <span>Batch 2</span>
               </div>
             </div>
           </div>

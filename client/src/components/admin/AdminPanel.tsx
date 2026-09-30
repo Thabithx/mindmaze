@@ -94,7 +94,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       if (adminExamDate2026) localStorage.setItem('mindmaze_global_exam_date', adminExamDate2026);
 
       setExamDateSavedMsg({
-        success: `Upcoming exam dates saved! (2026 Batch: ${adminExamDate2026}, 2027 Batch: ${adminExamDate2027})`,
+        success: `Upcoming exam dates saved! (Batch 1: ${adminExamDate2026}, Batch 2: ${adminExamDate2027})`,
       });
       setTimeout(() => setExamDateSavedMsg(null), 5000);
     } catch (err: any) {
@@ -508,9 +508,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-amber-300">
-                      2026 A/L Batch Exam Date <span className="text-rose-400">*</span>
+                      Batch 1 Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">Current Senior Batch</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch 1</span>
                   </div>
                   <input
                     type="date"
@@ -525,9 +525,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-cyan-300">
-                      2027 A/L Batch Exam Date <span className="text-rose-400">*</span>
+                      Batch 2 Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">New Junior Batch</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch 2</span>
                   </div>
                   <input
                     type="date"

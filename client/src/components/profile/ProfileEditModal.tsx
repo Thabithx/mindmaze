@@ -149,8 +149,8 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
               >
-                <option value="2026">2026 A/L Batch</option>
-                <option value="2027">2027 A/L Batch</option>
+                <option value="Batch 1">Batch 1</option>
+                <option value="Batch 2">Batch 2</option>
               </select>
             </div>
 
