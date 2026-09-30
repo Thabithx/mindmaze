@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DailyTask, StreamType, SyllabusTopic, TimetableEntry, UserSettings } from '../../types';
 import {
   BarChart3,
