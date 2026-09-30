@@ -75,7 +75,7 @@ const formatUsersToEntries = (users: any[]): LeaderboardEntry[] => {
   return sortLeaderboardEntries(entries);
 };
 
-const CACHE_PREFIX = 'mind_maze_leaderboard_cache_';
+const CACHE_PREFIX = 'mind_maze_student_leaderboard_v2_';
 
 export function getCachedLeaderboard(period: LeaderboardPeriod, limit = 50): LeaderboardEntry[] {
   try {
@@ -100,7 +100,7 @@ export async function fetchLeaderboard(
     // Try fast public endpoint first
     try {
       const res = await api.getLeaderboard(period, limit);
-      if (res && Array.isArray(res.entries) && res.entries.length > 0) {
+      if (res && Array.isArray(res.entries)) {
         try {
           localStorage.setItem(`${CACHE_PREFIX}${period}`, JSON.stringify(res.entries));
         } catch {

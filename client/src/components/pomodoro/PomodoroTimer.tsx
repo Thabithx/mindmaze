@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface PomodoroTimerProps {
+  activeTopicId?: string;
   activeUnitTitle?: string;
   activeSubject?: string;
   subtopics?: string[];
@@ -45,6 +46,7 @@ const MODE_CONFIGS: Record<TimerMode, { label: string; minutes: number; color: s
 };
 
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
+  activeTopicId,
   activeUnitTitle,
   activeSubject,
   subtopics = [],
@@ -70,6 +72,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   // Track the unit selected inside the timer (when no activeUnitTitle from timetable)
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+
+  useEffect(() => {
+    setSelectedUnitId(activeTopicId || '');
+  }, [activeTopicId]);
 
   // Filter topics strictly according to user's stream and elective subject
   const allowedSubjectMetas = getSubjectsForStream(
@@ -265,13 +271,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   const toggleTimer = () => {
     // If no unit is currently chosen, auto-select the first unit in the stream
-    if (!isRunning && !hasUnitSelected) {
-      if (filteredTopics.length > 0) {
-        const first = filteredTopics[0];
-        setSelectedUnitId(first.id);
-        if (onSelectTopic) onSelectTopic(first);
-      }
-    }
+    if (!isRunning && mode === 'work' && !hasUnitSelected) return;
     if (!isRunning && mode === 'work' && onStartSession) {
       onStartSession();
     }
@@ -352,6 +352,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
           <button
             onClick={toggleTimer}
+            disabled={!isRunning && mode === 'work' && !hasUnitSelected}
             className={`p-2 rounded-xl text-white font-bold text-xs transition shadow cursor-pointer ${
               isRunning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'
             }`}
@@ -433,12 +434,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </select>
 
                 <select
+                  value={filteredTopics.some((t) => t.id === selectedUnitId) ? selectedUnitId : ''}
                   onChange={(e) => {
-                    const found = userAllowedTopics.find((t) => t.id === e.target.value || t.topicTitle === e.target.value);
-                    if (found) onSelectTopic(found);
+                    const found = userAllowedTopics.find((t) => t.id === e.target.value);
+                    if (found) {
+                      if (mode === 'work' && workSecondsRef.current >= 30) onSessionComplete?.('work', 1);
+                      workSecondsRef.current = 0;
+                      sessionStudiedMinutesRef.current = 0;
+                      setIsRunning(false);
+                      setHasStarted(false);
+                      setTimeLeft(MODE_CONFIGS[mode].minutes * 60);
+                      setSelectedUnitId(found.id);
+                      onSelectTopic(found);
+                    }
                   }}
                   className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-200 focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
-                  defaultValue=""
                 >
                   <option value="" disabled>Switch Unit...</option>
                   {filteredTopics.map((t) => (
@@ -644,6 +654,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
           <button
             onClick={toggleTimer}
+            disabled={!isRunning && mode === 'work' && !hasUnitSelected}
             title={isRunning ? 'Pause Timer' : 'Start Focus Session'}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110 active:scale-95 cursor-pointer`}
           >

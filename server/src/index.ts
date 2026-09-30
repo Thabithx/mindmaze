@@ -1,3 +1,4 @@
+import pastPaperRoutes from './routes/pastPaperRoutes.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -49,6 +50,7 @@ app.get('/api/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/past-papers', pastPaperRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/mistakes', mistakeRoutes);

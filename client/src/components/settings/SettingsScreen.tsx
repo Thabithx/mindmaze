@@ -1,3 +1,4 @@
+import { normalizeBatch } from '../../lib/batches';
 import React, { useState, useEffect } from 'react';
 import { StreamType, UserSettings, UserProfile, ScreenId } from '../../types';
 import { api } from '../../services/api';
@@ -67,7 +68,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     stream: 'Physical Science',
     physicalScienceElective: 'Chemistry',
     studentName: '',
-    targetExamYear: '2026',
+    targetExamYear: '2027',
     targetExamDate: '',
     targetZScore: '',
     motivationNote: '',
@@ -84,7 +85,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [elective, setElective] = useState<'Chemistry' | 'ICT'>(
     currentUser?.physicalScienceElective || effectiveSettings.physicalScienceElective || 'Chemistry'
   );
-  const [targetExamYear, setTargetExamYear] = useState(currentUser?.targetExamYear || userProfile?.targetYear || effectiveSettings.targetExamYear || '2026');
+  const [targetExamYear, setTargetExamYear] = useState(normalizeBatch(currentUser?.targetExamYear || userProfile?.targetYear || effectiveSettings.targetExamYear));
   const [targetExamDate, setTargetExamDate] = useState(currentUser?.targetExamDate || userProfile?.examDate || effectiveSettings.targetExamDate || '');
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || userProfile?.targetZScore || effectiveSettings.targetZScore || '');
   const [motivationNote, setMotivationNote] = useState(currentUser?.motivationNote || effectiveSettings.motivationNote || '');
@@ -111,7 +112,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setMobileNumber(currentUser.mobileNumber || '');
       setStream(currentUser.stream || 'Physical Science');
       setElective(currentUser.physicalScienceElective || 'Chemistry');
-      setTargetExamYear(currentUser.targetExamYear || '2026');
+      setTargetExamYear(normalizeBatch(currentUser.targetExamYear));
       setTargetExamDate(currentUser.targetExamDate || '');
       setTargetZScore(currentUser.targetZScore || '');
       setMotivationNote(currentUser.motivationNote || '');
@@ -593,8 +594,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="Batch 1" className="bg-slate-900 text-white">Batch 1</option>
-                <option value="Batch 2" className="bg-slate-900 text-white">Batch 2</option>
+                <option value="2027" className="bg-slate-900 text-white">Batch 2027</option>
+                <option value="2028" className="bg-slate-900 text-white">Batch 2028</option>
               </select>
             </div>
 

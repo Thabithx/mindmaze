@@ -118,6 +118,7 @@ export type MediumType = 'Sinhala' | 'English' | 'Tamil' | string;
 export type PaperType = 'MCQ' | 'Structured' | 'Essay' | string;
 
 export interface UserProfile {
+  role?: string;
   id?: string;
   name: string;
   email?: string;

@@ -1,13 +1,20 @@
+import { createHash } from 'node:crypto';
 import { Router, Response } from 'express';
 import Mistake from '../models/Mistake.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
+const keyOf = (m: any) => createHash('sha256').update(JSON.stringify([m.subject, m.topic, m.questionText, m.correctAnswer || ''].map(v => String(v).trim().replace(/\s+/g, ' ')))).digest('hex');
+async function duplicateIds(user: any, item: any) {
+  const records = await Mistake.find({user});
+  return records.filter(m => keyOf(m) === keyOf(item)).map(m => m._id);
+}
 
 router.get('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mistakes = await Mistake.find({ user: req.user!._id }).sort({ createdAt: -1 });
-    res.json({ mistakes });
+    const seen = new Set<string>();
+    res.json({ mistakes: mistakes.filter(m => { const key = keyOf(m); if (seen.has(key)) return false; seen.add(key); return true; }) });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching mistakes' });
   }
@@ -25,7 +32,7 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
       ? req.body.explanation
       : (req.body.question?.explanation?.conceptNote || req.body.question?.explanation || '');
 
-    const mistake = await Mistake.create({
+    const values = {
       user: req.user!._id,
       subject,
       topic,
@@ -35,7 +42,21 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
       explanation,
       reviewStatus: req.body.reviewStatus || 'Needs Review',
       isMastered: Boolean(req.body.isMastered),
-    });
+    };
+    await Mistake.init();
+    const questionKey = keyOf(values);
+    const filter = {user: req.user!._id, questionKey};
+    let mistake;
+    try {
+      mistake = await Mistake.findOneAndUpdate(filter, {$set: values}, {upsert: true, new: true, runValidators: true});
+    } catch (error: any) {
+      if (error.code !== 11000) throw error;
+      mistake = await Mistake.findOneAndUpdate(filter, {$set: values}, {new: true, runValidators: true});
+    }
+    // Fold records created before question identities were introduced into this entry.
+    const legacy = await Mistake.find({user: req.user!._id, questionKey: {$exists: false}});
+    const ids = legacy.filter(m => keyOf(m) === questionKey).map(m => m._id);
+    if (ids.length) await Mistake.deleteMany({_id: {$in: ids}, user: req.user!._id});
 
     res.json({ mistake });
   } catch (error: any) {
@@ -61,6 +82,7 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
     }
 
     await mistake.save();
+    await Mistake.updateMany({_id: {$in: await duplicateIds(req.user!._id, mistake)}, user: req.user!._id}, {$set: {reviewStatus: mistake.reviewStatus, isMastered: mistake.isMastered}});
     res.json({ mistake });
   } catch (error: any) {
     res.status(500).json({ message: 'Error updating mistake' });
@@ -69,7 +91,8 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
 
 router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await Mistake.findOneAndDelete({ _id: req.params.id, user: req.user!._id });
+    const item = await Mistake.findOne({_id: req.params.id, user: req.user!._id});
+    if (item) await Mistake.deleteMany({_id: {$in: await duplicateIds(req.user!._id, item)}, user: req.user!._id});
     res.json({ message: 'Mistake deleted' });
   } catch (error: any) {
     res.status(500).json({ message: 'Error deleting mistake' });

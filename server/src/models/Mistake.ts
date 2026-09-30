@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IMistake extends Document {
+  questionKey?: string;
   user: mongoose.Types.ObjectId;
   subject: string;
   topic: string;
@@ -15,6 +16,7 @@ export interface IMistake extends Document {
 
 const MistakeSchema = new Schema<IMistake>(
   {
+    questionKey: { type: String },
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     subject: { type: String, required: true },
     topic: { type: String, required: true },
@@ -32,5 +34,7 @@ const MistakeSchema = new Schema<IMistake>(
   },
   { timestamps: true }
 );
+
+MistakeSchema.index({ user: 1, questionKey: 1 }, { unique: true, partialFilterExpression: { questionKey: { $type: 'string' } } });
 
 export default mongoose.model<IMistake>('Mistake', MistakeSchema);

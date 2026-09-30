@@ -59,7 +59,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         const query = searchQuery.toLowerCase();
         const matchTitle = paper.title.toLowerCase().includes(query);
         const matchSubject = paper.subject.toLowerCase().includes(query);
-        const matchTags = paper.topicTags.some((t) => t.toLowerCase().includes(query));
+        const matchTags = (paper.topicTags || []).some((t) => t.toLowerCase().includes(query));
         if (!matchTitle && !matchSubject && !matchTags) return false;
       }
 
@@ -586,8 +586,22 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
             <div className="flex gap-3 pt-2">
               <button
-                onClick={() => {
-                  setDownloadModalPaper(null);
+                onClick={async () => {
+                  try {
+                    if (!downloadModalPaper.pdfUrl) throw new Error('This paper has no PDF. Please ask the administrator to upload it again.');
+                    const response = await fetch(downloadModalPaper.pdfUrl);
+                    if (!response.ok) throw new Error('Could not download this PDF. Please try again.');
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = downloadModalPaper.title + '.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    setDownloadModalPaper(null);
+                  } catch (err: any) { alert(err.message); }
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_15px_rgba(107,78,255,0.4)] transition-all cursor-pointer"
               >

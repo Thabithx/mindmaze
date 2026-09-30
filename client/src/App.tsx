@@ -1,3 +1,5 @@
+import { normalizeBatch } from './lib/batches';
+import { mistakeIdentity, uniqueMistakes } from './lib/mistakeIdentity';
 import { useState, useEffect, useCallback } from 'react';
 import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper, Question } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken, getStoredUser, setStoredUser, removeStoredUser } from './services/api';
@@ -87,7 +89,7 @@ export function App() {
   const [timetable, setTimetable] = useState<TimetableEntry[]>(() => getStoredTimetable() || []);
   const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>(() => getStoredMistakes());
-  const [pastPapers, setPastPapers] = useState<PastPaper[]>(() => getStoredPastPapers());
+  const [pastPapers, setPastPapers] = useState<PastPaper[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<Question[]>(() => getStoredQuizQuestions());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
@@ -95,13 +97,22 @@ export function App() {
   const [dismissedBlockIds, setDismissedBlockIds] = useState<string[]>([]);
   const [streakDays, setStreakDays] = useState<number>(() => calculateStreak(getStoredDailyTasks() || []).currentStreak || 1);
 
+  useEffect(() => {
+    const loadPapers = () => api.getPastPapers().then(res => setPastPapers(res.papers)).catch(err => console.error('Could not load papers', err));
+    void loadPapers();
+    window.addEventListener('focus', loadPapers);
+    return () => window.removeEventListener('focus', loadPapers);
+  }, []);
+
   const handleAddPastPaper = (newPaper: PastPaper) => {
     const updated = [newPaper, ...pastPapers];
     setPastPapers(updated);
     saveStoredPastPapers(updated);
   };
 
-  const handleDeletePastPaper = (paperId: string) => {
+  const handleDeletePastPaper = async (paperId: string) => {
+    try { await api.deletePastPaper(paperId); }
+    catch (err: any) { alert(err.message || 'Could not delete paper.'); return; }
     const updated = pastPapers.filter((p) => p.id !== paperId);
     setPastPapers(updated);
     saveStoredPastPapers(updated);
@@ -135,8 +146,8 @@ export function App() {
 
     // Fetch site-wide exam dates for 2 batches from MongoDB
     api.getAdminExamDate().then((res) => {
-      if (res?.examDate2026) localStorage.setItem('mindmaze_global_exam_date_2026', res.examDate2026);
       if (res?.examDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', res.examDate2027);
+      if (res?.examDate2028) localStorage.setItem('mindmaze_global_exam_date_2028', res.examDate2028);
       if (res?.examDate) localStorage.setItem('mindmaze_global_exam_date', res.examDate);
     }).catch(() => {});
 
@@ -184,7 +195,7 @@ export function App() {
             stream: res.user.stream,
             physicalScienceElective: res.user.physicalScienceElective || 'Chemistry',
             studentName: res.user.name,
-            targetExamYear: res.user.targetExamYear || '2026',
+            targetExamYear: normalizeBatch(res.user.targetExamYear),
             targetExamDate: res.user.targetExamDate || '',
             targetZScore: res.user.targetZScore || '',
           }));
@@ -598,27 +609,28 @@ export function App() {
     setAuthModalMode('signin');
   };
 
-  const studentBatchYear = String(user?.targetExamYear || userSettings?.targetExamYear || '2026');
+  const studentBatchYear = normalizeBatch(user?.targetExamYear || userSettings?.targetExamYear);
   const globalExamDate = (() => {
     try {
-      if (studentBatchYear === '2027') {
-        return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
+      if (studentBatchYear === '2028') {
+        return localStorage.getItem('mindmaze_global_exam_date_2028') || '2028-11-25';
       }
-      return localStorage.getItem('mindmaze_global_exam_date_2026') || localStorage.getItem('mindmaze_global_exam_date') || '2026-11-25';
+      return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
     } catch {
-      return studentBatchYear === '2027' ? '2027-11-25' : '2026-11-25';
+      return studentBatchYear === '2028' ? '2028-11-25' : '2027-11-25';
     }
   })();
 
   const userProfile: UserProfile = {
+    role: user?.role,
     name: user?.name || userSettings.studentName || 'A/L Scholar',
     email: user?.email || '',
     stream: user?.stream || userSettings.stream || 'Physical Science',
     xp: 0,
     streakDays: streakDays || user?.streakDays || 1,
-    targetYear: user?.targetExamYear || '2026',
+    targetYear: normalizeBatch(user?.targetExamYear),
     targetZScore: user?.targetZScore || '',
-    examDate: globalExamDate || user?.targetExamDate || (studentBatchYear === '2027' ? '2027-11-25' : '2026-11-25'),
+    examDate: globalExamDate || user?.targetExamDate || (studentBatchYear === '2028' ? '2028-11-25' : '2027-11-25'),
     dailyCompletedMCQs: 0,
     totalStudyMinutes: user?.totalStudyMinutes ?? 0,
     isAuthenticated: !!user,
@@ -655,7 +667,7 @@ export function App() {
       if (
         currentBlock &&
         !dismissedBlockIds.includes(currentBlock.id) &&
-        (!activePomodoroTopic || activePomodoroTopic.id !== currentBlock.id)
+        !activePomodoroTopic
       ) {
         // Find matching syllabus topic for the study block
         let matchedTopic: SyllabusTopic | undefined;
@@ -829,6 +841,7 @@ export function App() {
                 onOpenProfileEdit={() => setIsProfileEditOpen(true)}
                 pomodoroSlot={
                   <PomodoroTimer
+                    activeTopicId={activePomodoroTopic?.topicId}
                     activeUnitTitle={activePomodoroTopic?.title}
                     activeSubject={activePomodoroTopic?.subject}
                     subtopics={activeSubtopics}
@@ -1455,7 +1468,7 @@ export function App() {
               userProfile={userProfile}
               onNavigate={setCurrentScreen}
               onSaveMistake={(m) => {
-                const updated = [m, ...mistakes.filter((x) => x.id !== m.id)];
+                const updated = uniqueMistakes([m, ...mistakes]);
                 setMistakes(updated);
                 saveStoredMistakes(updated);
                 if (getAuthToken()) {
@@ -1471,9 +1484,11 @@ export function App() {
                     dateAdded: m.dateAdded || new Date().toISOString(),
                   }).then((res: any) => {
                     if (res?.mistake?._id) {
-                      setMistakes((prev) =>
-                        prev.map((x) => x.id === m.id ? { ...x, id: res.mistake._id } : x)
-                      );
+                      setMistakes((prev) => {
+                        const next = uniqueMistakes(prev.map((x) => mistakeIdentity(x) === mistakeIdentity(m) ? { ...x, id: res.mistake._id } : x));
+                        saveStoredMistakes(next);
+                        return next;
+                      });
                     }
                   }).catch(() => {});
                 }

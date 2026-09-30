@@ -11,7 +11,7 @@ router.get('/leaderboard', async (req: Request, res: Response): Promise<void> =>
     const limit = Math.min(100, Math.max(5, parseInt(String(req.query.limit || '50'), 10)));
     const period = String(req.query.period || 'weekly');
 
-    const users = await User.find({ isActive: true })
+    const users = await User.find({ isActive: true, role: 'student' })
       .select('name stream streakDays bestStreak xp completedDates totalStudyMinutes createdAt')
       .lean();
 

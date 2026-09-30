@@ -105,6 +105,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   // Merge current user's live entry into leaderboard entries
   const entries = useMemo(() => {
     const list = [...rawEntries];
+    if ((currentUserProfile?.role || storedUserObj?.role) === 'admin') {
+      const students = sortLeaderboardEntries(list.filter(e => String(e.userId) !== String(myUserId)));
+      return compact ? students.slice(0, 5) : students;
+    }
     const userIndex = list.findIndex(isMe);
 
     const serverMins = userIndex >= 0 ? Number(list[userIndex].totalStudyMinutes || 0) : 0;
@@ -135,13 +139,13 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
     const sorted = sortLeaderboardEntries(list);
     return compact ? sorted.slice(0, 5) : sorted;
-  }, [rawEntries, isMe, myUserId, myUsername, effectiveStream, dbTimerMinutes, completedTaskCount, liveStreak, liveSyllabusPercent, compact]);
+  }, [rawEntries, currentUserProfile?.role, storedUserObj?.role, isMe, myUserId, myUsername, effectiveStream, dbTimerMinutes, completedTaskCount, liveStreak, liveSyllabusPercent, compact]);
 
   const load = useCallback(async (p: LeaderboardPeriod) => {
     setLoading(true);
     try {
       const res = await fetchLeaderboard(p, 50);
-      if (res.entries && res.entries.length > 0) {
+      if (res.entries) {
         setRawEntries(res.entries);
       }
       setNeedsSetup(res.needsSetup);

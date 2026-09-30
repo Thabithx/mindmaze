@@ -1,3 +1,4 @@
+import { normalizeBatch } from '../../lib/batches';
 import React from 'react';
 import { DailyTask, ScreenId, StreamType, SyllabusTopic, TimetableEntry, StreakData } from '../../types';
 import {
@@ -86,7 +87,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const completedTopicsCount = streamProgression.completedTopics;
   const overallSyllabusPercent = streamProgression.totalPercentage;
 
-  // Exam countdowns for both 2026 and 2027 batches
+  // Exam countdowns for both 2027 and 2028 batches
   const calcDaysLeft = (dateStr?: string, defaultDays = 150) => {
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return defaultDays;
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -97,14 +98,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     return Math.max(0, Math.round((target.getTime() - today.getTime()) / 86400000));
   };
 
-  const date2026 = (() => {
-    try {
-      return localStorage.getItem('mindmaze_global_exam_date_2026') || localStorage.getItem('mindmaze_global_exam_date') || '2026-11-25';
-    } catch {
-      return '2026-11-25';
-    }
-  })();
-
   const date2027 = (() => {
     try {
       return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
@@ -113,9 +106,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     }
   })();
 
-  const examDaysLeft2026 = calcDaysLeft(date2026, 605);
-  const examDaysLeft2027 = calcDaysLeft(date2027, 970);
-  const myBatchYear = String(userSettings?.targetExamYear || userProfile?.targetYear || '2026');
+  const date2028 = (() => {
+    try {
+      return localStorage.getItem('mindmaze_global_exam_date_2028') || '2028-11-25';
+    } catch {
+      return '2028-11-25';
+    }
+  })();
+
+  const examDaysLeft2027 = calcDaysLeft(date2027, 605);
+  const examDaysLeft2028 = calcDaysLeft(date2028, 970);
+  const myBatchYear = normalizeBatch(userProfile?.targetYear || userSettings?.targetExamYear);
 
   const handleOpenSettings = () => {
     if (onOpenProfileEdit) {
@@ -154,35 +155,35 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
           {/* Exam Days Badges for Both Batches */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            {/* Batch 1 Badge */}
+            {/* 2027 Batch Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === 'Batch 1' || myBatchYear === '2026'
+              myBatchYear === '2027'
                 ? 'bg-amber-500/15 border-2 border-amber-400/60 ring-2 ring-amber-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
-              <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft2026}</span>
+              <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft2027}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to Batch 1 Exam
+                Days to 2027 Batch Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>Batch 1</span>
+                <span>2027 Batch</span>
               </div>
             </div>
 
-            {/* Batch 2 Badge */}
+            {/* 2028 Batch Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === 'Batch 2' || myBatchYear === '2027'
+              myBatchYear === '2028'
                 ? 'bg-cyan-500/15 border-2 border-cyan-400/60 ring-2 ring-cyan-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
-              <span className="text-xl sm:text-2xl font-black text-cyan-300 tracking-tight leading-none">{examDaysLeft2027}</span>
+              <span className="text-xl sm:text-2xl font-black text-cyan-300 tracking-tight leading-none">{examDaysLeft2028}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to Batch 2 Exam
+                Days to 2028 Batch Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>Batch 2</span>
+                <span>2028 Batch</span>
               </div>
             </div>
           </div>

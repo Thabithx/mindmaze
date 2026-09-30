@@ -1,6 +1,7 @@
+import { normalizeBatch } from '../../lib/batches';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { User, StreamType } from '../../types';
+import { StreamType } from '../../types';
 import { X, Save, User as UserIcon, Calendar, Target, Phone, Clock, Award, Loader2 } from 'lucide-react';
 import { validateName, validatePhone, validateYear } from '../../lib/validation';
 
@@ -17,12 +18,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   currentUser,
   onProfileUpdated,
 }) => {
-  if (!isOpen) return null;
 
   const [name, setName] = useState(currentUser?.name || '');
   const [stream, setStream] = useState<StreamType>(currentUser?.stream || 'Physical Science');
   const [elective, setElective] = useState<'Chemistry' | 'ICT'>(currentUser?.physicalScienceElective || 'Chemistry');
-  const [targetExamYear, setTargetExamYear] = useState(currentUser?.targetExamYear || '2026');
+  const [targetExamYear, setTargetExamYear] = useState(normalizeBatch(currentUser?.targetExamYear));
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || '');
   const [mobileNumber, setMobileNumber] = useState(currentUser?.mobileNumber || '');
   const [motivationNote, setMotivationNote] = useState(currentUser?.motivationNote || '');
@@ -31,6 +31,9 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (isOpen) setTargetExamYear(normalizeBatch(currentUser?.targetExamYear)); }, [isOpen, currentUser?.targetExamYear]);
+  if (!isOpen) return null;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,8 +152,8 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
               >
-                <option value="Batch 1">Batch 1</option>
-                <option value="Batch 2">Batch 2</option>
+                <option value="2027">Batch 2027</option>
+                <option value="2028">Batch 2028</option>
               </select>
             </div>
 

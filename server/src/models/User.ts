@@ -64,7 +64,7 @@ const UserSchema = new Schema<IUser>(
       default: 'Physical Science',
     },
     physicalScienceElective: { type: String, enum: ['Chemistry', 'ICT'], default: 'Chemistry' },
-    targetExamYear: { type: String, default: '2026' },
+    targetExamYear: { type: String, default: '2027' },
     targetExamDate: { type: String, default: '' },
     targetZScore: { type: String, default: '' },
     mobileNumber: { type: String, default: '' },

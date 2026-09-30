@@ -171,7 +171,7 @@ export const CourseCatalogScreen: React.FC = () => {
                       <h4 className="font-semibold text-white text-sm">
                         {activeCourse.pdfFileName || 'Course Study Material (PDF)'}
                       </h4>
-                      <p className="text-xs text-slate-400">Cloudinary Secured Document</p>
+                        <p className="text-xs text-slate-400">Study material PDF</p>
                     </div>
                   </div>
                   <a

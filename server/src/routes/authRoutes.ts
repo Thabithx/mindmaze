@@ -1,3 +1,4 @@
+import { normalizeBatch } from '../services/batches.js';
 import crypto from 'crypto';
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
@@ -79,7 +80,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       role,
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
-      targetExamYear: '2026',
+      targetExamYear: '2027',
       mobileNumber: userPhone,
       whatsappNumber: userPhone,
       phoneNumber: userPhone,
@@ -98,7 +99,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
-        targetExamYear: user.targetExamYear,
+        targetExamYear: normalizeBatch(user.targetExamYear),
         targetExamDate: user.targetExamDate,
         targetZScore: user.targetZScore,
         mobileNumber: user.mobileNumber || userPhone,
@@ -206,7 +207,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
-        targetExamYear: user.targetExamYear,
+        targetExamYear: normalizeBatch(user.targetExamYear),
         targetExamDate: user.targetExamDate,
         targetZScore: user.targetZScore,
         mobileNumber: user.mobileNumber,
@@ -229,6 +230,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
 router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!;
+    user.targetExamYear = normalizeBatch(user.targetExamYear);
     const streakUpdated = updateStreakOnActivity(user);
     if (streakUpdated) {
       await (user as any).save();
@@ -310,7 +312,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
       user.physicalScienceElective = physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry';
     }
 
-    if (targetExamYear !== undefined) user.targetExamYear = String(targetExamYear).trim();
+    if (targetExamYear !== undefined) user.targetExamYear = normalizeBatch(targetExamYear);
     if (targetExamDate !== undefined) user.targetExamDate = String(targetExamDate).trim();
     if (targetZScore !== undefined) user.targetZScore = String(targetZScore).trim();
     
@@ -398,7 +400,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
-        targetExamYear: user.targetExamYear,
+        targetExamYear: normalizeBatch(user.targetExamYear),
         targetExamDate: user.targetExamDate,
         targetZScore: user.targetZScore,
         mobileNumber: user.mobileNumber,

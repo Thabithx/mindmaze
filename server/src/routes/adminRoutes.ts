@@ -14,19 +14,19 @@ const router = Router();
 // GET site-wide exam dates for 2 batches (public – used by all clients)
 router.get('/site-config/exam-date', async (req, res: Response): Promise<void> => {
   try {
-    const [cfg2026, cfg2027, defaultCfg] = await Promise.all([
-      SiteConfig.findOne({ key: 'upcoming_exam_date_2026' }),
+    const [cfg2027, cfg2028, defaultCfg] = await Promise.all([
       SiteConfig.findOne({ key: 'upcoming_exam_date_2027' }),
+      SiteConfig.findOne({ key: 'upcoming_exam_date_2028' }),
       SiteConfig.findOne({ key: 'upcoming_exam_date' }),
     ]);
 
-    const examDate2026 = cfg2026?.value || defaultCfg?.value || '2026-11-25';
     const examDate2027 = cfg2027?.value || '2027-11-25';
+    const examDate2028 = cfg2028?.value || '2028-11-25';
 
     res.json({
-      examDate2026,
       examDate2027,
-      examDate: examDate2026, // fallback
+      examDate2028,
+      examDate: examDate2027, // fallback
     });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching exam dates' });
@@ -36,32 +36,32 @@ router.get('/site-config/exam-date', async (req, res: Response): Promise<void> =
 // PUT site-wide exam dates for 2 batches (admin only)
 router.put('/site-config/exam-date', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { examDate, examDate2026, examDate2027 } = req.body;
-    const date2026 = examDate2026 || examDate;
-    const date2027 = examDate2027;
+    const { examDate, examDate2027, examDate2028 } = req.body;
+    const date2027 = examDate2027 || examDate;
+    const date2028 = examDate2028;
 
     const updates: Promise<any>[] = [];
-
-    if (date2026 && /^\d{4}-\d{2}-\d{2}$/.test(date2026)) {
-      updates.push(
-        SiteConfig.findOneAndUpdate(
-          { key: 'upcoming_exam_date_2026' },
-          { key: 'upcoming_exam_date_2026', value: date2026 },
-          { upsert: true, new: true }
-        ),
-        SiteConfig.findOneAndUpdate(
-          { key: 'upcoming_exam_date' },
-          { key: 'upcoming_exam_date', value: date2026 },
-          { upsert: true, new: true }
-        )
-      );
-    }
 
     if (date2027 && /^\d{4}-\d{2}-\d{2}$/.test(date2027)) {
       updates.push(
         SiteConfig.findOneAndUpdate(
           { key: 'upcoming_exam_date_2027' },
           { key: 'upcoming_exam_date_2027', value: date2027 },
+          { upsert: true, new: true }
+        ),
+        SiteConfig.findOneAndUpdate(
+          { key: 'upcoming_exam_date' },
+          { key: 'upcoming_exam_date', value: date2027 },
+          { upsert: true, new: true }
+        )
+      );
+    }
+
+    if (date2028 && /^\d{4}-\d{2}-\d{2}$/.test(date2028)) {
+      updates.push(
+        SiteConfig.findOneAndUpdate(
+          { key: 'upcoming_exam_date_2028' },
+          { key: 'upcoming_exam_date_2028', value: date2028 },
           { upsert: true, new: true }
         )
       );
@@ -75,9 +75,9 @@ router.put('/site-config/exam-date', protect, adminOnly, async (req: AuthRequest
     await Promise.all(updates);
     res.json({
       message: 'Upcoming exam dates updated successfully for both batches',
-      examDate2026: date2026,
       examDate2027: date2027,
-      examDate: date2026,
+      examDate2028: date2028,
+      examDate: date2027,
     });
   } catch (error: any) {
     res.status(500).json({ message: 'Error updating exam dates' });

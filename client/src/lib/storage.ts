@@ -1,3 +1,4 @@
+import { uniqueMistakes } from './mistakeIdentity';
 import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem, PastPaper, Question } from '../types';
 import { INITIAL_SYLLABUS_TOPICS } from '../data/alSyllabusData';
 import { PHYSICS_QUESTIONS } from '../data/physicsQuestions';
@@ -15,7 +16,7 @@ export function getStoredMistakes(): MistakeItem[] {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? uniqueMistakes(parsed) : [];
   } catch (e) {
     return [];
   }
@@ -23,7 +24,7 @@ export function getStoredMistakes(): MistakeItem[] {
 
 export function saveStoredMistakes(mistakes: MistakeItem[]): void {
   try {
-    localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(mistakes));
+    localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(uniqueMistakes(mistakes)));
   } catch (e) {
     console.error('Failed to save mistakes to localStorage', e);
   }

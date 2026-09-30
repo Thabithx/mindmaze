@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
-import cloudinary from '../config/cloudinary.js';
+import { savePdf, removePdf, downloadPdf } from '../services/pdfStorage.js';
 import Course from '../models/Course.js';
 import { protect, adminOnly, AuthRequest } from '../middleware/authMiddleware.js';
 
@@ -12,23 +12,14 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB max PDF size
 });
 
-const uploadToCloudinary = (fileBuffer: Buffer, fileName: string, folder: string = 'courses'): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'auto',
-        public_id: `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-    uploadStream.end(fileBuffer);
-  });
-};
-
+const present = (course: any) => ({...course.toObject(), pdfPath: (course.pdfUrl || course.pdfPublicId) ? '/courses/' + course._id + '/download' : undefined});
+router.get('/:id/download', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) { res.status(404).json({message: 'Course not found'}); return; }
+    await downloadPdf(course, res);
+  } catch { if (!res.headersSent) res.status(500).json({message: 'Could not download PDF.'}); }
+});
 router.get('/', async (req: any, res: Response): Promise<void> => {
   try {
     const { stream, subject } = req.query;
@@ -37,7 +28,7 @@ router.get('/', async (req: any, res: Response): Promise<void> => {
     if (subject) filter.subject = subject;
 
     const courses = await Course.find(filter).sort({ createdAt: -1 });
-    res.json({ courses });
+    res.json({ courses: courses.map(present) });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching courses', error: error.message });
   }
@@ -50,13 +41,14 @@ router.get('/:id', async (req: any, res: Response): Promise<void> => {
       res.status(404).json({ message: 'Course not found' });
       return;
     }
-    res.json({ course });
+    res.json({ course: present(course) });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching course details' });
   }
 });
 
-router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', protect, adminOnly, (req, res, next) => { upload.single('pdfFile')(req, res, error => error ? res.status(400).json({message: error.message}) : next()); }, async (req: AuthRequest, res: Response): Promise<void> => {
+  let stored: any;
   try {
     const { title, description, subject, stream, videoUrl, thumbnailUrl, quizJson } = req.body;
 
@@ -65,15 +57,9 @@ router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthR
       return;
     }
 
-    let pdfUrl = '';
-    let pdfPublicId = '';
-    let pdfFileName = '';
-
     if (req.file) {
-      pdfFileName = req.file.originalname;
-      const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname, 'mind_maze_courses');
-      pdfUrl = cloudinaryResult.secure_url;
-      pdfPublicId = cloudinaryResult.public_id;
+      if (req.file.buffer.subarray(0, 5).toString() !== '%PDF-') { res.status(400).json({message: 'Select a valid PDF file.'}); return; }
+      stored = await savePdf(req.file);
     }
 
     let parsedQuiz = [];
@@ -90,17 +76,16 @@ router.post('/', protect, adminOnly, upload.single('pdfFile'), async (req: AuthR
       description,
       subject,
       stream,
-      pdfUrl,
-      pdfPublicId,
-      pdfFileName,
+      ...stored,
       videoUrl: videoUrl || '',
       thumbnailUrl: thumbnailUrl || '',
       quiz: parsedQuiz,
       createdBy: req.user!._id,
     });
 
-    res.status(201).json({ message: 'Course created successfully', course });
+    res.status(201).json({ message: 'Course created successfully', course: present(course) });
   } catch (error: any) {
+    if (stored) await removePdf(stored).catch(() => {});
     console.error('Course creation error:', error);
     res.status(500).json({ message: 'Failed to create course', error: error.message });
   }
@@ -114,14 +99,7 @@ router.delete('/:id', protect, adminOnly, async (req: AuthRequest, res: Response
       return;
     }
 
-    // Delete PDF from Cloudinary if exists
-    if (course.pdfPublicId) {
-      try {
-        await cloudinary.uploader.destroy(course.pdfPublicId, { resource_type: 'raw' });
-      } catch (e) {
-        console.warn('Failed to delete Cloudinary PDF:', e);
-      }
-    }
+    await removePdf(course);
 
     await Course.findByIdAndDelete(req.params.id);
     res.json({ message: 'Course deleted successfully' });

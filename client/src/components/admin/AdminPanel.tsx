@@ -60,16 +60,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: string; error?: string } | null>(null);
 
   // Global Exam Dates State for 2 batches (stored in MongoDB via admin API)
-  const [adminExamDate2026, setAdminExamDate2026] = useState('2026-11-25');
   const [adminExamDate2027, setAdminExamDate2027] = useState('2027-11-25');
+  const [adminExamDate2028, setAdminExamDate2028] = useState('2028-11-25');
   const [examDateSaving, setExamDateSaving] = useState(false);
   const [examDateSavedMsg, setExamDateSavedMsg] = useState<{ success?: string; error?: string } | null>(null);
 
   const fetchExamDate = async () => {
     try {
       const res = await api.getAdminExamDate();
-      if (res?.examDate2026) setAdminExamDate2026(res.examDate2026);
       if (res?.examDate2027) setAdminExamDate2027(res.examDate2027);
+      if (res?.examDate2028) setAdminExamDate2028(res.examDate2028);
     } catch {
       // fail silently
     }
@@ -77,7 +77,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveGlobalExamDate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminExamDate2026 && !adminExamDate2027) {
+    if (!adminExamDate2027 && !adminExamDate2028) {
       setExamDateSavedMsg({ error: 'Please select at least one valid exam date.' });
       return;
     }
@@ -85,16 +85,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setExamDateSaving(true);
       setExamDateSavedMsg(null);
       await api.setAdminExamDate({
-        examDate2026: adminExamDate2026,
         examDate2027: adminExamDate2027,
+        examDate2028: adminExamDate2028,
       });
       // Update localStorage for immediate local usage
-      if (adminExamDate2026) localStorage.setItem('mindmaze_global_exam_date_2026', adminExamDate2026);
       if (adminExamDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', adminExamDate2027);
-      if (adminExamDate2026) localStorage.setItem('mindmaze_global_exam_date', adminExamDate2026);
+      if (adminExamDate2028) localStorage.setItem('mindmaze_global_exam_date_2028', adminExamDate2028);
+      if (adminExamDate2027) localStorage.setItem('mindmaze_global_exam_date', adminExamDate2027);
 
       setExamDateSavedMsg({
-        success: `Upcoming exam dates saved! (Batch 1: ${adminExamDate2026}, Batch 2: ${adminExamDate2027})`,
+        success: `Upcoming exam dates saved! (Batch 2027: ${adminExamDate2027}, Batch 2028: ${adminExamDate2028})`,
       });
       setTimeout(() => setExamDateSavedMsg(null), 5000);
     } catch (err: any) {
@@ -119,6 +119,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [paperPdfName, setPaperPdfName] = useState<string>('');
   const [paperCalculatedSize, setPaperCalculatedSize] = useState<string>('3.2 MB');
+  const [publishingPaper, setPublishingPaper] = useState(false);
   const [paperSuccess, setPaperSuccess] = useState<string | null>(null);
 
   // Practice Quiz Form State
@@ -242,7 +243,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleCreatePastPaper = (e: React.FormEvent) => {
+  const handleCreatePastPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const titleErr = validateRequired(paperTitle, 'Paper Title', 3);
@@ -262,28 +263,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
-    const newPaper: PastPaper = {
-      id: `pp-${Date.now()}`,
-      title: paperTitle.trim(),
-      subject: paperSubject,
-      stream: paperStream,
-      year: Number(paperYear) || 2026,
-      syllabus: paperSyllabus,
-      type: paperType,
-      medium: paperMedium,
-      downloadSize: paperCalculatedSize || '3.5 MB',
-      isModelPaper: paperIsModel,
-      pdfUrl: selectedPdfFile ? URL.createObjectURL(selectedPdfFile) : undefined,
-    };
-
-    if (onAddPastPaper) {
-      onAddPastPaper(newPaper);
-    }
-    setPaperSuccess(`Successfully uploaded & published past paper: "${newPaper.title}"`);
-    setPaperTitle('');
-    setSelectedPdfFile(null);
-    setPaperPdfName('');
-    setTimeout(() => setPaperSuccess(null), 5000);
+    if (publishingPaper) return;
+    setPublishingPaper(true);
+    setPaperSuccess(null);
+    try {
+      const data = new FormData();
+      data.append('pdfFile', selectedPdfFile);
+      Object.entries({title: paperTitle.trim(), subject: paperSubject, stream: paperStream, year: String(paperYear), syllabus: paperSyllabus, type: paperType, medium: paperMedium, isModelPaper: String(paperIsModel)}).forEach(([key, value]) => data.append(key, value));
+      const {paper} = await api.createPastPaper(data);
+      onAddPastPaper?.(paper);
+      setPaperSuccess('Published: ' + paper.title);
+      setPaperTitle('');
+      setSelectedPdfFile(null);
+      setPaperPdfName('');
+    } catch (err: any) {
+      alert(err.message || 'Could not publish the PDF. Please try again.');
+    } finally { setPublishingPaper(false); }
   };
 
   const handleCreateQuizQuestion = (e: React.FormEvent) => {
@@ -493,7 +488,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {/* ── Upcoming Exam Dates (Admin Sets for Both 2026 & 2027 Batches) ── */}
+          {/* ── Upcoming Exam Dates (Admin Sets for Both 2027 & 2028 Batches) ── */}
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-amber-500/20 backdrop-blur-xl shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-white flex items-center gap-2">
@@ -508,14 +503,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-amber-300">
-                      Batch 1 Exam Date <span className="text-rose-400">*</span>
+                      Batch 2027 Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">Batch 1</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch 2027</span>
                   </div>
                   <input
                     type="date"
-                    value={adminExamDate2026}
-                    onChange={(e) => setAdminExamDate2026(e.target.value)}
+                    value={adminExamDate2027}
+                    onChange={(e) => setAdminExamDate2027(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-400/30 text-white text-sm focus:outline-none focus:border-amber-400 cursor-pointer"
                     required
@@ -525,14 +520,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-cyan-300">
-                      Batch 2 Exam Date <span className="text-rose-400">*</span>
+                      Batch 2028 Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">Batch 2</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch 2028</span>
                   </div>
                   <input
                     type="date"
-                    value={adminExamDate2027}
-                    onChange={(e) => setAdminExamDate2027(e.target.value)}
+                    value={adminExamDate2028}
+                    onChange={(e) => setAdminExamDate2028(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-400/30 text-white text-sm focus:outline-none focus:border-cyan-400 cursor-pointer"
                     required
@@ -543,7 +538,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  disabled={examDateSaving || (!adminExamDate2026 && !adminExamDate2027)}
+                  disabled={examDateSaving || (!adminExamDate2027 && !adminExamDate2028)}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-white text-sm font-bold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                 >
                   {examDateSaving ? (
@@ -983,10 +978,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <button
                 type="submit"
+                disabled={publishingPaper}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Publish Past Paper</span>
+                <span>{publishingPaper ? 'Publishing...' : 'Publish Past Paper'}</span>
               </button>
             </form>
           </div>

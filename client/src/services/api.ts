@@ -78,6 +78,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 
 // API Methods
 export const api = {
+  getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, pdfUrl: API_BASE + p.pdfPath}))})),
+  createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, pdfUrl: API_BASE + res.paper.pdfPath}})),
+  deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
   // Auth
   register: (body: any) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body: any) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -101,9 +104,9 @@ export const api = {
     const query = new URLSearchParams();
     if (stream) query.append('stream', stream);
     if (subject) query.append('subject', subject);
-    return apiFetch(`/courses?${query.toString()}`);
+    return apiFetch(`/courses?${query.toString()}`).then(res => ({courses: res.courses.map((c: any) => ({...c, pdfUrl: c.pdfPath ? API_BASE + c.pdfPath : c.pdfUrl}))}));
   },
-  getCourseById: (id: string) => apiFetch(`/courses/${id}`),
+  getCourseById: (id: string) => apiFetch(`/courses/${id}`).then(res => ({course: {...res.course, pdfUrl: res.course.pdfPath ? API_BASE + res.course.pdfPath : res.course.pdfUrl}})),
   createCourse: (formData: FormData) => apiFetch('/courses', { method: 'POST', body: formData }),
   deleteCourse: (id: string) => apiFetch(`/courses/${id}`, { method: 'DELETE' }),
 
@@ -144,9 +147,9 @@ export const api = {
   testAdminEmail: (body?: { email?: string }) => apiFetch('/admin/test-email', { method: 'POST', body: JSON.stringify(body || {}) }),
   getAdminStats: () => apiFetch('/admin/stats'),
   getAdminExamDate: () => apiFetch('/admin/site-config/exam-date'),
-  setAdminExamDate: (payload: { examDate2026?: string; examDate2027?: string; examDate?: string } | string) =>
+  setAdminExamDate: (payload: { examDate2027?: string; examDate2028?: string; examDate?: string } | string) =>
     apiFetch('/admin/site-config/exam-date', {
       method: 'PUT',
-      body: JSON.stringify(typeof payload === 'string' ? { examDate: payload, examDate2026: payload } : payload),
+      body: JSON.stringify(typeof payload === 'string' ? { examDate: payload, examDate2027: payload } : payload),
     }),
 };
