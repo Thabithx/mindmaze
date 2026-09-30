@@ -1,8 +1,7 @@
+import { deliverRemotePdf } from './pdfDelivery.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { Response } from 'express';
 import cloudinary from '../config/cloudinary.js';
 
@@ -35,9 +34,5 @@ export async function downloadPdf(course: any, res: Response) {
     return;
   }
   if (!course.pdfUrl) { res.status(404).json({ message: 'This course has no PDF.' }); return; }
-  const remote = await fetch(course.pdfUrl, { signal: AbortSignal.timeout(30000) });
-  if (!remote.ok || !remote.body) { res.status(502).json({ message: 'The file provider could not deliver this PDF.' }); return; }
-  res.attachment(course.pdfFileName || 'notes.pdf');
-  res.type('application/pdf');
-  await pipeline(Readable.fromWeb(remote.body as any), res);
+  await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res);
 }

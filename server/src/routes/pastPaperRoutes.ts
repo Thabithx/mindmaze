@@ -1,10 +1,9 @@
+import { deliverRemotePdf } from '../services/pdfDelivery.js';
 import {Router} from 'express';
 import multer from 'multer';
 import {randomUUID} from 'node:crypto';
 import {mkdir,writeFile,unlink} from 'node:fs/promises';
 import path from 'node:path';
-import {Readable} from 'node:stream';
-import {pipeline} from 'node:stream/promises';
 import PastPaper from '../models/PastPaper.js';
 import cloudinary from '../config/cloudinary.js';
 import {protect,adminOnly,AuthRequest} from '../middleware/authMiddleware.js';
@@ -36,10 +35,8 @@ router.post('/',protect,adminOnly,(req,res,next)=>{upload(req,res,e=>{if(e)res.s
 router.get('/:id/download',async(req,res)=>{
   try{
     const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}
-    if(p.provider==='local'){res.download(path.join(directory(),path.basename(p.fileKey)),p.fileName);return;}
-    const remote=await fetch(p.remoteUrl,{signal:AbortSignal.timeout(30000)});
-    if(!remote.ok||!remote.body){res.status(502).json({message:'The file provider could not deliver this PDF. Please try again later.'});return;}
-    res.attachment(p.fileName);res.type('application/pdf');await pipeline(Readable.fromWeb(remote.body as any),res);
+    if(p.provider==='local'){res.download(path.join(directory(),path.basename(p.fileKey)),p.fileName,error=>{if(error&&!res.headersSent)res.status(404).json({message:'PDF file is missing. Ask the administrator to upload it again.'});});return;}
+    await deliverRemotePdf(p.remoteUrl,p.fileName,res);
   }catch{if(!res.headersSent)res.status(500).json({message:'Could not download this paper.'});}
 });
 router.delete('/:id',protect,adminOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});

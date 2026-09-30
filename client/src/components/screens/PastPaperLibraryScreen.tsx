@@ -590,7 +590,10 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                   try {
                     if (!downloadModalPaper.pdfUrl) throw new Error('This paper has no PDF. Please ask the administrator to upload it again.');
                     const response = await fetch(downloadModalPaper.pdfUrl);
-                    if (!response.ok) throw new Error('Could not download this PDF. Please try again.');
+                    if (!response.ok) {
+                      const error = await response.json().catch(() => ({}));
+                      throw new Error(error.message || 'Could not download this PDF (status ' + response.status + '). Please try again.');
+                    }
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');

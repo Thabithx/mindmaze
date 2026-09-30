@@ -137,6 +137,8 @@ export interface UserProfile {
   streakDays: number;
   streakFreezes?: number;
   totalStudyMinutes?: number;
+  studyMinutesByDate?: Record<string, number>;
+  timezone?: string;
   dailyCompletedMCQs: number;
   dailyGoalMCQs?: number;
   [key: string]: any;

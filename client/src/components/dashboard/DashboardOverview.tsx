@@ -225,7 +225,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               icon: <Clock className="w-4 h-4" />,
               color: 'purple',
               title: 'Pomodoro',
-              desc: 'Focus with music',
+              desc: 'Focus with timed sessions',
               screen: 'dashboard' as ScreenId,
             },
             {

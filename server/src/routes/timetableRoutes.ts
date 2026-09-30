@@ -1,3 +1,4 @@
+import { replaceTimetable, InvalidTimetable } from '../services/timetableSync.js';
 import { Router, Response } from 'express';
 import mongoose from 'mongoose';
 import Timetable from '../models/Timetable.js';
@@ -140,46 +141,15 @@ router.delete('/:id', protect, async (req: AuthRequest, res: Response): Promise<
 
 router.post('/sync', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { slots } = req.body;
-    if (!Array.isArray(slots)) {
-      res.status(400).json({ message: 'Slots must be an array' });
-      return;
-    }
-
-    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-    const formattedSlots = slots
-      .filter((s: any) => s && s.subject && s.topic && validDays.includes(s.dayOfWeek))
-      .map((s: any) => ({
-        user: req.user!._id,
-        dayOfWeek: s.dayOfWeek,
-        subject: String(s.subject).trim(),
-        topic: String(s.topic).trim(),
-        blockType: s.blockType === 'revision' ? 'revision' : 'study',
-        topicId: s.topicId || '',
-        subtopicTargets: Array.isArray(s.subtopicTargets) ? s.subtopicTargets : [],
-        isCompleted: Boolean(s.isCompleted),
-        startTime: String(s.startTime || '00:00').trim(),
-        endTime: String(s.endTime || '23:59').trim(),
-        color: s.color || 'blue',
-        reminderEnabled: s.reminderEnabled !== undefined ? Boolean(s.reminderEnabled) : true,
-        reminderOffsetMinutes: Number(s.reminderOffsetMinutes) || 15,
-        lastReminderSentDate: s.lastReminderSentDate || '',
-        notes: s.notes ? String(s.notes).trim() : '',
-      }));
-
-    await Timetable.deleteMany({ user: req.user!._id });
-
-    if (formattedSlots.length > 0) {
-      await Timetable.insertMany(formattedSlots);
-    }
-
-    const saved = await Timetable.find({ user: req.user!._id }).sort({ startTime: 1 });
-    console.log(`[Timetable Sync] Synced ${saved.length} slots for user ${req.user!._id}`);
+    const saved = await replaceTimetable(req.user!._id as mongoose.Types.ObjectId, req.body.slots);
     res.json({ message: 'Timetable synced successfully', timetable: saved });
   } catch (error: any) {
-    console.error('[Timetable Sync Error]:', error);
-    res.status(500).json({ message: 'Error syncing timetable', error: error?.message });
+    if (error instanceof InvalidTimetable) {
+      res.status(400).json({ message: error.message + ' Your saved timetable was not changed.' });
+      return;
+    }
+    console.error('[Timetable Sync] Transaction failed:', error?.message);
+    res.status(503).json({ message: 'Could not save the timetable. Your previous schedule has been kept. Please try again.' });
   }
 });
 

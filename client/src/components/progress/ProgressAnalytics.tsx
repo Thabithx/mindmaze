@@ -1,3 +1,4 @@
+import { safeMinutes, studyDate, weekMinutes, formatStudyTime } from '../../lib/studyTime';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DailyTask, StreamType, SyllabusTopic, TimetableEntry, UserSettings } from '../../types';
 import {
@@ -21,7 +22,6 @@ import {
   calculateOverallStreamProgression,
   calculateSubjectProgression,
 } from '../../lib/syllabusProgression';
-import { calculateMinutesBetween } from '../../lib/storage';
 
 interface ProgressAnalyticsProps {
   stream?: StreamType;
@@ -62,7 +62,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const safeDailyTasks = dailyTasks || [];
 
   const dailyGoal = effectiveSettings.dailyHoursGoal ?? 4;
-  const weeklyGoal = Math.round(dailyGoal * 7 * 10) / 10;
+  const weeklyGoal = safeMinutes(effectiveSettings.weeklyHoursGoal) || dailyGoal * 7;
 
   const streamSubjects = getSubjectsForStream(effectiveStream, effectiveElective);
   const streamProgression = calculateOverallStreamProgression(streamSubjects, safeTopics);
@@ -75,37 +75,24 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const completedSubtopics = streamProgression.completedSubtopics;
   const totalSubtopics = streamProgression.totalSubtopics;
 
-  // Calculate total study hours strictly from completed timer minutes
-  const [liveStudyMins, setLiveStudyMins] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
-      const parsed = raw ? JSON.parse(raw) : null;
-      return currentUserProfile?.totalStudyMinutes ?? currentUserProfile?.user?.totalStudyMinutes ?? userProfile?.totalStudyMinutes ?? parsed?.totalStudyMinutes ?? 0;
-    } catch {
-      return currentUserProfile?.totalStudyMinutes ?? currentUserProfile?.user?.totalStudyMinutes ?? userProfile?.totalStudyMinutes ?? 0;
-    }
-  });
-
+  const profile = currentUserProfile || userProfile || {};
+  const [liveProfile, setLiveProfile] = useState<any>(profile);
+  useEffect(() => { setLiveProfile(profile); }, [currentUserId, profile.totalStudyMinutes, profile.studyMinutesByDate]);
   useEffect(() => {
-    const handleStudyTimeUpdated = (e: any) => {
-      try {
-        const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
-        const parsed = raw ? JSON.parse(raw) : null;
-        setLiveStudyMins(e?.detail?.totalStudyMinutes ?? parsed?.totalStudyMinutes ?? liveStudyMins);
-      } catch {}
+    const update = (event: any) => {
+      const data = event.detail;
+      if (data && data.totalStudyMinutes !== undefined && (!currentUserId || String(data._id || data.id) === String(currentUserId))) setLiveProfile(data);
     };
-    window.addEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
-    return () => {
-      window.removeEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
-    };
-  }, [liveStudyMins]);
-
-  const timerMins = Math.max(
-    liveStudyMins,
-    currentUserProfile?.totalStudyMinutes || currentUserProfile?.user?.totalStudyMinutes || userProfile?.totalStudyMinutes || 0
-  );
-  const weeklyHours = Math.round((timerMins / 60) * 10) / 10;
-  const weeklyGoalPercent = Math.min(100, Math.round((weeklyHours / weeklyGoal) * 100));
+    window.addEventListener('mindmaze_study_time_updated', update);
+    return () => window.removeEventListener('mindmaze_study_time_updated', update);
+  }, [currentUserId]);
+  const dailyStudy: Record<string, number> = liveProfile.studyMinutesByDate || {};
+  const todayKey = studyDate(new Date(), liveProfile.timezone || profile.timezone || 'Asia/Colombo');
+  const timerMins = safeMinutes(liveProfile.totalStudyMinutes);
+  const currentWeekMinutes = weekMinutes(dailyStudy, todayKey);
+  const weeklyHours = Math.round(currentWeekMinutes / 60 * 100) / 100;
+  const weeklyGoalPercent = weeklyGoal > 0 ? Math.min(100, currentWeekMinutes / (weeklyGoal * 60) * 100) : 0;
+  const undatedMinutes = Math.max(0, timerMins - Object.values(dailyStudy).reduce((sum, n) => sum + safeMinutes(n), 0));
 
   // Daily task completion stats
   const totalTasksAllTime = safeDailyTasks.length;
@@ -117,33 +104,10 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekChartMode, setWeekChartMode] = useState<'daily' | 'weekly'>('daily');
 
-  const taskMinutesOf = (t: DailyTask): number => {
-    if (typeof t.estimatedMinutes === 'number' && t.estimatedMinutes > 0) return t.estimatedMinutes;
-    if (t.startTime && t.endTime) {
-      try {
-        return calculateMinutesBetween(t.startTime, t.endTime);
-      } catch {
-        return 60;
-      }
-    }
-    if (t.timeSlot && t.timeSlot.includes('-')) {
-      const [s, e] = t.timeSlot.split('-').map((p) => p.trim());
-      if (s && e && s.includes(':') && e.includes(':')) {
-        try {
-          return calculateMinutesBetween(s, e);
-        } catch {
-          return 60;
-        }
-      }
-    }
-    return 60;
-  };
-
   const minWeekOffset = useMemo(() => {
-    if (!safeDailyTasks || safeDailyTasks.length === 0) return 0;
+    if (Object.keys(dailyStudy).length === 0) return 0;
     try {
-      const dates = safeDailyTasks
-        .map((t) => t?.date)
+      const dates = Object.keys(dailyStudy)
         .filter((d): d is string => Boolean(d) && typeof d === 'string' && d.includes('-'))
         .sort();
       if (!dates || dates.length === 0 || !dates[0]) return 0;
@@ -158,17 +122,17 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         return mm;
       };
       const diffWeeks = Math.round(
-        (toMonday(new Date()).getTime() - toMonday(first).getTime()) / (7 * 24 * 60 * 60 * 1000)
+        (toMonday(new Date(todayKey + 'T12:00:00')).getTime() - toMonday(first).getTime()) / (7 * 24 * 60 * 60 * 1000)
       );
       return -Math.max(0, diffWeeks);
     } catch {
       return 0;
     }
-  }, [safeDailyTasks]);
+  }, [dailyStudy, todayKey]);
   const clampedWeekOffset = Math.max(minWeekOffset, Math.min(0, weekOffset));
 
   const weekData = useMemo(() => {
-    const now = new Date();
+    const now = new Date(todayKey + 'T12:00:00');
     const monday = new Date(now);
     const dayIdx = (now.getDay() + 6) % 7;
     monday.setDate(now.getDate() - dayIdx + clampedWeekOffset * 7);
@@ -183,51 +147,30 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       return { date: d, dateStr: `${y}-${m}-${dd}`, dayName: WEEK_DAYS[i] };
     });
 
-    const taskMinutes = taskMinutesOf;
-
-    const planMinutesByDay: Record<string, number> = {
-      Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0, Sunday: 0,
-    };
-    safeTimetable.forEach((entry) => {
-      if (!entry.startTime || !entry.endTime) return;
-      const s = entry.startTime.split(':').map(Number);
-      const e = entry.endTime.split(':').map(Number);
-      if (s.length < 2 || e.length < 2) return;
-      const diff = e[0] * 60 + e[1] - (s[0] * 60 + s[1]);
-      if (diff > 0 && entry.dayOfWeek in planMinutesByDay) {
-        planMinutesByDay[entry.dayOfWeek] += diff;
-      }
-    });
-
     const perDay = days.map((day) => {
       const dayTasks = (safeDailyTasks || []).filter((t) => t && t.date === day.dateStr);
-      const taskTotalMins = dayTasks.reduce((sum, t) => sum + taskMinutes(t), 0);
-      const doneMins = dayTasks.filter((t) => t.isCompleted).reduce((sum, t) => sum + taskMinutes(t), 0);
-      const totalMins = taskTotalMins > 0 ? taskTotalMins : (planMinutesByDay[day.dayName] || 0);
-      const fromPlan = taskTotalMins === 0 && (planMinutesByDay[day.dayName] || 0) > 0;
+      const doneMins = day.dateStr <= todayKey ? safeMinutes(dailyStudy[day.dateStr]) : 0;
+      const fromPlan = false;
       return {
         ...day,
-        totalHours: Math.round((totalMins / 60) * 10) / 10,
-        doneHours: Math.round((doneMins / 60) * 10) / 10,
+        totalHours: doneMins / 60,
+        doneHours: doneMins / 60,
         taskCount: dayTasks.length,
         doneCount: dayTasks.filter((t) => t.isCompleted).length,
         fromPlan,
       };
     });
 
-    const weekTotal = Math.round(perDay.reduce((s, d) => s + d.totalHours, 0) * 10) / 10;
-    const weekDone = Math.round(perDay.reduce((s, d) => s + d.doneHours, 0) * 10) / 10;
+    const weekTotal = perDay.reduce((s, d) => s + d.totalHours, 0);
+    const weekDone = perDay.reduce((s, d) => s + d.doneHours, 0);
     const startLabel = days[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const endLabel = days[6].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const weekLabel = clampedWeekOffset === 0 ? 'This Week' : clampedWeekOffset === -1 ? 'Last Week' : `${startLabel} – ${endLabel}`;
     const maxHrs = Math.max(dailyGoal, ...perDay.map((d) => d.totalHours), 1);
-    const todayStr = (() => {
-      const n = new Date();
-      return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-    })();
+    const todayStr = todayKey;
 
     return { days: perDay, weekTotal, weekDone, weekLabel, rangeLabel: `${startLabel} – ${endLabel}`, maxHrs, todayStr };
-  }, [dailyTasks, dailyGoal, clampedWeekOffset, safeTimetable]);
+  }, [dailyStudy, todayKey, dailyTasks, dailyGoal, clampedWeekOffset, safeTimetable]);
 
   const weeklyHistory = useMemo(() => {
     const toMonday = (d: Date) => {
@@ -242,15 +185,14 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       if (isNaN(y) || isNaN(mo) || isNaN(da)) return new Date(NaN);
       return new Date(y, mo - 1, da);
     };
-    const now = new Date();
+    const now = new Date(todayKey + 'T12:00:00');
     const thisMonday = toMonday(now);
 
     let startMonday = new Date(thisMonday);
     startMonday.setDate(thisMonday.getDate() - 7 * 7);
     let endMonday = thisMonday;
-    if (safeDailyTasks && safeDailyTasks.length > 0) {
-      const dates = safeDailyTasks
-        .map((t) => t?.date)
+    if (Object.keys(dailyStudy).length > 0) {
+      const dates = Object.keys(dailyStudy)
         .filter((d): d is string => Boolean(d) && typeof d === 'string' && d.includes('-'))
         .sort();
       if (dates.length > 0 && dates[0] && dates[dates.length - 1]) {
@@ -279,9 +221,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         dt.setDate(monday2.getDate() + d);
         return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
       });
-      const weekTasks = (safeDailyTasks || []).filter((t) => t && days.includes(t.date));
-      const totalMins = weekTasks.reduce((s, t) => s + taskMinutesOf(t), 0);
-      const doneMins = weekTasks.filter((t) => t && t.isCompleted).reduce((s, t) => s + taskMinutesOf(t), 0);
+      const doneMins = days.reduce((sum, key) => sum + (key <= todayKey ? safeMinutes(dailyStudy[key]) : 0), 0);
       const startL = monday2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const endD = new Date(monday2);
       endD.setDate(monday2.getDate() + 6);
@@ -292,14 +232,14 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         key: days[0],
         label: isCurrent ? 'This wk' : isLast ? 'Last wk' : `${startL}`,
         subLabel: `${startL}–${endL}`,
-        totalHours: Math.round((totalMins / 60) * 10) / 10,
-        doneHours: Math.round((doneMins / 60) * 10) / 10,
+        totalHours: doneMins / 60,
+        doneHours: doneMins / 60,
         isCurrent,
       };
     });
     const maxWk = Math.max(weeklyGoal, ...weeks.map((w) => w.totalHours), 1);
     return { weeks, maxWk };
-  }, [safeDailyTasks, weeklyGoal]);
+  }, [dailyStudy, todayKey, safeDailyTasks, weeklyGoal]);
 
   const weekScrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({ down: false, startX: 0, startScroll: 0, pointerId: -1, baseProgress: 0 });
@@ -524,8 +464,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       ) : (
         <div className="space-y-6">
           <p className="text-xs text-slate-400">
-            Time Progress — how much study time you have put in and how consistently you execute.
+            Time Progress — recorded focus time. Planned task durations are not counted as time studied.
           </p>
+          {undatedMinutes > 0.01 && <p className="text-xs text-amber-200">{formatStudyTime(undatedMinutes)} of older study time has no daily breakdown. It remains in the all-time total, but is not assigned to chart dates.</p>}
           {/* Metrics Row - Time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Daily Goal vs Weekly Target */}
@@ -536,11 +477,9 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-white">
-                  {Math.floor(timerMins / 60) > 0
-                    ? `${Math.floor(timerMins / 60)}h ${timerMins % 60}m`
-                    : `${timerMins} mins`}
+                  {formatStudyTime(timerMins)}
                 </span>
-                <span className="text-xs font-bold text-cyan-300">({timerMins} total mins / {weeklyHours} hrs)</span>
+                <span className="text-xs font-bold text-cyan-300">all time</span>
               </div>
               <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -549,14 +488,14 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 />
               </div>
               <p className="text-[11px] text-slate-400">
-                {weeklyGoalPercent >= 100 ? 'Daily goal smashed — weekly time goal exceeded!' : `${weeklyHours} hrs / ${weeklyGoal} hrs target this week (${dailyGoal} hrs/day goal).`}
+                {weeklyGoalPercent >= 100 ? 'Weekly study goal reached!' : `${weeklyHours} hrs / ${weeklyGoal} hrs target this week (${dailyGoal} hrs/day goal).`}
               </p>
             </div>
 
             {/* Task Completion Rate */}
             <div className="rounded-2xl border border-white/10 bg-[#161831]/80 p-5 backdrop-blur-md shadow-lg space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                <span>Tasks Completed on Time</span>
+                <span>Tasks Completed</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="flex items-baseline gap-2">
@@ -574,7 +513,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 />
               </div>
               <p className="text-[11px] text-slate-400">
-                Consistent daily study time is the #1 predictor of GCE A/L district merit.
+                Completed tasks are counted separately from recorded timer minutes.
               </p>
             </div>
           </div>
@@ -661,7 +600,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               </div>
             </div>
             <p className="text-[11px] text-slate-400">
-              {`Drag left and watch the 7 daily bars join one-by-one into 1 bigger weekly bar. ${weekData.weekTotal}h logged vs ${weekData.weekDone}h completed (goal ${weeklyGoal}h).`}
+              {`Drag left and watch the 7 daily bars join one-by-one into 1 bigger weekly bar. ${formatStudyTime(weekData.weekTotal * 60)} logged vs ${formatStudyTime(weekData.weekDone * 60)} completed (goal ${weeklyGoal}h).`}
             </p>
 
             <div
@@ -681,12 +620,12 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                   {targetProgress < 0.05
                     ? '7 daily bars — drag left to join them'
                     : targetProgress > 0.95
-                      ? `1 weekly bar — ${weekData.weekTotal}h / ${weeklyGoal}h goal`
+                      ? `1 weekly bar — ${formatStudyTime(weekData.weekTotal * 60)} / ${weeklyGoal}h goal`
                       : `${Math.min(7, Math.floor(targetProgress * 7) + 1)} of 7 joined…`}
                 </div>
                 <div className="absolute inset-x-0 top-6 bottom-8">
                 {weekData.days.map((day, i) => {
-                  const pctTotal = Math.min(100, Math.round((day.totalHours / weekData.maxHrs) * 100));
+                  const pctTotal = Math.min(100, (day.totalHours / weekData.maxHrs) * 100);
                   const pctDone = day.totalHours > 0 ? Math.round((day.doneHours / day.totalHours) * 100) : 0;
                   const goalState =
                     day.doneHours > dailyGoal ? 'above' : day.doneHours >= dailyGoal ? 'met' : 'below';
@@ -700,8 +639,8 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                   const targetW = 22;
                   const left = baseLeft + (targetLeft - baseLeft) * local;
                   const width = baseW + (targetW - baseW) * local;
-                  const weeklyPct = Math.min(96, Math.max(10, weeklyGoal > 0 ? (weekData.weekTotal / weeklyGoal) * 100 : 0));
-                  const dayH = day.totalHours > 0 ? Math.max(8, pctTotal) : 4;
+                  const weeklyPct = Math.min(96, Math.max(0, weeklyGoal > 0 ? (weekData.weekTotal / weeklyGoal) * 100 : 0));
+                  const dayH = pctTotal;
                   const height = dayH + (weeklyPct - dayH) * local;
                   return (
                     <div
@@ -721,12 +660,12 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                         className={`text-[10px] font-black ${day.totalHours > 0 ? 'text-white' : 'text-slate-600'}`}
                         style={{ opacity: 1 - local }}
                       >
-                        {day.totalHours > 0 ? `${day.totalHours}h` : '—'}
+                        {day.totalHours > 0 ? `${formatStudyTime(day.totalHours * 60)}` : '—'}
                       </span>
                       <div
                         className={`w-full flex flex-col justify-end rounded-lg bg-white/5 border overflow-hidden ${isToday ? 'border-cyan-400/60' : 'border-white/5'}`}
                         style={{ height: `${height}%`, opacity: 1 - local }}
-                        title={`${day.dayName} ${day.dateStr}: ${day.doneHours}h done / ${day.totalHours}h logged (${day.doneCount}/${day.taskCount} tasks)`}
+                        title={`${day.dayName} ${day.dateStr}: ${formatStudyTime(day.doneHours * 60)} done / ${formatStudyTime(day.totalHours * 60)} logged (${day.doneCount}/${day.taskCount} tasks)`}
                       >
                         <div className="w-full flex flex-col justify-end flex-1">
                           {day.totalHours > day.doneHours && (
@@ -744,10 +683,10 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                                     ? 'bg-gradient-to-t from-amber-500 to-yellow-300'
                                     : 'bg-gradient-to-t from-rose-600 to-rose-400'
                               }`}
-                              style={{ height: `${Math.max(8, (pctTotal * pctDone) / 100)}%` }}
+                              style={{ height: `${Math.min(100, pctDone)}%` }}
                             />
                           )}
-                          {day.totalHours === 0 && <div className="w-full bg-white/5" style={{ height: '4%' }} />}
+                          {day.totalHours === 0 && <div className="w-full bg-white/5" style={{ height: '0%' }} />}
                         </div>
                       </div>
                       <span
@@ -764,12 +703,12 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                   style={{ width: '22%', height: '100%', opacity: targetProgress, zIndex: 20, pointerEvents: targetProgress > 0.5 ? 'auto' : 'none' }}
                 >
                   <span className="text-xs font-black text-white whitespace-nowrap">
-                    {weekData.weekTotal}h / {weeklyGoal}h
+                    {formatStudyTime(weekData.weekTotal * 60)} / {weeklyGoal}h
                   </span>
                   <div
                     className="w-full rounded-xl border border-emerald-400/60 bg-emerald-500/15 overflow-hidden shadow-[0_0_24px_rgba(16,185,129,0.35)]"
-                    style={{ height: `${Math.min(96, Math.max(10, weeklyGoal > 0 ? (weekData.weekTotal / weeklyGoal) * 100 : 0))}%` }}
-                    title={`Weekly total: ${weekData.weekTotal}h planned/logged (${weekData.weekDone}h completed, goal ${weeklyGoal}h)`}
+                    style={{ height: `${Math.min(96, Math.max(0, weeklyGoal > 0 ? (weekData.weekTotal / weeklyGoal) * 100 : 0))}%` }}
+                    title={`Weekly total: ${formatStudyTime(weekData.weekTotal * 60)} recorded (${formatStudyTime(weekData.weekDone * 60)} completed, goal ${weeklyGoal}h)`}
                   >
                     <div className="w-full h-full bg-gradient-to-t from-emerald-600 via-emerald-400 to-cyan-300" style={{ opacity: 0.9 }} />
                   </div>
@@ -860,7 +799,7 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 </div>
                 <div className="flex items-end gap-2 h-36 overflow-x-auto pb-1">
                   {weeklyHistory.weeks.map((wk) => {
-                    const pct = weeklyHistory.maxWk > 0 ? Math.min(100, Math.round((wk.doneHours / weeklyHistory.maxWk) * 100)) : 0;
+                    const pct = weeklyHistory.maxWk > 0 ? Math.min(100, (wk.doneHours / weeklyHistory.maxWk) * 100) : 0;
                     const metGoal = wk.doneHours >= weeklyGoal && wk.doneHours > 0;
                     return (
                       <div
@@ -868,12 +807,12 @@ export const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                         className={`flex flex-col items-center justify-end gap-1 h-full ${
                           weeklyHistory.weeks.length <= 8 ? 'flex-1 min-w-0' : 'w-[11%] shrink-0'
                         }`}
-                        title={`${wk.subLabel}: ${wk.doneHours}h done / ${wk.totalHours}h logged (goal ${weeklyGoal}h)`}
+                        title={`${wk.subLabel}: ${formatStudyTime(wk.doneHours * 60)} done / ${formatStudyTime(wk.totalHours * 60)} logged (goal ${weeklyGoal}h)`}
                       >
-                        <span className={`text-[10px] font-black ${wk.doneHours > 0 ? 'text-white' : 'text-slate-600'}`}>{wk.doneHours > 0 ? `${wk.doneHours}h` : '—'}</span>
+                        <span className={`text-[10px] font-black ${wk.doneHours > 0 ? 'text-white' : 'text-slate-600'}`}>{wk.doneHours > 0 ? `${formatStudyTime(wk.doneHours * 60)}` : '—'}</span>
                         <div className={`w-full flex-1 rounded-lg overflow-hidden ${wk.isCurrent ? 'bg-emerald-500/20 border border-emerald-400/50' : 'bg-white/5 border border-white/5'}`}>
                           <div className="w-full h-full flex items-end">
-                            <div className={`w-full ${metGoal ? 'bg-emerald-400' : 'bg-cyan-400/70'}`} style={{ height: `${Math.max(wk.doneHours > 0 ? 12 : 4, pct)}%` }} />
+                            <div className={`w-full ${metGoal ? 'bg-emerald-400' : 'bg-cyan-400/70'}`} style={{ height: `${pct}%` }} />
                           </div>
                         </div>
                         <span className="text-[9px] font-bold text-slate-500 truncate w-full text-center">{wk.label}</span>

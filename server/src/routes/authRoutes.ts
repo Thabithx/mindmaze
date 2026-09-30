@@ -111,6 +111,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         streakDays: user.streakDays || 1,
         bestStreak: user.bestStreak || 1,
         totalStudyMinutes: user.totalStudyMinutes || 0,
+        studyMinutesByDate: user.studyMinutesByDate,
         completedDates: user.completedDates || [],
         lastCompletedDate: user.lastCompletedDate || '',
         badges: user.badges,
@@ -216,6 +217,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         streakDays: user.streakDays || 1,
         bestStreak: user.bestStreak || 1,
         totalStudyMinutes: user.totalStudyMinutes || 0,
+        studyMinutesByDate: user.studyMinutesByDate,
         completedDates: user.completedDates || [],
         lastCompletedDate: user.lastCompletedDate || '',
         badges: user.badges,
@@ -408,6 +410,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         dailyHoursGoal: user.dailyHoursGoal,
         weeklyHoursGoal: user.weeklyHoursGoal,
         totalStudyMinutes: user.totalStudyMinutes || 0,
+        studyMinutesByDate: user.studyMinutesByDate,
         streakDays: user.streakDays || 1,
         bestStreak: user.bestStreak || 1,
         completedDates: user.completedDates || [],
@@ -537,13 +540,16 @@ router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<
 router.post('/add-study-minutes', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mins = Number(req.body.minutes ?? req.body.addStudyMinutes ?? 0);
-    if (isNaN(mins) || mins <= 0) {
+    if (!Number.isFinite(mins) || mins <= 0 || mins > 1440) {
       res.status(400).json({ message: 'Valid study minutes amount is required' });
       return;
     }
+    let date: string;
+    try { date = new Intl.DateTimeFormat('en-CA', {timeZone: req.user!.timezone || 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date()); }
+    catch { date = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date()); }
     const user = await User.findByIdAndUpdate(
       req.user!._id,
-      { $inc: { totalStudyMinutes: mins } },
+      { $inc: { totalStudyMinutes: mins, ['studyMinutesByDate.' + date]: mins } },
       { new: true }
     ).select('-passwordHash');
 

@@ -1,3 +1,4 @@
+import { useScreenNavigation } from './hooks/useScreenNavigation';
 import { normalizeBatch } from './lib/batches';
 import { mistakeIdentity, uniqueMistakes } from './lib/mistakeIdentity';
 import { useState, useEffect, useCallback } from 'react';
@@ -55,10 +56,10 @@ import { NotificationsScreen } from './components/notifications/NotificationsScr
 import { LandingPage } from './components/screens/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
 
-import { Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyRound, ArrowLeft, Mail, Lock } from 'lucide-react';
+import { ShieldAlert, Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyRound, ArrowLeft, Mail, Lock } from 'lucide-react';
 
 export function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenId>('dashboard');
+  const [currentScreen, setCurrentScreen] = useScreenNavigation(getStoredUser()?.role === 'admin' ? 'admin' : 'dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
@@ -168,9 +169,7 @@ export function App() {
     const cachedUser = getStoredUser();
     if (cachedUser) {
       setUser(cachedUser);
-      if (cachedUser.role === 'admin') {
-        setCurrentScreen('admin');
-      }
+
     }
 
     if (!token) {
@@ -186,9 +185,7 @@ export function App() {
       if (res?.user) {
         setUser(res.user);
         setStoredUser(res.user);
-        if (res.user.role === 'admin') {
-          setCurrentScreen('admin');
-        }
+
         if (res.user.stream) {
           setUserSettingsState((prev) => ({
             ...prev,
@@ -633,6 +630,8 @@ export function App() {
     examDate: globalExamDate || user?.targetExamDate || (studentBatchYear === '2028' ? '2028-11-25' : '2027-11-25'),
     dailyCompletedMCQs: 0,
     totalStudyMinutes: user?.totalStudyMinutes ?? 0,
+    studyMinutesByDate: user?.studyMinutesByDate || {},
+    timezone: user?.timezone || 'Asia/Colombo',
     isAuthenticated: !!user,
   };
 
@@ -906,8 +905,8 @@ export function App() {
                     }}
                     isMinimized={isPomodoroMinimized}
                     onToggleMinimize={() => setIsPomodoroMinimized(!isPomodoroMinimized)}
-                    onStartSession={() => {
-                      const topicToStart = activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
+                    onStartSession={(selectedTopic) => {
+                      const topicToStart = selectedTopic || activeSyllabusTopic || (activePomodoroTopic?.title ? syllabusTopics.find(t => t.topicTitle.toLowerCase() === activePomodoroTopic.title.toLowerCase()) : null);
                       if (topicToStart) {
                         const updated = syllabusTopics.map((t) => {
                           if (t.id === topicToStart.id || t.topicTitle.toLowerCase() === topicToStart.topicTitle.toLowerCase()) {
@@ -1038,29 +1037,9 @@ export function App() {
                       // Refresh streak
                       const refreshedStreak = recordTaskCompletionAndRefreshStreak(updatedTasks, true);
 
-                      // Use actual studied time (at least 1 minute to count session)
-                      const minsToSave = studiedMinutes > 0 ? studiedMinutes : 1;
-
-                      // Optimistic update: reflect in UI immediately
-                      setUser((prev: any) => {
-                        const updated = {
-                          ...(prev || {}),
-                          totalStudyMinutes: (Number(prev?.totalStudyMinutes || 0)) + minsToSave,
-                        };
-                        setStoredUser(updated);
-                        return updated;
-                      });
-                      window.dispatchEvent(new CustomEvent('mindmaze_study_time_updated', { detail: { addedMinutes: minsToSave } }));
-
-                      // Save study time & streak to DB on block completion
+                      // Timer callbacks already recorded these minutes. Completion only updates tasks/streak.
+                      const minsToSave = Math.round(studiedMinutes * 100) / 100;
                       if (getAuthToken()) {
-                        api.addStudyMinutes(minsToSave).then((res: any) => {
-                          if (res?.user) {
-                            setUser(res.user);
-                            setStoredUser(res.user);
-                            window.dispatchEvent(new CustomEvent('mindmaze_study_time_updated', { detail: { addedMinutes: minsToSave } }));
-                          }
-                        }).catch(() => {});
                         api.updateProfile({
                           streakDays: refreshedStreak.currentStreak,
                           bestStreak: refreshedStreak.bestStreak,
@@ -1087,23 +1066,6 @@ export function App() {
                             message: `Great job! You finished a ${mins}-minute focus study session. +${mins} study minutes saved to database!`,
                           });
                         }
-
-                        // Optimistically update live user totalStudyMinutes immediately
-                        setUser((prev: any) => {
-                          const currentMins = Number(prev?.totalStudyMinutes || 0);
-                          const updated = {
-                            ...(prev || {}),
-                            totalStudyMinutes: currentMins + mins,
-                          };
-                          setStoredUser(updated);
-                          return updated;
-                        });
-
-                        window.dispatchEvent(
-                          new CustomEvent('mindmaze_study_time_updated', {
-                            detail: { addedMinutes: mins },
-                          })
-                        );
 
                         if (getAuthToken()) {
                           const streakState = recordDailyVisit();

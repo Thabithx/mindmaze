@@ -13,9 +13,6 @@ import {
   Clock,
   Flame,
   ChevronDown,
-  Volume2,
-  VolumeX,
-  Music,
 } from 'lucide-react';
 
 export interface PomodoroTimerProps {
@@ -31,7 +28,7 @@ export interface PomodoroTimerProps {
   onToggleSubtopic?: (subtopic: string) => void;
   onSessionComplete?: (type: 'work' | 'break', minutes: number) => void;
   onMarkFinished?: (studiedMinutes: number) => void;
-  onStartSession?: () => void;
+  onStartSession?: (topic?: SyllabusTopic) => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   className?: string;
@@ -134,27 +131,34 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   const workSecondsRef = React.useRef<number>(0);
   const sessionStudiedMinutesRef = React.useRef<number>(0);
+  const remainingSecondsRef = React.useRef(MODE_CONFIGS.work.minutes * 60);
+  const creditCallback = React.useRef(onSessionComplete);
+  creditCallback.current = onSessionComplete;
+  const flushStudySeconds = () => {
+    const minutes = workSecondsRef.current / 60;
+    workSecondsRef.current = 0;
+    if (minutes > 0) {
+      sessionStudiedMinutesRef.current += minutes;
+      creditCallback.current?.('work', minutes);
+    }
+  };
+  useEffect(() => () => { flushStudySeconds(); }, []);
   const lastTickRef = React.useRef<number>(Date.now());
 
   // High-precision, zero-drift timer loop using timestamp deltas
   useEffect(() => {
     if (!isRunning) {
-      // If student paused after studying >= 30 seconds that haven't been credited yet,
-      // credit 1 full minute to their permanent record
-      if (mode === 'work' && workSecondsRef.current >= 30) {
-        workSecondsRef.current = 0;
-        sessionStudiedMinutesRef.current += 1;
-        if (onSessionComplete) onSessionComplete('work', 1);
-      }
+      if (mode === 'work') flushStudySeconds();
       return;
     }
 
     lastTickRef.current = Date.now();
     const interval = setInterval(() => {
       const now = Date.now();
-      const elapsedSec = Math.floor((now - lastTickRef.current) / 1000);
+      const elapsedSec = Math.min(remainingSecondsRef.current, Math.floor((now - lastTickRef.current) / 1000));
       if (elapsedSec >= 1) {
         lastTickRef.current += elapsedSec * 1000;
+        remainingSecondsRef.current -= elapsedSec;
         setTimeLeft((prev) => Math.max(0, prev - elapsedSec));
 
         if (mode === 'work') {
@@ -162,7 +166,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           while (workSecondsRef.current >= 60) {
             workSecondsRef.current -= 60;
             sessionStudiedMinutesRef.current += 1;
-            if (onSessionComplete) onSessionComplete('work', 1);
+            creditCallback.current?.('work', 1);
           }
         }
       }
@@ -182,13 +186,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       if (mode === 'work') {
         const newCount = completedSessions + 1;
         setCompletedSessions(newCount);
-        if (workSecondsRef.current >= 20) {
-          workSecondsRef.current = 0;
-          sessionStudiedMinutesRef.current += 1;
-          if (onSessionComplete) onSessionComplete('work', 1);
-        } else {
-          workSecondsRef.current = 0;
-        }
+        flushStudySeconds();
 
         if (newCount % 4 === 0) {
           switchMode('longBreak');
@@ -203,103 +201,48 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   }, [timeLeft, isRunning, mode, completedSessions]);
 
   const switchMode = (newMode: TimerMode) => {
-    // Credit any pending study time before switching modes
-    if (mode === 'work' && workSecondsRef.current >= 30) {
-      workSecondsRef.current = 0;
-      sessionStudiedMinutesRef.current += 1;
-      if (onSessionComplete) onSessionComplete('work', 1);
-    }
+    if (mode === 'work') flushStudySeconds();
+    remainingSecondsRef.current = MODE_CONFIGS[newMode].minutes * 60;
     setMode(newMode);
     setIsRunning(false);
     setTimeLeft(MODE_CONFIGS[newMode].minutes * 60);
   };
 
-  // Curated soothing Lo-Fi & Study Music tracks (100% verified streams, no emojis in names)
-  const LOFI_TRACKS = [
-    {
-      id: 'lofi-1',
-      title: 'Sound 1',
-      src: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-    },
-    {
-      id: 'lofi-2',
-      title: 'Sound 2',
-      src: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3',
-    },
-    {
-      id: 'lofi-3',
-      title: 'Sound 3',
-      src: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=lofi-orchestral-125032.mp3',
-    },
-    {
-      id: 'lofi-4',
-      title: 'Sound 4',
-      src: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3?filename=chill-abstract-intention-12099.mp3',
-    },
-    {
-      id: 'lofi-5',
-      title: 'Sound 5',
-      src: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
-    },
-  ];
-
-  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [audioVolume, setAudioVolume] = useState(0.45);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
-    }
-  }, [audioVolume, isAudioMuted]);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-
-    if (isRunning && !isAudioMuted && mode === 'work') {
-      audioRef.current.play().catch((err) => {
-        console.warn('Lo-Fi audio auto-play:', err);
-      });
-    } else {
-      audioRef.current.pause();
-    }
-  }, [isRunning, isAudioMuted, mode, selectedTrackIndex]);
-
   // A unit is considered "selected" if either the timetable auto-set one, or user picked one in the dropdown
   const hasUnitSelected = !!(activeUnitTitle || selectedUnitId);
 
   const toggleTimer = () => {
-    // If no unit is currently chosen, auto-select the first unit in the stream
-    if (!isRunning && mode === 'work' && !hasUnitSelected) return;
-    if (!isRunning && mode === 'work' && onStartSession) {
-      onStartSession();
+    if (isRunning) { setIsRunning(false); return; }
+    if (mode === 'work') {
+      let topic = userAllowedTopics.find(t => t.id === (activeTopicId || selectedUnitId));
+      if (!hasUnitSelected) {
+        topic = filteredTopics[0] || userAllowedTopics[0];
+        if (topic) {
+          setSelectedUnitId(topic.id);
+          setSelectedSubject(topic.subject);
+          onSelectTopic?.(topic);
+        }
+      }
+      // Pass the selected topic directly: parent state updates are asynchronous.
+      onStartSession?.(topic);
     }
-    if (!isRunning) setHasStarted(true);
-    setIsRunning(!isRunning);
+    setHasStarted(true);
+    setIsRunning(true);
   };
 
   const resetTimer = () => {
+    if (mode === 'work') flushStudySeconds();
+    remainingSecondsRef.current = MODE_CONFIGS[mode].minutes * 60;
     setIsRunning(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
     setTimeLeft(MODE_CONFIGS[mode].minutes * 60);
   };
 
   // Called when user marks a unit finished — fully resets timer back to initial state
   const handleMarkFinished = () => {
-    // Capture actual studied time BEFORE resetting anything
-    // Credit any pending seconds >= 30 as a final minute
-    const pendingMins = workSecondsRef.current >= 30 ? 1 : 0;
-    const totalStudied = sessionStudiedMinutesRef.current + pendingMins;
+    if (mode === 'work') flushStudySeconds();
+    const totalStudied = sessionStudiedMinutesRef.current;
+    remainingSecondsRef.current = MODE_CONFIGS.work.minutes * 60;
 
-    // Stop and reset audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
     // Reset all internal state
     workSecondsRef.current = 0;
     sessionStudiedMinutesRef.current = 0;
@@ -352,7 +295,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
           <button
             onClick={toggleTimer}
-            disabled={!isRunning && mode === 'work' && !hasUnitSelected}
             className={`p-2 rounded-xl text-white font-bold text-xs transition shadow cursor-pointer ${
               isRunning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'
             }`}
@@ -438,7 +380,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                   onChange={(e) => {
                     const found = userAllowedTopics.find((t) => t.id === e.target.value);
                     if (found) {
-                      if (mode === 'work' && workSecondsRef.current >= 30) onSessionComplete?.('work', 1);
+                      if (mode === 'work') flushStudySeconds();
+                      remainingSecondsRef.current = MODE_CONFIGS[mode].minutes * 60;
                       workSecondsRef.current = 0;
                       sessionStudiedMinutesRef.current = 0;
                       setIsRunning(false);
@@ -481,7 +424,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 <span className="text-white font-bold">Select Study Topic</span>
                 {!hasUnitSelected && (
                   <span className="text-[10px] font-bold text-amber-300 bg-amber-400/15 border border-amber-400/40 px-1.5 py-0.5 rounded-full">
-                    Required
+                    Auto-select on start
                   </span>
                 )}
               </div>
@@ -641,20 +584,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           </button>
 
           <button
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className={`p-3 rounded-xl border transition cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center ${
-              !isAudioMuted
-                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
-                : 'bg-white/5 text-slate-500 border-white/10 hover:text-slate-300'
-            }`}
-            title={isAudioMuted ? 'Unmute Focus Music' : 'Mute Focus Music'}
-          >
-            {!isAudioMuted ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
-
-          <button
             onClick={toggleTimer}
-            disabled={!isRunning && mode === 'work' && !hasUnitSelected}
             title={isRunning ? 'Pause Timer' : 'Start Focus Session'}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform min-h-[44px] bg-gradient-to-r ${MODE_CONFIGS[mode].color} hover:brightness-110 active:scale-95 cursor-pointer`}
           >
@@ -668,75 +598,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
               </>
             )}
           </button>
-        </div>
-      </div>
-
-      {/* Hidden Audio Element */}
-      <audio
-        ref={audioRef}
-        src={LOFI_TRACKS[selectedTrackIndex].src}
-        loop
-        preload="auto"
-      />
-
-      {/* Lo-Fi Music Control Bar (Mobile responsive, zero horizontal overflow) */}
-      <div className="mt-5 p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5 text-xs w-full max-w-full overflow-hidden box-border">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className={`p-1.5 rounded-lg shrink-0 ${!isAudioMuted && isRunning ? 'bg-purple-500/20 text-purple-300 animate-pulse' : 'bg-white/5 text-slate-400'}`}>
-              <Music className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-[11px] font-bold text-slate-300 truncate">Lo-Fi Study Music</span>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsAudioMuted(!isAudioMuted)}
-              className={`p-1.5 rounded-lg border transition cursor-pointer shrink-0 ${
-                !isAudioMuted
-                  ? 'bg-purple-500/20 text-purple-300 border-purple-400/40'
-                  : 'bg-white/5 text-slate-500 border-white/10'
-              }`}
-              title={isAudioMuted ? 'Unmute' : 'Mute'}
-            >
-              {!isAudioMuted ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-            </button>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isAudioMuted ? 0 : audioVolume}
-                onChange={(e) => {
-                  setAudioVolume(Number(e.target.value));
-                  if (isAudioMuted) setIsAudioMuted(false);
-                }}
-                className="w-16 sm:w-20 accent-[#6B4EFF] cursor-pointer"
-                title="Volume"
-              />
-              <span className="text-[10px] text-slate-400 font-mono w-6 text-right">
-                {isAudioMuted ? '0%' : `${Math.round(audioVolume * 100)}%`}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Dropdown with strict width constraints */}
-        <div className="w-full min-w-0 max-w-full overflow-hidden">
-          <select
-            value={selectedTrackIndex}
-            onChange={(e) => setSelectedTrackIndex(Number(e.target.value))}
-            className="w-full min-w-0 max-w-full block truncate bg-[#161831] text-slate-200 border border-white/15 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-purple-400 cursor-pointer"
-            style={{ colorScheme: 'dark' }}
-          >
-            {LOFI_TRACKS.map((t, i) => (
-              <option key={t.id} value={i} className="bg-[#161831] text-white">
-                {t.title}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
