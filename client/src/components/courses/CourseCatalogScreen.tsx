@@ -86,15 +86,35 @@ export const CourseCatalogScreen: React.FC = () => {
 
   useEffect(() => {
     fetchCourses();
+    const handleUpdate = () => fetchCourses();
+    window.addEventListener('mindmaze_courses_updated', handleUpdate);
+    return () => window.removeEventListener('mindmaze_courses_updated', handleUpdate);
   }, []);
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
+      const deletedIds = (() => {
+        try {
+          const raw = localStorage.getItem('mindmaze_deleted_course_ids');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
       const res = await api.getCourses();
-      setCourses(res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES);
+      const rawCourses = res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES;
+      setCourses(rawCourses.filter((c: any) => !deletedIds.includes(c._id)));
     } catch (err: any) {
-      setCourses(DEFAULT_COURSES);
+      const deletedIds = (() => {
+        try {
+          const raw = localStorage.getItem('mindmaze_deleted_course_ids');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
+      setCourses(DEFAULT_COURSES.filter((c) => !deletedIds.includes(c._id)));
     } finally {
       setLoading(false);
     }

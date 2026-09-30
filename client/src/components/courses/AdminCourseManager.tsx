@@ -61,20 +61,43 @@ export const AdminCourseManager: React.FC = () => {
   const [correctIdx, setCorrectIdx] = useState(0);
   const [explanation, setExplanation] = useState('');
 
+  const getDeletedCourseIds = (): string[] => {
+    try {
+      const raw = localStorage.getItem('mindmaze_deleted_course_ids');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const markCourseAsDeleted = (id: string) => {
+    try {
+      const deleted = getDeletedCourseIds();
+      if (!deleted.includes(id)) {
+        deleted.push(id);
+        localStorage.setItem('mindmaze_deleted_course_ids', JSON.stringify(deleted));
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetchCourses();
+    const handleUpdate = () => fetchCourses();
+    window.addEventListener('mindmaze_courses_updated', handleUpdate);
+    return () => window.removeEventListener('mindmaze_courses_updated', handleUpdate);
   }, []);
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
+      const deletedIds = getDeletedCourseIds();
       const res = await api.getCourses();
-      // Show DB courses if any, otherwise show the built-in defaults
-      // (same logic as student-side CourseCatalogScreen)
-      setCourses(res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES);
+      const rawCourses = res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES;
+      setCourses(rawCourses.filter((c: any) => !deletedIds.includes(c._id)));
     } catch (err: any) {
       console.error('Error loading courses:', err);
-      setCourses(DEFAULT_COURSES);
+      const deletedIds = getDeletedCourseIds();
+      setCourses(DEFAULT_COURSES.filter((c) => !deletedIds.includes(c._id)));
     } finally {
       setLoading(false);
     }
@@ -141,6 +164,7 @@ export const AdminCourseManager: React.FC = () => {
       setPdfFile(null);
       setQuizQuestions([]);
 
+      window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
       fetchCourses();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to upload course.' });
@@ -150,16 +174,21 @@ export const AdminCourseManager: React.FC = () => {
   };
 
   const handleDeleteCourse = async (id: string, isDefault?: boolean) => {
-    if (isDefault) {
-      alert('This is a built-in demo course. When you publish your first real course, students will see your custom course.');
-      return;
-    }
-    if (!window.confirm('Are you sure you want to delete this course and its Cloudinary media?')) return;
-    try {
-      await api.deleteCourse(id);
-      fetchCourses();
-    } catch (err: any) {
-      alert('Error deleting course: ' + err.message);
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
+    
+    // Immediately mark as deleted locally and update UI
+    markCourseAsDeleted(id);
+    setCourses((prev) => prev.filter((c) => c._id !== id));
+    window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
+
+    // If it's a real MongoDB ObjectId, also delete from backend API
+    const isObjectId = /^[a-f\d]{24}$/i.test(id);
+    if (isObjectId && !isDefault) {
+      try {
+        await api.deleteCourse(id);
+      } catch (err: any) {
+        console.warn('Backend course deletion error:', err);
+      }
     }
   };
 
