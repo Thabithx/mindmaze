@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Upload, Plus, Trash2, FileText, Video, HelpCircle, Check, Loader2, BookOpen } from 'lucide-react';
+import { Upload, Plus, Trash2, FileText, Video, HelpCircle, Check, Loader2, BookOpen, Info } from 'lucide-react';
 
 interface QuizQuestionInput {
   questionText: string;
@@ -8,6 +8,34 @@ interface QuizQuestionInput {
   correctOptionIndex: number;
   explanation: string;
 }
+
+// Same defaults shown to students when no DB courses exist
+const DEFAULT_COURSES = [
+  {
+    _id: 'c1',
+    title: 'Combined Mathematics Pure Algebra & Calculus',
+    description: 'Complete video walkthrough of Pure Mathematics Paper I topics with model questions and solved integrals.',
+    subject: 'Combined Mathematics',
+    stream: 'Physical Science',
+    isDefault: true,
+  },
+  {
+    _id: 'c2',
+    title: 'Physics Mechanics & Newton Laws Masterclass',
+    description: 'Master vectors, momentum, work-energy, and circular motion with step-by-step problem sets.',
+    subject: 'Physics',
+    stream: 'Physical Science',
+    isDefault: true,
+  },
+  {
+    _id: 'c3',
+    title: 'Organic Chemistry Reactions & Mechanisms',
+    description: 'Comprehensive guide covering alkenes, alcohols, carbonyls, and synthesis paths for A/L Paper II.',
+    subject: 'Chemistry',
+    stream: 'Physical Science',
+    isDefault: true,
+  },
+];
 
 export const AdminCourseManager: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
@@ -41,9 +69,12 @@ export const AdminCourseManager: React.FC = () => {
     try {
       setLoading(true);
       const res = await api.getCourses();
-      setCourses(res.courses || []);
+      // Show DB courses if any, otherwise show the built-in defaults
+      // (same logic as student-side CourseCatalogScreen)
+      setCourses(res.courses && res.courses.length > 0 ? res.courses : DEFAULT_COURSES);
     } catch (err: any) {
       console.error('Error loading courses:', err);
+      setCourses(DEFAULT_COURSES);
     } finally {
       setLoading(false);
     }
@@ -118,7 +149,11 @@ export const AdminCourseManager: React.FC = () => {
     }
   };
 
-  const handleDeleteCourse = async (id: string) => {
+  const handleDeleteCourse = async (id: string, isDefault?: boolean) => {
+    if (isDefault) {
+      alert('This is a built-in demo course. When you publish your first real course, students will see your custom course.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this course and its Cloudinary media?')) return;
     try {
       await api.deleteCourse(id);
@@ -360,15 +395,22 @@ export const AdminCourseManager: React.FC = () => {
             {courses.map((c) => (
               <div key={c._id} className="flex items-center justify-between p-4 bg-slate-800/80 rounded-xl border border-slate-700">
                 <div>
-                  <h4 className="font-semibold text-white text-sm">{c.title}</h4>
-                  <p className="text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-white text-sm">{c.title}</h4>
+                    {c.isDefault && (
+                      <span className="px-2 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full font-medium flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Built-in Demo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
                     Subject: {c.subject} | Stream: {c.stream} | {c.pdfUrl ? 'PDF Uploaded' : 'No PDF'}
                   </p>
                 </div>
                 <button
-                  onClick={() => handleDeleteCourse(c._id)}
+                  onClick={() => handleDeleteCourse(c._id, c.isDefault)}
                   className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                  title="Delete Course"
+                  title={c.isDefault ? "Built-in Demo Course" : "Delete Course"}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
