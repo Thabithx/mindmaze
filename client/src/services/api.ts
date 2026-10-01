@@ -46,7 +46,8 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const isUpload = options.body instanceof FormData;
+  const timeoutId = setTimeout(() => controller.abort(), isUpload ? 180000 : 45000);
 
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -62,13 +63,13 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
         removeAuthToken();
         removeStoredUser();
       }
-      throw new Error(data.message || `Request failed with status ${response.status}`);
+      throw new Error(data.message || (isUpload && response.status === 413 ? 'The upload exceeds the server or storage file-size limit. Compress the PDF or ask the administrator to increase the limit.' : `Request failed with status ${response.status}`));
     }
 
     return data;
   } catch (err: any) {
     if (err.name === 'AbortError') {
-      throw new Error('Server connection timed out. The backend is waking up, please try again in a few seconds.');
+      throw new Error(isUpload ? 'The upload timed out. Refresh the published papers list before retrying: the server may still finish saving it.' : 'Server connection timed out. The backend is waking up, please try again in a few seconds.');
     }
     throw err;
   } finally {

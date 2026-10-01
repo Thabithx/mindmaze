@@ -15,7 +15,7 @@ const directory=()=>path.resolve(process.env.UPLOAD_DIR||'uploads');
 const present=(p:any)=>({id:String(p._id),questionCount:p.quizQuestions?.length||0,quizReady:p.type==='MCQ'&&Boolean(p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,markingSchemePath:p.markingSchemeId?`/past-papers/${p._id}/marking-scheme`:null,pdfPath:`/past-papers/${p._id}/download`});
 async function removeFile(p:any){if(p.provider==='local')await unlink(path.join(directory(),path.basename(p.fileKey))).catch((e:any)=>{if(e.code!=='ENOENT')throw e;});else await cloudinary.uploader.destroy(p.fileKey,{resource_type:'raw'});}
 router.get('/',async(_req,res)=>{try{res.json({papers:(await PastPaper.find().sort({createdAt:-1})).map(present)});}catch{res.status(500).json({message:'Could not load published papers.'});}});
-const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(400).json({message:e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
+const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({message:e.code==='LIMIT_FILE_SIZE'?'The PDF exceeds the application limit of 25 MiB. Compress it before uploading.':e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
   let stored:any;
   try{
     const existing = updating ? await PastPaper.findById(req.params.id) : null;
@@ -36,7 +36,14 @@ const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express'
       if(!process.env.CLOUDINARY_CLOUD_NAME||!process.env.CLOUDINARY_API_KEY||!process.env.CLOUDINARY_API_SECRET||process.env.CLOUDINARY_CLOUD_NAME==='local-disabled'){
         res.status(503).json({message:'PDF storage is not configured. Ask the administrator to configure Cloudinary.'});return;
       }
-      const result:any=await new Promise((resolve,reject)=>{const stream=cloudinary.uploader.upload_stream({resource_type:'raw',folder:'mind_maze_past_papers',public_id:`${randomUUID()}.pdf`},(e,r)=>e?reject(e):resolve(r));stream.end(req.file!.buffer);});
+      const result:any=await new Promise((resolve,reject)=>{const stream=cloudinary.uploader.upload_stream({resource_type:'raw',folder:'mind_maze_past_papers',public_id:`${randomUUID()}.pdf`},(e,r)=>{
+        if(e){
+          const message=String(e.message||'');
+          const tooLarge=e.http_code===413||/file size too large|file too large|maximum.*file.*size|exceeds.*size.*limit/i.test(message);
+          const timedOut=e.http_code===408||e.http_code===504||/timeout|timed out/i.test(message);
+          reject(Object.assign(new Error(tooLarge?'Cloudinary rejected this PDF because it exceeds your storage account’s file-size limit. Compress the PDF or increase the Cloudinary raw-file limit, then retry.':timedOut?'The PDF storage service timed out. Please retry the upload.':'The PDF storage service could not accept the file. Check its configuration and account limits.'),{uploadStatus:tooLarge?413:timedOut?504:502}));
+        }else resolve(r);
+      });stream.end(req.file!.buffer);});
       stored={provider:'cloudinary',fileKey:result.public_id,remoteUrl:result.secure_url};
     }
     }
@@ -47,7 +54,7 @@ const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express'
     stored=undefined;
     if(previous&&req.file)await removeFile(previous).catch(()=>{});
     res.status(updating?200:201).json({paper:present(paper)});
-  }catch(e:any){if(stored)await removeFile(stored).catch(()=>{});res.status(e?.name==='CastError'?400:500).json({message:updating?'Could not update the paper. Please try again.':'Could not publish the paper. Please try again.'});}
+  }catch(e:any){if(stored)await removeFile(stored).catch(()=>{});res.status(e.uploadStatus||(e?.name==='CastError'?400:500)).json({message:e.uploadStatus?e.message:updating?'Could not update the paper. Please try again.':'Could not publish the paper. Please try again.'});}
 }] as import('express').RequestHandler[];
 router.post('/',...savePaper(false));
 router.put('/:id',...savePaper(true));

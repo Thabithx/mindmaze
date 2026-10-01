@@ -143,12 +143,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [paperToEdit, setPaperToEdit] = useState<PastPaper | null>(null);
   const [paperFormKey, setPaperFormKey] = useState(0);
   const resetPaperForm = () => {
-    setPaperToEdit(null); setPaperTitle(''); setPaperSubject('Physics'); setPaperStreams(['Maths']);
+    setPaperError(null); setPaperToEdit(null); setPaperTitle(''); setPaperSubject('Physics'); setPaperStreams(['Maths']);
     setPaperYear(2026); setPaperIsModel(true); setPaperSyllabus('current'); setPaperType('MCQ'); setPaperMedium('English');
     setSelectedPdfFile(null); setMarkingPdf(null); setPaperPdfName(''); setPaperFormKey(k=>k+1);
   };
   const startEditingPaper = (paper: PastPaper) => {
-    setPaperToEdit(paper); setPaperTitle(paper.title); setPaperSubject(paper.subject);
+    setPaperError(null); setPaperToEdit(paper); setPaperTitle(paper.title); setPaperSubject(paper.subject);
     setPaperStreams(paper.streams?.length ? [...paper.streams] : paper.stream==='Both'?['Maths','Bio']:[paper.stream==='Physical Science'?'Maths':paper.stream==='Biological Science'?'Bio':paper.stream||'Non-stream']);
     setPaperYear(paper.year); setPaperIsModel(Boolean(paper.isModelPaper)); setPaperSyllabus(paper.syllabus);
     setPaperType(paper.type); setPaperMedium(paper.medium); setSelectedPdfFile(null); setMarkingPdf(null);
@@ -157,6 +157,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     document.getElementById('past-paper-title')?.focus({preventScroll:true});
   };
   const [publishingPaper, setPublishingPaper] = useState(false);
+  const [paperError, setPaperError] = useState<string | null>(null);
   const [paperSuccess, setPaperSuccess] = useState<string | null>(null);
 
   // Practice Quiz Form State
@@ -302,6 +303,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (publishingPaper) return;
     setPublishingPaper(true);
+    setPaperError(null);
     setPaperSuccess(null);
     try {
       if(!paperStreams.length) throw new Error('Select at least one target stream.');
@@ -316,7 +318,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setPaperSuccess(notice);setMarkingPdf(null);
       resetPaperForm();
     } catch (err: any) {
-      alert(err.message || 'Could not publish the PDF. Please try again.');
+      setPaperError(err.message || 'Could not save the PDF. Please try again.');
     } finally { setPublishingPaper(false); }
   };
 
@@ -858,6 +860,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <span className="text-xs text-slate-400">Pushes directly to student Past Papers page</span>
             </div>
 
+            {paperError && <div role="alert" className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">{paperError}</div>}
             {paperSuccess && (
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -896,6 +899,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          if(file.size>25*1024*1024){setPaperError('The PDF exceeds the application limit of 25 MiB. Compress it before uploading.');e.target.value='';setSelectedPdfFile(null);setPaperPdfName('');return;}
+                          setPaperError(null);
                           setSelectedPdfFile(file);
                           setPaperPdfName(file.name);
                           setPaperCalculatedSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
@@ -918,7 +923,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <p className="text-xs font-semibold text-slate-200">
                             Drag & drop your Pastpaper PDF file here, or <span className="text-cyan-400 underline">browse files</span>
                           </p>
-                          <p className="text-[10px] text-slate-400">PDF files up to 25 MiB</p>
+                          <p className="text-[10px] text-slate-400">PDF files up to 25 MiB. Your storage account may have a lower limit.</p>
                         </div>
                       )}
                     </div>
