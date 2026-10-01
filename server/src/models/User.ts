@@ -15,6 +15,9 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
+  emailVerified: boolean;
+  emailVerificationRequired: boolean;
+  pendingEmail?: string;
   role: UserRole;
   stream: StreamType;
   physicalScienceElective: 'Chemistry' | 'ICT';
@@ -58,6 +61,9 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    emailVerified: {type:Boolean,default:false},
+    emailVerificationRequired: {type:Boolean,default:false},
+    pendingEmail: {type:String,default:undefined},
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     stream: {

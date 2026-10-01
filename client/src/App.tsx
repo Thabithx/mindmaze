@@ -1,3 +1,4 @@
+import { EmailVerificationPanel } from './components/EmailVerificationPanel';
 import { PaperPracticeScreen } from './components/screens/PaperPracticeScreen';
 import { useScreenNavigation } from './hooks/useScreenNavigation';
 import { normalizeBatch, useBatches, setBatches } from './lib/batches';
@@ -400,6 +401,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
+      if(res.user?.emailVerificationRequired&&!res.user?.emailVerified)return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -471,6 +473,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
+      if(res.user?.emailVerificationRequired&&!res.user?.emailVerified)return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -739,8 +742,12 @@ export function App() {
     }, 150);
   };
 
+  const onEmailVerified=(updated:any)=>{setUser(updated);setStoredUser(updated);window.location.reload();};
+  if(user?.emailVerificationRequired&&!user?.emailVerified) return <main className="min-h-screen bg-slate-950 p-4 sm:p-12"><EmailVerificationPanel key={user.email} user={user} required onVerified={onEmailVerified} onSignOut={handleSignOut}/></main>;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+      {user&&(!user.emailVerified||user.pendingEmail)&&<div className="p-3"><EmailVerificationPanel key={user.pendingEmail||user.email} user={user} onVerified={onEmailVerified} onSignOut={handleSignOut}/></div>}
       {/* Background Animated Maze Grid */}
       <MazeBackground />
 

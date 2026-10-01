@@ -78,6 +78,8 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 
 // API Methods
 export const api = {
+  sendEmailVerification: () => apiFetch('/auth/email-verification/send',{method:'POST'}),
+  confirmEmailVerification: (code:string) => apiFetch('/auth/email-verification/confirm',{method:'POST',body:JSON.stringify({code})}),
   getPaperQuiz: (id: string) => apiFetch('/past-papers/' + id + '/quiz'),
   getPaperQuizForEdit: (id: string) => apiFetch('/past-papers/' + id + '/quiz/edit'),
   savePaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz', {method:'PUT',body:JSON.stringify(body)}),

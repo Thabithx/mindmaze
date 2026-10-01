@@ -166,6 +166,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       const payload: any = {
         name: name.trim(),
         email: email.trim(),
+        currentPassword,
         mobileNumber: mobileNumber.trim(),
         stream,
         physicalScienceElective: stream === 'Physical Science' ? elective : undefined,
@@ -432,6 +433,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
 
+            {email.trim().toLowerCase()!==(currentUser?.email||userProfile?.email||'').toLowerCase()&&<label className="block text-sm text-slate-300">Current password to change email<input type="password" autoComplete="current-password" required value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} className="block w-full rounded-lg bg-slate-900 border border-white/20 p-3"/><span className="text-xs">Your current address remains active until you confirm the code sent to the new address.</span></label>}
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
                 WhatsApp / Mobile Number <span className="text-slate-500 font-normal">(10 digits)</span>
