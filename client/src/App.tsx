@@ -1,3 +1,4 @@
+import { TelegramVerificationPanel } from './components/TelegramVerificationPanel';
 import { PaperPracticeScreen } from './components/screens/PaperPracticeScreen';
 import { useScreenNavigation } from './hooks/useScreenNavigation';
 import { normalizeBatch, useBatches, setBatches } from './lib/batches';
@@ -400,6 +401,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
+      if(res.user?.telegramVerificationRequired&&!res.user?.telegramVerified)return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -471,6 +473,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
+      if(res.user?.telegramVerificationRequired&&!res.user?.telegramVerified)return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -740,8 +743,11 @@ export function App() {
   };
 
 
+  const onTelegramVerified=(updated:any)=>{setUser(updated);setStoredUser(updated);window.location.reload();};
+  if(user?.telegramVerificationRequired&&!user?.telegramVerified)return <main className="min-h-screen bg-slate-950 p-4 sm:p-12"><TelegramVerificationPanel user={user} required onVerified={onTelegramVerified} onSignOut={handleSignOut}/></main>;
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+      {user&&!user.telegramVerified&&<div className="p-3"><TelegramVerificationPanel user={user} onVerified={onTelegramVerified} onSignOut={handleSignOut}/></div>}
       {/* Background Animated Maze Grid */}
       <MazeBackground />
 

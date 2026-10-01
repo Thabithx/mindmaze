@@ -1,3 +1,4 @@
+import telegramRoutes from './routes/telegramRoutes.js';
 import paperAssetRoutes from './routes/paperAssetRoutes.js';
 import paperQuizRoutes from './routes/paperQuizRoutes.js';
 import pastPaperRoutes from './routes/pastPaperRoutes.js';
@@ -50,6 +51,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/telegram', telegramRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/past-papers', paperAssetRoutes);

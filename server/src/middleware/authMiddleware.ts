@@ -1,3 +1,4 @@
+import {telegramEnabled,telegramState} from '../services/telegramVerification.js';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User, { IUser } from '../models/User.js';
@@ -31,6 +32,9 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       res.status(403).json({ message: 'Your account has been deactivated by an admin' });
       return;
     }
+    const route=req.originalUrl.split('?')[0];
+    const verificationRoute=['/api/telegram/status','/api/telegram/start','/api/telegram/confirm'].includes(route);
+    if(telegramEnabled()&&user.telegramVerificationRequired&&!telegramState(user).telegramVerified&&!verificationRoute&&!(route==='/api/auth/profile'&&req.method==='GET')){res.status(403).json({message:'Verify your Telegram phone number to continue.',code:'TELEGRAM_VERIFICATION_REQUIRED'});return;}
     req.user = user;
     next();
   } catch (error) {

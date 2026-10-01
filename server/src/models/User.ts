@@ -15,6 +15,10 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
+  telegramVerificationRequired: boolean;
+  telegramVerifiedAt?: Date;
+  telegramVerifiedPhone?: string;
+  telegramUserId?: string;
   role: UserRole;
   stream: StreamType;
   physicalScienceElective: 'Chemistry' | 'ICT';
@@ -58,6 +62,10 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    telegramVerificationRequired:{type:Boolean,default:false},
+    telegramVerifiedAt:{type:Date,default:undefined},
+    telegramVerifiedPhone:{type:String,unique:true,sparse:true,default:undefined},
+    telegramUserId:{type:String,unique:true,sparse:true,default:undefined},
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     stream: {

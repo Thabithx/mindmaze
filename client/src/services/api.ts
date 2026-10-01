@@ -80,6 +80,9 @@ export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-pape
 
 // API Methods
 export const api = {
+  telegramStatus:()=>apiFetch('/telegram/status'),
+  startTelegramVerification:(body:{phone:string;currentPassword?:string})=>apiFetch('/telegram/start',{method:'POST',body:JSON.stringify(body)}),
+  confirmTelegramVerification:(code:string)=>apiFetch('/telegram/confirm',{method:'POST',body:JSON.stringify({code})}),
   uploadMarkingScheme: (id:string,file:File) => {const body=new FormData();body.append('pdfFile',file);return apiFetch('/past-papers/'+id+'/marking-scheme',{method:'POST',body});},
   uploadQuestionImage: (id:string,file:File) => {const body=new FormData();body.append('imageFile',file);return apiFetch('/past-papers/'+id+'/question-images',{method:'POST',body});},
   getPaperQuiz: (id: string) => apiFetch('/past-papers/' + id + '/quiz'),

@@ -1,3 +1,4 @@
+import {telegramState} from '../services/telegramVerification.js';
 import { getBatchConfig, validBatches } from '../services/batchConfig.js';
 import { Router, Response } from 'express';
 import User from '../models/User.js';
@@ -28,7 +29,7 @@ router.put('/site-config/exam-date',protect,adminOnly,async(req:AuthRequest,res:
 router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
-    res.json({ users });
+    res.json({ users:users.map(u=>({...u.toObject(),...telegramState(u)})) });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching users list' });
   }

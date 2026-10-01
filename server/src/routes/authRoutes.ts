@@ -1,3 +1,4 @@
+import {telegramEnabled,telegramConfigured,telegramState,normalizePhone,userPhone as getVerificationPhone} from '../services/telegramVerification.js';
 import { getBatchConfig } from '../services/batchConfig.js';
 import { normalizeBatch } from '../services/batches.js';
 import crypto from 'crypto';
@@ -65,6 +66,8 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       }
     }
 
+    if(telegramEnabled()&&!telegramConfigured()){res.status(503).json({message:'Signup verification is temporarily unavailable. Please contact support.'});return;}
+    if(telegramEnabled()&&!normalizePhone(userPhone)){res.status(400).json({message:'Enter a valid Telegram phone number.'});return;}
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
@@ -78,6 +81,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       name,
       email,
       passwordHash,
+      telegramVerificationRequired:telegramEnabled(),
       role,
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
@@ -97,6 +101,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         id: user._id,
         name: user.name,
         email: user.email,
+        ...telegramState(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
@@ -206,6 +211,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         id: user._id,
         name: user.name,
         email: user.email,
+        ...telegramState(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
@@ -238,7 +244,7 @@ router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise
     if (streakUpdated) {
       await (user as any).save();
     }
-    res.json({ user });
+    res.json({ user:{...user.toObject(),...telegramState(user)} });
   } catch (e) {
     res.json({ user: req.user });
   }
@@ -337,6 +343,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
           return;
         }
       }
+      if(normalizePhone(cleanPhone)!==getVerificationPhone(user)){user.telegramVerifiedAt=undefined;user.telegramVerifiedPhone=undefined;user.telegramUserId=undefined;}
       user.mobileNumber = cleanPhone;
       user.whatsappNumber = cleanPhone;
       user.phoneNumber = cleanPhone;
@@ -400,6 +407,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         id: user._id,
         name: user.name,
         email: user.email,
+        ...telegramState(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,

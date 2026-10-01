@@ -692,6 +692,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Phone</th>
+                    <th className="py-3 px-4">Verification</th>
                     <th className="py-3 px-4">Stream & Elective</th>
                     <th className="py-3 px-4">Role</th>
                     <th className="py-3 px-4">Streak</th>
@@ -702,7 +703,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <tbody className="divide-y divide-white/5">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
                         No matching registered students found.
                       </td>
                     </tr>
@@ -716,6 +717,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
                           {u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || "—"}
                         </td>
+                        <td className="py-3.5 px-4"><span className={u.telegramVerified?'text-emerald-300':'text-amber-300'}>{u.telegramVerified?'Verified (Telegram)':u.telegramVerificationRequired?'Verification required':'Not verified (optional)'}</span></td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 font-medium">
                             {u.stream} ({u.physicalScienceElective || 'Chemistry'})
