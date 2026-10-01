@@ -1,4 +1,4 @@
-import { normalizeBatch } from '../../lib/batches';
+import { normalizeBatch, useBatches } from '../../lib/batches';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { StreamType } from '../../types';
@@ -22,6 +22,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [name, setName] = useState(currentUser?.name || '');
   const [stream, setStream] = useState<StreamType>(currentUser?.stream || 'Physical Science');
   const [elective, setElective] = useState<'Chemistry' | 'ICT'>(currentUser?.physicalScienceElective || 'Chemistry');
+  const batches = useBatches();
   const [targetExamYear, setTargetExamYear] = useState(normalizeBatch(currentUser?.targetExamYear));
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || '');
   const [mobileNumber, setMobileNumber] = useState(currentUser?.mobileNumber || '');
@@ -152,8 +153,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none cursor-pointer"
               >
-                <option value="2027">Batch 2027</option>
-                <option value="2028">Batch 2028</option>
+                {!batches.some(b=>b.year===targetExamYear)&&<option value={targetExamYear}>Batch {targetExamYear} (saved)</option>}{batches.map(b=><option key={b.year} value={b.year}>Batch {b.year}</option>)}
               </select>
             </div>
 

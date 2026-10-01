@@ -145,6 +145,8 @@ export interface UserProfile {
 }
 
 export interface PastPaper {
+  streams?: string[];
+  stream?: string;
   id: string;
   year: number;
   subject: string;

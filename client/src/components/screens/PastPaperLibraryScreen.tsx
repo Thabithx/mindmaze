@@ -1,3 +1,4 @@
+import { PAPER_STREAMS, paperStreams } from '../../lib/paperStreams';
 import React, { useState, useMemo } from 'react';
 import { MediumType, PaperType, PastPaper, ScreenId, SyllabusType } from '../../types';
 import {
@@ -36,6 +37,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   onLaunchPaperQuiz,
   pastPapers,
 }) => {
+  const [selectedStream,setSelectedStream]=useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [currentOnly, setCurrentOnly] = useState<boolean>(true); // Current Only toggle ON by default
@@ -48,19 +50,20 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   const subjects = ['All', 'Physics', 'Chemistry', 'Biology', 'ICT', 'Combined Maths'];
   const paperTypes = ['All', 'MCQ', 'Structured', 'Essay'];
   const mediums = ['All', 'English', 'Sinhala', 'Tamil'];
-  const yearRanges = ['All', '2026 (Model Papers)', '2020-2026', '2015-2019', '2010-2014', '2000-2009'];
+  const yearRanges = ['All', '2026', '2020-2026', '2015-2019', '2010-2014', '2000-2009'];
 
   const paperList = pastPapers ?? [];
 
   const filteredPapers = useMemo(() => {
     return paperList.filter((paper) => {
+      if(selectedStream!=='All'&&!paperStreams(paper).includes(selectedStream))return false;
       // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchTitle = paper.title.toLowerCase().includes(query);
         const matchSubject = paper.subject.toLowerCase().includes(query);
         const matchTags = (paper.topicTags || []).some((t) => t.toLowerCase().includes(query));
-        if (!matchTitle && !matchSubject && !matchTags) return false;
+        if (!matchTitle && !matchSubject && !matchTags && !paperStreams(paper).some(s=>s.toLowerCase().includes(query))) return false;
       }
 
       // Subject
@@ -85,8 +88,8 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
       // Year range
       if (selectedYearRange !== 'All') {
-        if (selectedYearRange.includes('2026')) {
-          if (paper.year !== 2026 && !paper.isModelPaper) return false;
+        if (selectedYearRange === '2026') {
+          if (paper.year !== 2026) return false;
         } else {
           const [start, end] = selectedYearRange.split('-').map(Number);
           if (paper.year < start || paper.year > end) {
@@ -97,10 +100,11 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
       return true;
     });
-  }, [paperList, searchQuery, selectedSubject, currentOnly, selectedType, selectedMedium, selectedYearRange]);
+  }, [paperList, selectedStream, searchQuery, selectedSubject, currentOnly, selectedType, selectedMedium, selectedYearRange]);
 
   return (
     <div id="mind-maze-past-paper-library" className="space-y-6 sm:space-y-8 pb-12 px-1 sm:px-0">
+      <label className="block text-sm text-slate-300">Target stream<select aria-label="Filter by target stream" value={selectedStream} onChange={e=>setSelectedStream(e.target.value)} className="ml-3 rounded-lg border border-white/20 bg-slate-900 p-2">{['All',...PAPER_STREAMS].map(s=><option key={s} value={s}>{s==='All'?'All streams':s}</option>)}</select></label>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -112,7 +116,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
             Past Paper MCQs (2000 to 2026)
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Real GCE A/L exam past papers and official 2026 Model Papers with verified step-by-step solutions.
+            Browse GCE A/L past papers and available marking schemes.
           </p>
         </div>
 
@@ -154,7 +158,9 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
           { id: 'Biology', label: 'Biology', isLive: false, badge: 'Soon' },
           { id: 'ICT', label: 'ICT', isLive: false, badge: 'Soon' },
           { id: 'Combined Maths', label: 'Combined Maths', isLive: false, badge: 'Soon' },
-        ].map((tab) => {
+        ].map((item) => {
+          const available=item.id==='All'||paperList.some(p=>p.subject===item.id);
+          const tab={...item,isLive:available,badge:available?'Available':'Soon'};
           const isSelected = selectedSubject === tab.id;
           return (
             <button
@@ -188,7 +194,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         })}
       </div>
 
-      {selectedSubject !== 'All' && selectedSubject !== 'Physics' && (
+      {selectedSubject !== 'All' && !paperList.some(p=>p.subject===selectedSubject) && (
         <div className="rounded-3xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 p-4 sm:p-6 backdrop-blur-xl space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3">
@@ -351,18 +357,16 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                   <h4 className="font-bold text-white text-sm leading-snug">
                     {paper.title}
                   </h4>
-                  {(paper.year === 2026 || paper.isModelPaper) && (
+                  {paper.isModelPaper && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[9px] font-extrabold tracking-wide uppercase shrink-0 shadow-sm">
-                      <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                      Model
-                    </span>
+                      <Sparkles className="w-2.5 h-2.5 text-amber-400" />Official Past Paper</span>
                   )}
                 </div>
 
                 {/* Subtitle / Era Info */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                   <span className="font-mono text-purple-300 font-semibold">
-                    {paper.year === 2026 || paper.isModelPaper ? '2026 Practice Paper' : `${paper.year} Exam`}
+                    {`${paper.year} Past Paper`}
                   </span>
                   <span>•</span>
                   <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
@@ -455,16 +459,14 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                     <td className="py-4 px-5">
                       <div className="font-bold text-white text-sm flex flex-wrap items-center gap-2">
                         <span>{paper.title}</span>
-                        {(paper.year === 2026 || paper.isModelPaper) && (
+                        {paper.isModelPaper && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-extrabold tracking-wide uppercase shadow-[0_0_8px_rgba(245,158,11,0.3)]">
-                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                            Model Paper
-                          </span>
+                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />Official Past Paper</span>
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 mt-1">
                         <span className="font-mono text-purple-300 font-semibold">
-                          {paper.year === 2026 || paper.isModelPaper ? '2026 Practice Paper' : `${paper.year} Examination`}
+                          {`${paper.year} Past Paper`}
                         </span>
                         <span>•</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${

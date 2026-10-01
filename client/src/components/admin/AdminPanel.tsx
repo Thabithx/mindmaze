@@ -1,3 +1,4 @@
+import { setBatches } from '../../lib/batches';
 import { PaperQuizEditor } from './PaperQuizEditor';
 import React, { useEffect, useState } from 'react';
 import {
@@ -61,6 +62,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: string; error?: string } | null>(null);
 
   // Global Exam Dates State for 2 batches (stored in MongoDB via admin API)
+  const [batchYear1,setBatchYear1]=useState('2027');
+  const [batchYear2,setBatchYear2]=useState('2028');
   const [adminExamDate2027, setAdminExamDate2027] = useState('2027-11-25');
   const [adminExamDate2028, setAdminExamDate2028] = useState('2028-11-25');
   const [examDateSaving, setExamDateSaving] = useState(false);
@@ -69,8 +72,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const fetchExamDate = async () => {
     try {
       const res = await api.getAdminExamDate();
-      if (res?.examDate2027) setAdminExamDate2027(res.examDate2027);
-      if (res?.examDate2028) setAdminExamDate2028(res.examDate2028);
+      if(res.batches){setBatchYear1(res.batches[0].year);setBatchYear2(res.batches[1].year);setAdminExamDate2027(res.batches[0].examDate);setAdminExamDate2028(res.batches[1].examDate);}
     } catch {
       // fail silently
     }
@@ -85,18 +87,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     try {
       setExamDateSaving(true);
       setExamDateSavedMsg(null);
-      await api.setAdminExamDate({
-        examDate2027: adminExamDate2027,
-        examDate2028: adminExamDate2028,
-      });
-      // Update localStorage for immediate local usage
-      if (adminExamDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', adminExamDate2027);
-      if (adminExamDate2028) localStorage.setItem('mindmaze_global_exam_date_2028', adminExamDate2028);
-      if (adminExamDate2027) localStorage.setItem('mindmaze_global_exam_date', adminExamDate2027);
-
-      setExamDateSavedMsg({
-        success: `Upcoming exam dates saved! (Batch 2027: ${adminExamDate2027}, Batch 2028: ${adminExamDate2028})`,
-      });
+      const result=await api.setAdminExamDate({batches:[{year:batchYear1,examDate:adminExamDate2027},{year:batchYear2,examDate:adminExamDate2028}]});
+      setBatches(result.batches);
+      setExamDateSavedMsg({success:'Batch years and exam dates saved.'});
       setTimeout(() => setExamDateSavedMsg(null), 5000);
     } catch (err: any) {
       setExamDateSavedMsg({ error: err?.message || 'Failed to save exam dates.' });
@@ -111,7 +104,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Simplified Past Paper Form State
   const [paperTitle, setPaperTitle] = useState('');
   const [paperSubject, setPaperSubject] = useState<any>('Physics');
-  const [paperStream, setPaperStream] = useState<any>('Maths');
+  const [paperStreams, setPaperStreams] = useState<string[]>(['Maths']);
   const [paperYear, setPaperYear] = useState<number>(2026);
   const [paperIsModel, setPaperIsModel] = useState<boolean>(true);
   const [paperSyllabus, setPaperSyllabus] = useState<'current' | 'old'>('current');
@@ -269,9 +262,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setPublishingPaper(true);
     setPaperSuccess(null);
     try {
+      if(!paperStreams.length) throw new Error('Select at least one target stream.');
       const data = new FormData();
       data.append('pdfFile', selectedPdfFile);
-      Object.entries({title: paperTitle.trim(), subject: paperSubject, stream: paperStream, year: String(paperYear), syllabus: paperSyllabus, type: paperType, medium: paperMedium, isModelPaper: String(paperIsModel)}).forEach(([key, value]) => data.append(key, value));
+      Object.entries({title: paperTitle.trim(), subject: paperSubject, streams: JSON.stringify(paperStreams), year: String(paperYear), syllabus: paperSyllabus, type: paperType, medium: paperMedium, isModelPaper: String(paperIsModel)}).forEach(([key, value]) => data.append(key, value));
       const {paper} = await api.createPastPaper(data);
       onAddPastPaper?.(paper);
       setPaperSuccess('Published: ' + paper.title);
@@ -494,20 +488,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-amber-500/20 backdrop-blur-xl shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-white flex items-center gap-2">
-                <span>Set Upcoming A/L Exam Dates </span>
+                <span>Set Batch Years and Exam Dates </span>
               </h3>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 border border-amber-400/30 text-amber-300">
                 2 Batches Active
               </span>
             </div>
             <form onSubmit={handleSaveGlobalExamDate} className="space-y-4">
+              <p className="text-xs text-slate-400">Set the two batches shown in countdowns and exam-year choices. Existing students keep their saved exam year.</p>
+              <div className="grid grid-cols-2 gap-4">{[{value:batchYear1,set:setBatchYear1},{value:batchYear2,set:setBatchYear2}].map((b,i)=><label key={i} className="text-sm text-slate-300">Batch {i+1} year<input required aria-label={'Batch '+(i+1)+' year'} type="number" min="2000" max="2099" value={b.value} onChange={e=>b.set(e.target.value)} className="w-full rounded-lg bg-slate-900 border border-white/20 p-2"/></label>)}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-amber-300">
-                      Batch 2027 Exam Date <span className="text-rose-400">*</span>
+                      Batch {batchYear1} Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">Batch 2027</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch {batchYear1}</span>
                   </div>
                   <input
                     type="date"
@@ -522,9 +518,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-cyan-300">
-                      Batch 2028 Exam Date <span className="text-rose-400">*</span>
+                      Batch {batchYear2} Exam Date <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-slate-400">Batch 2028</span>
+                    <span className="text-[10px] font-semibold text-slate-400">Batch {batchYear2}</span>
                   </div>
                   <input
                     type="date"
@@ -615,7 +611,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   required
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="e.g. New Combined Maths Physics Model Papers Uploaded!"
+                  placeholder="e.g. New Combined Maths and Physics Past Papers Uploaded!"
                   className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-purple-400"
                 />
               </div>
@@ -834,7 +830,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     required
                     value={paperTitle}
                     onChange={(e) => setPaperTitle(e.target.value)}
-                    placeholder="e.g. G.C.E. A/L Physics 2025 National Model Paper I (MCQ)"
+                    placeholder="e.g. G.C.E. A/L Physics 2025 Past Paper I (MCQ)"
                     className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
@@ -896,18 +892,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </select>
                 </div>
 
-                {/* Stream */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Target Stream</label>
-                  <select
-                    value={paperStream}
-                    onChange={(e) => setPaperStream(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#1e2042] border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
-                  >
-                    <option value="Maths">Maths Stream</option>
-                    <option value="Bio">Bio Stream</option>
-                  </select>
-                </div>
+                <fieldset><legend className="text-xs font-bold text-slate-300 mb-2">Target streams — select all that apply</legend>
+                  {['Maths','Bio','Non-stream'].map(stream=><label key={stream} className="flex gap-2 text-sm text-slate-300 mb-2"><input type="checkbox" checked={paperStreams.includes(stream)} onChange={e=>setPaperStreams(prev=>e.target.checked?[...prev,stream]:prev.filter(s=>s!==stream))}/>{stream==='Non-stream'?stream:stream+' Stream'}</label>)}
+                  {!paperStreams.length&&<p className="text-xs text-rose-300">Select at least one target stream.</p>}
+                </fieldset>
 
                 {/* Examination Year */}
                 <div>
@@ -974,7 +962,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     onChange={(e) => setPaperIsModel(e.target.checked)}
                     className="w-4 h-4 rounded text-purple-600 bg-white/10 border-white/20 focus:ring-0"
                   />
-                  <span>Mark as Official Model Paper</span>
+                  <span>Mark as Official Past Paper</span>
                 </label>
               </div>
 
@@ -1014,9 +1002,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <div className="font-bold text-white flex items-center gap-2">
                           <span>{paper.title}</span>
                           {paper.isModelPaper && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] font-bold">
-                              Model
-                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] font-bold">Official Past Paper</span>
                           )}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">{paper.year} Examination • {paper.questionCount} Questions</div>

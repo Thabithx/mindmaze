@@ -1,3 +1,4 @@
+import { getBatchConfig } from '../services/batchConfig.js';
 import { normalizeBatch } from '../services/batches.js';
 import crypto from 'crypto';
 import { Router, Response } from 'express';
@@ -80,7 +81,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       role,
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
-      targetExamYear: '2027',
+      targetExamYear: (await getBatchConfig())[0].year,
       mobileNumber: userPhone,
       whatsappNumber: userPhone,
       phoneNumber: userPhone,

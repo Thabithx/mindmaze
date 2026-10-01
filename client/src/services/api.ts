@@ -151,9 +151,9 @@ export const api = {
   testAdminEmail: (body?: { email?: string }) => apiFetch('/admin/test-email', { method: 'POST', body: JSON.stringify(body || {}) }),
   getAdminStats: () => apiFetch('/admin/stats'),
   getAdminExamDate: () => apiFetch('/admin/site-config/exam-date'),
-  setAdminExamDate: (payload: { examDate2027?: string; examDate2028?: string; examDate?: string } | string) =>
+  setAdminExamDate: (payload: { batches: {year:string;examDate:string}[] }) =>
     apiFetch('/admin/site-config/exam-date', {
       method: 'PUT',
-      body: JSON.stringify(typeof payload === 'string' ? { examDate: payload, examDate2027: payload } : payload),
+      body: JSON.stringify(payload),
     }),
 };

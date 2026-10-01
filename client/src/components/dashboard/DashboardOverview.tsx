@@ -1,4 +1,4 @@
-import { normalizeBatch } from '../../lib/batches';
+import { normalizeBatch, useBatches } from '../../lib/batches';
 import React from 'react';
 import { DailyTask, ScreenId, StreamType, SyllabusTopic, TimetableEntry, StreakData } from '../../types';
 import {
@@ -98,22 +98,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     return Math.max(0, Math.round((target.getTime() - today.getTime()) / 86400000));
   };
 
-  const date2027 = (() => {
-    try {
-      return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
-    } catch {
-      return '2027-11-25';
-    }
-  })();
-
-  const date2028 = (() => {
-    try {
-      return localStorage.getItem('mindmaze_global_exam_date_2028') || '2028-11-25';
-    } catch {
-      return '2028-11-25';
-    }
-  })();
-
+  const batches = useBatches();
+  const date2027=batches[0].examDate;
+  const date2028=batches[1].examDate;
   const examDaysLeft2027 = calcDaysLeft(date2027, 605);
   const examDaysLeft2028 = calcDaysLeft(date2028, 970);
   const myBatchYear = normalizeBatch(userProfile?.targetYear || userSettings?.targetExamYear);
@@ -157,33 +144,33 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             {/* 2027 Batch Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === '2027'
+              myBatchYear === batches[0].year
                 ? 'bg-amber-500/15 border-2 border-amber-400/60 ring-2 ring-amber-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
               <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-tight leading-none">{examDaysLeft2027}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to 2027 Batch Exam
+                Days to {batches[0].year} Batch Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>2027 Batch</span>
+                <span>{batches[0].year} Batch</span>
               </div>
             </div>
 
             {/* 2028 Batch Badge */}
             <div className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-xl text-center min-w-[110px] sm:min-w-[125px] shadow-sm transition-all ${
-              myBatchYear === '2028'
+              myBatchYear === batches[1].year
                 ? 'bg-cyan-500/15 border-2 border-cyan-400/60 ring-2 ring-cyan-400/20'
                 : 'bg-white/5 border border-white/10 opacity-80 hover:opacity-100'
             }`}>
               <span className="text-xl sm:text-2xl font-black text-cyan-300 tracking-tight leading-none">{examDaysLeft2028}</span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-0.5">
-                Days to 2028 Batch Exam
+                Days to {batches[1].year} Batch Exam
               </span>
               <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[9px] font-bold mt-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>2028 Batch</span>
+                <span>{batches[1].year} Batch</span>
               </div>
             </div>
           </div>

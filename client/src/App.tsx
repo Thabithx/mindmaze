@@ -1,6 +1,6 @@
 import { PaperPracticeScreen } from './components/screens/PaperPracticeScreen';
 import { useScreenNavigation } from './hooks/useScreenNavigation';
-import { normalizeBatch } from './lib/batches';
+import { normalizeBatch, useBatches, setBatches } from './lib/batches';
 import { mistakeIdentity, uniqueMistakes } from './lib/mistakeIdentity';
 import { useState, useEffect, useCallback } from 'react';
 import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper, Question } from './types';
@@ -59,6 +59,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { ShieldAlert, Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyRound, ArrowLeft, Mail, Lock } from 'lucide-react';
 
 export function App() {
+  const batches=useBatches();
   const [currentScreen, setCurrentScreen] = useScreenNavigation(getStoredUser()?.role === 'admin' ? 'admin' : 'dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
@@ -147,11 +148,7 @@ export function App() {
     }
 
     // Fetch site-wide exam dates for 2 batches from MongoDB
-    api.getAdminExamDate().then((res) => {
-      if (res?.examDate2027) localStorage.setItem('mindmaze_global_exam_date_2027', res.examDate2027);
-      if (res?.examDate2028) localStorage.setItem('mindmaze_global_exam_date_2028', res.examDate2028);
-      if (res?.examDate) localStorage.setItem('mindmaze_global_exam_date', res.examDate);
-    }).catch(() => {});
+    api.getAdminExamDate().then(res => { if(res.batches) setBatches(res.batches); }).catch(() => {});
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -608,16 +605,7 @@ export function App() {
   };
 
   const studentBatchYear = normalizeBatch(user?.targetExamYear || userSettings?.targetExamYear);
-  const globalExamDate = (() => {
-    try {
-      if (studentBatchYear === '2028') {
-        return localStorage.getItem('mindmaze_global_exam_date_2028') || '2028-11-25';
-      }
-      return localStorage.getItem('mindmaze_global_exam_date_2027') || '2027-11-25';
-    } catch {
-      return studentBatchYear === '2028' ? '2028-11-25' : '2027-11-25';
-    }
-  })();
+  const globalExamDate = batches.find(b=>b.year===studentBatchYear)?.examDate || user?.targetExamDate || studentBatchYear+'-11-25';
 
   const userProfile: UserProfile = {
     role: user?.role,

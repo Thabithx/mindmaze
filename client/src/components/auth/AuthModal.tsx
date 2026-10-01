@@ -1,3 +1,4 @@
+import { useBatches } from '../../lib/batches';
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { api } from '../../services/api';
@@ -69,7 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   );
   const [medium, setMedium] = useState<MediumType>('English');
   const [targetGrade, setTargetGrade] = useState<string>("3 A's");
-  const [examDate, setExamDate] = useState<string>('2027-11-15');
+  const batches=useBatches();
+  const [examDate, setExamDate] = useState<string>(batches[0].examDate);
   const [syllabus, setSyllabus] = useState<SyllabusType>('current');
   const [dailyGoalMCQs, setDailyGoalMCQs] = useState<number>(20);
 
@@ -1093,10 +1095,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>A/L Sitting Year:</span>
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: '2027 (Nov Sitting)', date: '2027-11-15' },
-                      { label: '2028 (Nov Sitting)', date: '2028-11-15' },
-                    ].map((item) => (
+                    {batches.map(b=>({label:b.year+' Sitting',date:b.examDate})).map((item) => (
                       <button
                         key={item.label}
                         type="button"

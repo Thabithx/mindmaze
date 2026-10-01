@@ -238,6 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="p-3 border-t border-white/[0.06] shrink-0">
+          {!isCollapsed && <p className="text-right text-[9px] leading-relaxed tracking-wide text-slate-400">DEVELOPED BY THABITH &amp; ASJADH AZHAR</p>}
           <button
             onClick={onToggleCollapse}
             className="hidden lg:flex w-full items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"

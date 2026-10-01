@@ -1,4 +1,4 @@
-import { normalizeBatch } from '../../lib/batches';
+import { normalizeBatch, useBatches } from '../../lib/batches';
 import React, { useState, useEffect } from 'react';
 import { StreamType, UserSettings, UserProfile, ScreenId } from '../../types';
 import { api } from '../../services/api';
@@ -85,6 +85,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [elective, setElective] = useState<'Chemistry' | 'ICT'>(
     currentUser?.physicalScienceElective || effectiveSettings.physicalScienceElective || 'Chemistry'
   );
+  const batches = useBatches();
   const [targetExamYear, setTargetExamYear] = useState(normalizeBatch(currentUser?.targetExamYear || userProfile?.targetYear || effectiveSettings.targetExamYear));
   const [targetExamDate, setTargetExamDate] = useState(currentUser?.targetExamDate || userProfile?.examDate || effectiveSettings.targetExamDate || '');
   const [targetZScore, setTargetZScore] = useState(currentUser?.targetZScore || userProfile?.targetZScore || effectiveSettings.targetZScore || '');
@@ -594,8 +595,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onChange={(e) => setTargetExamYear(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="2027" className="bg-slate-900 text-white">Batch 2027</option>
-                <option value="2028" className="bg-slate-900 text-white">Batch 2028</option>
+                {!batches.some(b=>b.year===targetExamYear)&&<option value={targetExamYear}>Batch {targetExamYear} (saved)</option>}{batches.map(b=><option key={b.year} value={b.year}>Batch {b.year}</option>)}
               </select>
             </div>
 

@@ -1,3 +1,4 @@
+import { useBatches } from '../../lib/batches';
 import React, { useState } from 'react';
 import { MediumType, ScreenId, StreamType, SyllabusType, UserProfile } from '../../types';
 import { SUBJECTS_BY_STREAM } from '../../data/mockData';
@@ -36,7 +37,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   const [medium, setMedium] = useState<MediumType>(initialProfile.medium || 'English');
   const [targetGrade, setTargetGrade] = useState<string>(initialProfile.targetGrade);
   const [examYear, setExamYear] = useState<string>('2027');
-  const [examDate, setExamDate] = useState<string>(initialProfile.examDate || '2027-11-15');
+  const batches=useBatches();
+  const [examDate, setExamDate] = useState<string>(initialProfile.examDate || batches[0].examDate);
   const [syllabus, setSyllabus] = useState<SyllabusType>(initialProfile.syllabus);
   const [dailyGoalMCQs, setDailyGoalMCQs] = useState<number>(initialProfile.dailyGoalMCQs || 20);
 
@@ -282,8 +284,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {['2027 (Nov)', '2028 (Nov)'].map((opt) => {
-                  const val = opt.includes('2027') ? '2027-11-15' : '2028-11-15';
+                {batches.map((batch) => {
+                  const opt=batch.year+' Sitting';
+                  const val=batch.examDate;
                   const isSelected = examDate === val;
                   return (
                     <button

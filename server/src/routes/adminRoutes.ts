@@ -1,3 +1,4 @@
+import { getBatchConfig, validBatches } from '../services/batchConfig.js';
 import { Router, Response } from 'express';
 import User from '../models/User.js';
 import Course from '../models/Course.js';
@@ -11,77 +12,17 @@ import { sendAdminBroadcastEmail, sendTestEmail } from '../services/emailService
 
 const router = Router();
 
-// GET site-wide exam dates for 2 batches (public – used by all clients)
-router.get('/site-config/exam-date', async (req, res: Response): Promise<void> => {
-  try {
-    const [cfg2027, cfg2028, defaultCfg] = await Promise.all([
-      SiteConfig.findOne({ key: 'upcoming_exam_date_2027' }),
-      SiteConfig.findOne({ key: 'upcoming_exam_date_2028' }),
-      SiteConfig.findOne({ key: 'upcoming_exam_date' }),
-    ]);
-
-    const examDate2027 = cfg2027?.value || '2027-11-25';
-    const examDate2028 = cfg2028?.value || '2028-11-25';
-
-    res.json({
-      examDate2027,
-      examDate2028,
-      examDate: examDate2027, // fallback
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching exam dates' });
-  }
+router.get('/site-config/exam-date', async (_req, res: Response): Promise<void> => {
+ try { const batches=await getBatchConfig();res.json({batches,examDate:batches[0].examDate,...Object.fromEntries(batches.map(b=>['examDate'+b.year,b.examDate]))}); }
+ catch {res.status(500).json({message:'Unable to load batch settings.'});}
 });
-
-// PUT site-wide exam dates for 2 batches (admin only)
-router.put('/site-config/exam-date', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { examDate, examDate2027, examDate2028 } = req.body;
-    const date2027 = examDate2027 || examDate;
-    const date2028 = examDate2028;
-
-    const updates: Promise<any>[] = [];
-
-    if (date2027 && /^\d{4}-\d{2}-\d{2}$/.test(date2027)) {
-      updates.push(
-        SiteConfig.findOneAndUpdate(
-          { key: 'upcoming_exam_date_2027' },
-          { key: 'upcoming_exam_date_2027', value: date2027 },
-          { upsert: true, new: true }
-        ),
-        SiteConfig.findOneAndUpdate(
-          { key: 'upcoming_exam_date' },
-          { key: 'upcoming_exam_date', value: date2027 },
-          { upsert: true, new: true }
-        )
-      );
-    }
-
-    if (date2028 && /^\d{4}-\d{2}-\d{2}$/.test(date2028)) {
-      updates.push(
-        SiteConfig.findOneAndUpdate(
-          { key: 'upcoming_exam_date_2028' },
-          { key: 'upcoming_exam_date_2028', value: date2028 },
-          { upsert: true, new: true }
-        )
-      );
-    }
-
-    if (updates.length === 0) {
-      res.status(400).json({ message: 'Please provide valid exam date(s) in YYYY-MM-DD format.' });
-      return;
-    }
-
-    await Promise.all(updates);
-    res.json({
-      message: 'Upcoming exam dates updated successfully for both batches',
-      examDate2027: date2027,
-      examDate2028: date2028,
-      examDate: date2027,
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: 'Error updating exam dates' });
-  }
+router.put('/site-config/exam-date',protect,adminOnly,async(req:AuthRequest,res:Response):Promise<void>=>{
+ try {
+  const batches=req.body.batches;
+  if(!validBatches(batches)){res.status(400).json({message:'Enter two increasing batch years and valid exam dates within their respective years.'});return;}
+  await SiteConfig.findOneAndUpdate({key:'active_batches'},{value:JSON.stringify(batches)},{upsert:true,new:true,runValidators:true});
+  res.json({batches});
+ }catch{res.status(500).json({message:'Unable to save batch settings.'});}
 });
 
 router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
