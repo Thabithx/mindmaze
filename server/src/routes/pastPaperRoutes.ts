@@ -15,10 +15,12 @@ const directory=()=>path.resolve(process.env.UPLOAD_DIR||'uploads');
 const present=(p:any)=>({id:String(p._id),questionCount:p.quizQuestions?.length||0,quizReady:p.type==='MCQ'&&Boolean(p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,markingSchemePath:p.markingSchemeId?`/past-papers/${p._id}/marking-scheme`:null,pdfPath:`/past-papers/${p._id}/download`});
 async function removeFile(p:any){if(p.provider==='local')await unlink(path.join(directory(),path.basename(p.fileKey))).catch((e:any)=>{if(e.code!=='ENOENT')throw e;});else await cloudinary.uploader.destroy(p.fileKey,{resource_type:'raw'});}
 router.get('/',async(_req,res)=>{try{res.json({papers:(await PastPaper.find().sort({createdAt:-1})).map(present)});}catch{res.status(500).json({message:'Could not load published papers.'});}});
-router.post('/',protect,adminOnly,(req,res,next)=>{upload(req,res,e=>{if(e)res.status(400).json({message:e.message});else next();});},async(req:AuthRequest,res)=>{
+const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(400).json({message:e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
   let stored:any;
   try{
-    if(!req.file||req.file.buffer.subarray(0,5).toString()!=='%PDF-'){res.status(400).json({message:'Select a valid PDF file (maximum 25 MB).'});return;}
+    const existing = updating ? await PastPaper.findById(req.params.id) : null;
+    if(updating&&!existing){res.status(404).json({message:'Paper not found.'});return;}
+    if((!updating&&!req.file)||(req.file&&req.file.buffer.subarray(0,5).toString()!=='%PDF-')){res.status(400).json({message:'Select a valid PDF file (maximum 25 MB).'});return;}
     const {title,subject,year,syllabus,type,medium}=req.body;
     let streams:any;
     try { streams=req.body.streams?JSON.parse(req.body.streams):[req.body.stream]; }catch{res.status(400).json({message:'Invalid target streams.'});return;}
@@ -26,6 +28,8 @@ router.post('/',protect,adminOnly,(req,res,next)=>{upload(req,res,e=>{if(e)res.s
     if(!Array.isArray(streams)||!streams.length||streams.some(s=>!['Maths','Bio','Non-stream'].includes(s))){res.status(400).json({message:'Select one or more valid target streams.'});return;}
     streams=[...new Set(streams)];const stream=streams[0];
     if(![title,subject,stream,medium].every(v=>typeof v==='string'&&v.trim())||!Number.isInteger(Number(year))||Number(year)<2000||Number(year)>2100){res.status(400).json({message:'Provide a title, subject, stream, medium and valid year.'});return;}
+    if(!['MCQ','Structured','Essay'].includes(type)||!['current','old'].includes(syllabus)||!['English','Sinhala','Tamil'].includes(medium)){res.status(400).json({message:'Select a valid paper type, syllabus and medium.'});return;}
+    if(req.file){
     if(process.env.UPLOAD_STORAGE==='local'){
       const fileKey=`${randomUUID()}.pdf`;await mkdir(directory(),{recursive:true});await writeFile(path.join(directory(),fileKey),req.file.buffer,{flag:'wx'});stored={provider:'local',fileKey};
     }else{
@@ -35,10 +39,18 @@ router.post('/',protect,adminOnly,(req,res,next)=>{upload(req,res,e=>{if(e)res.s
       const result:any=await new Promise((resolve,reject)=>{const stream=cloudinary.uploader.upload_stream({resource_type:'raw',folder:'mind_maze_past_papers',public_id:`${randomUUID()}.pdf`},(e,r)=>e?reject(e):resolve(r));stream.end(req.file!.buffer);});
       stored={provider:'cloudinary',fileKey:result.public_id,remoteUrl:result.secure_url};
     }
-    const paper=await PastPaper.create({title:title.trim(),subject,stream,streams,year:Number(year),syllabus:syllabus||'current',type:type||'MCQ',medium,isModelPaper:req.body.isModelPaper==='true',fileName:req.file.originalname,size:req.file.size,...stored,createdBy:req.user!._id});
-    res.status(201).json({paper:present(paper)});
-  }catch(e:any){if(stored)await removeFile(stored).catch(()=>{});res.status(500).json({message:'Could not publish the paper. Please try again.'});}
-});
+    }
+    const details={title:title.trim(),subject,stream,streams,year:Number(year),syllabus,type,medium,isModelPaper:req.body.isModelPaper==='true',...(req.file?{fileName:req.file.originalname,size:req.file.size,...stored}:{})};
+    const previous=existing?.toObject();
+    const paper=existing ? await PastPaper.findByIdAndUpdate(existing._id,{$set:details},{new:true,runValidators:true}) : await PastPaper.create({...details,createdBy:req.user!._id});
+    if(!paper){if(stored)await removeFile(stored).catch(()=>{});res.status(404).json({message:'Paper not found.'});return;}
+    stored=undefined;
+    if(previous&&req.file)await removeFile(previous).catch(()=>{});
+    res.status(updating?200:201).json({paper:present(paper)});
+  }catch(e:any){if(stored)await removeFile(stored).catch(()=>{});res.status(e?.name==='CastError'?400:500).json({message:updating?'Could not update the paper. Please try again.':'Could not publish the paper. Please try again.'});}
+}] as import('express').RequestHandler[];
+router.post('/',...savePaper(false));
+router.put('/:id',...savePaper(true));
 router.get('/:id/download',async(req,res)=>{
   try{
     const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}

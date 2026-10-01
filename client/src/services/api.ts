@@ -91,6 +91,7 @@ export const api = {
   submitPaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz/submit', {method:'POST',body:JSON.stringify(body)}),
   getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl: API_BASE + p.pdfPath}))})),
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
+  updatePastPaper: (id: string, body: FormData) => apiFetch('/past-papers/' + id, {method: 'PUT', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
   // Auth
   register: (body: any) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),

@@ -19,6 +19,7 @@ import {
   BookOpen,
   Plus,
   Trash2,
+  Pencil,
   Sparkles,
   Layers,
   Globe,
@@ -116,6 +117,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [paperPdfName, setPaperPdfName] = useState<string>('');
   const [paperCalculatedSize, setPaperCalculatedSize] = useState<string>('3.2 MB');
   const [editingPaper, setEditingPaper] = useState<PastPaper | null>(null);
+  const [paperToEdit, setPaperToEdit] = useState<PastPaper | null>(null);
+  const [paperFormKey, setPaperFormKey] = useState(0);
+  const resetPaperForm = () => {
+    setPaperToEdit(null); setPaperTitle(''); setPaperSubject('Physics'); setPaperStreams(['Maths']);
+    setPaperYear(2026); setPaperIsModel(true); setPaperSyllabus('current'); setPaperType('MCQ'); setPaperMedium('English');
+    setSelectedPdfFile(null); setMarkingPdf(null); setPaperPdfName(''); setPaperFormKey(k=>k+1);
+  };
+  const startEditingPaper = (paper: PastPaper) => {
+    setPaperToEdit(paper); setPaperTitle(paper.title); setPaperSubject(paper.subject);
+    setPaperStreams(paper.streams?.length ? [...paper.streams] : paper.stream==='Both'?['Maths','Bio']:[paper.stream==='Physical Science'?'Maths':paper.stream==='Biological Science'?'Bio':paper.stream||'Non-stream']);
+    setPaperYear(paper.year); setPaperIsModel(Boolean(paper.isModelPaper)); setPaperSyllabus(paper.syllabus);
+    setPaperType(paper.type); setPaperMedium(paper.medium); setSelectedPdfFile(null); setMarkingPdf(null);
+    setPaperPdfName(''); setPaperSuccess(null); setPaperFormKey(k=>k+1);
+    document.getElementById('past-paper-form')?.scrollIntoView({behavior:'smooth',block:'start'});
+    document.getElementById('past-paper-title')?.focus({preventScroll:true});
+  };
   const [publishingPaper, setPublishingPaper] = useState(false);
   const [paperSuccess, setPaperSuccess] = useState<string | null>(null);
 
@@ -249,12 +266,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
-    if (!selectedPdfFile) {
+    if (!selectedPdfFile && !paperToEdit) {
       alert('Please upload or select a Past Paper PDF file to publish.');
       return;
     }
 
-    const yearErr = validateYear(paperYear, 2000, 2030);
+    const yearErr = validateYear(paperYear, 2000, 2100);
     if (yearErr) {
       alert(yearErr);
       return;
@@ -266,17 +283,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     try {
       if(!paperStreams.length) throw new Error('Select at least one target stream.');
       const data = new FormData();
-      data.append('pdfFile', selectedPdfFile);
+      if(selectedPdfFile) data.append('pdfFile', selectedPdfFile);
       Object.entries({title: paperTitle.trim(), subject: paperSubject, streams: JSON.stringify(paperStreams), year: String(paperYear), syllabus: paperSyllabus, type: paperType, medium: paperMedium, isModelPaper: String(paperIsModel)}).forEach(([key, value]) => data.append(key, value));
-      const {paper} = await api.createPastPaper(data);
-      onAddPastPaper?.(paper);
-      let notice='Published: '+paper.title;
+      const {paper} = paperToEdit ? await api.updatePastPaper(paperToEdit.id, data) : await api.createPastPaper(data);
+      if(!paperToEdit) onAddPastPaper?.(paper);
+      let notice=(paperToEdit?'Updated: ':'Published: ')+paper.title;
       if(markingPdf){try{await api.uploadMarkingScheme(paper.id,markingPdf);notice+=' (marking scheme included)';}catch(e:any){notice+=' - marking scheme was not saved: '+e.message+'. Use Add marking scheme PDF in the published list to retry.';}}
       window.dispatchEvent(new Event('mindmaze_papers_updated'));
       setPaperSuccess(notice);setMarkingPdf(null);
-      setPaperTitle('');
-      setSelectedPdfFile(null);
-      setPaperPdfName('');
+      resetPaperForm();
     } catch (err: any) {
       alert(err.message || 'Could not publish the PDF. Please try again.');
     } finally { setPublishingPaper(false); }
@@ -815,7 +830,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-base font-black text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-cyan-400" />
-                <span>Upload / Add Past Paper</span>
+                <span>{paperToEdit ? 'Edit Past Paper' : 'Upload / Add Past Paper'}</span>
               </h3>
               <span className="text-xs text-slate-400">Pushes directly to student Past Papers page</span>
             </div>
@@ -827,7 +842,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleCreatePastPaper} className="space-y-4">
+            <form id="past-paper-form" onSubmit={handleCreatePastPaper} className="space-y-4">
+              <fieldset disabled={publishingPaper} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Title */}
                 <div className="md:col-span-2">
@@ -835,6 +851,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <input
                     type="text"
                     required
+                    id="past-paper-title"
+                    aria-label="Paper Title"
                     value={paperTitle}
                     onChange={(e) => setPaperTitle(e.target.value)}
                     placeholder="e.g. G.C.E. A/L Physics 2025 Past Paper I (MCQ)"
@@ -845,10 +863,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {/* PDF Drag & Drop Upload */}
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Upload / Drop Past Paper PDF Document <span className="text-rose-400">*</span>
+                    {paperToEdit ? 'Replace PDF (optional — leave empty to keep the current file)' : 'Upload / Drop Past Paper PDF Document *'}
                   </label>
                   <div className="relative border-2 border-dashed border-white/20 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-white/5 transition-all cursor-pointer">
                     <input
+                      key={paperFormKey}
                       type="file"
                       accept=".pdf"
                       onChange={(e) => {
@@ -876,7 +895,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <p className="text-xs font-semibold text-slate-200">
                             Drag & drop your Pastpaper PDF file here, or <span className="text-cyan-400 underline">browse files</span>
                           </p>
-                          <p className="text-[10px] text-slate-400">PDF files up to 50MB</p>
+                          <p className="text-[10px] text-slate-400">PDF files up to 25 MiB</p>
                         </div>
                       )}
                     </div>
@@ -904,7 +923,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {!paperStreams.length&&<p className="text-xs text-rose-300">Select at least one target stream.</p>}
                 </fieldset>
 
-                <label className="block text-xs text-slate-300">Marking scheme PDF (optional, up to 25 MiB)<input type="file" accept="application/pdf,.pdf" disabled={publishingPaper} onChange={e=>{const file=e.target.files?.[0]||null;if(file&&file.size>25*1024*1024){alert('Maximum marking scheme size is 25 MiB.');e.target.value='';setMarkingPdf(null);return;}setMarkingPdf(file);}} className="block mt-2"/><span>{markingPdf?.name||'You can also add it later from the published papers list.'}</span></label>
+                <label className="block text-xs text-slate-300">Marking scheme PDF (optional, up to 25 MiB)<input key={paperFormKey} type="file" accept="application/pdf,.pdf" disabled={publishingPaper} onChange={e=>{const file=e.target.files?.[0]||null;if(file&&file.size>25*1024*1024){alert('Maximum marking scheme size is 25 MiB.');e.target.value='';setMarkingPdf(null);return;}setMarkingPdf(file);}} className="block mt-2"/><span>{markingPdf?.name||'You can also add it later from the published papers list.'}</span></label>
                 {/* Examination Year */}
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">Exam / Practice Year</label>
@@ -912,7 +931,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     type="number"
                     required
                     min={2000}
-                    max={2030}
+                    max={2100}
                     value={paperYear}
                     onChange={(e) => setPaperYear(Number(e.target.value))}
                     className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
@@ -980,8 +999,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold transition shadow-lg cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>{publishingPaper ? 'Publishing...' : 'Publish Past Paper'}</span>
+                <span>{publishingPaper ? (paperToEdit ? 'Saving...' : 'Publishing...') : (paperToEdit ? 'Save changes' : 'Publish Past Paper')}</span>
               </button>
+              {paperToEdit && <button type="button" onClick={()=>{resetPaperForm();setPaperSuccess(null);}} className="px-4 py-2 rounded-xl border border-white/20 text-sm text-slate-200">Cancel</button>}
+              </fieldset>
             </form>
           </div>
 
@@ -1025,6 +1046,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
+                        <button type="button" disabled={publishingPaper} onClick={() => startEditingPaper(paper)} aria-label={'Edit '+paper.title} className="mb-2 ml-auto flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 px-3 py-2 text-cyan-300 disabled:opacity-50"><Pencil className="w-3 h-3"/>Edit</button>
                         <MarkingSchemeUpload paper={paper}/>
                         {paper.type === 'MCQ' && <button type="button" onClick={() => setEditingPaper(paper)} className="mb-2 rounded-lg bg-indigo-600 px-3 py-2 text-white">Edit MCQ questions</button>}
                         <button
