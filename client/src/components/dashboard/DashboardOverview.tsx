@@ -232,8 +232,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               step: '4',
               icon: <Sparkles className="w-4 h-4" />,
               color: 'amber',
-              title: 'Quizzes',
-              desc: 'Past paper tests',
+              title: 'Quizzes · Beta',
+              desc: 'Coming soon',
               screen: 'quiz' as ScreenId,
             },
             {
@@ -309,6 +309,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </button>
 
         <button
+          disabled
           onClick={() => onNavigate('quiz')}
           className="glass-card glass-card-hover p-4 rounded-2xl flex items-center gap-3 text-left group cursor-pointer"
         >
@@ -316,7 +317,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Zap className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs font-bold text-white block">Practice MCQ</span>
+            <span className="text-xs font-bold text-white block">Practice MCQ · Beta</span>
             <span className="text-[10px] text-slate-400">Test Mastery</span>
           </div>
         </button>

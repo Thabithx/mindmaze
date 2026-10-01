@@ -78,6 +78,10 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 
 // API Methods
 export const api = {
+  getPaperQuiz: (id: string) => apiFetch('/past-papers/' + id + '/quiz'),
+  getPaperQuizForEdit: (id: string) => apiFetch('/past-papers/' + id + '/quiz/edit'),
+  savePaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz', {method:'PUT',body:JSON.stringify(body)}),
+  submitPaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz/submit', {method:'POST',body:JSON.stringify(body)}),
   getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, pdfUrl: API_BASE + p.pdfPath}))})),
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),

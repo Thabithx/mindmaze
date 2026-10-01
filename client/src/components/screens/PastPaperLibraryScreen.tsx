@@ -404,19 +404,15 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
               {/* Actions Footer */}
               <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-                <button
-                  onClick={() => {
-                    if (onLaunchPaperQuiz) {
-                      onLaunchPaperQuiz(paper.id);
-                    } else {
-                      onNavigate('practice');
-                    }
-                  }}
+                {paper.type === 'MCQ' && <button
+                  disabled={!paper.quizReady || !onLaunchPaperQuiz}
+                  title={paper.quizReady ? 'Practice this paper' : 'Questions not available yet'}
+                  onClick={() => onLaunchPaperQuiz?.(paper.id)}
                   className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#6B4EFF] to-[#8B5CF6] hover:brightness-110 text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
-                  <span>Practice Online</span>
-                </button>
+                  <span>{paper.quizReady ? 'Practice Online' : 'Questions coming soon'}</span>
+                </button>}
 
                 <button
                   onClick={() => setDownloadModalPaper(paper)}
@@ -513,19 +509,15 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                     {/* Actions */}
                     <td className="py-4 px-5 text-right">
                       <div className="inline-flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            if (onLaunchPaperQuiz) {
-                              onLaunchPaperQuiz(paper.id);
-                            } else {
-                              onNavigate('practice');
-                            }
-                          }}
+                        {paper.type === 'MCQ' && <button
+                          disabled={!paper.quizReady || !onLaunchPaperQuiz}
+                  title={paper.quizReady ? 'Practice this paper' : 'Questions not available yet'}
+                  onClick={() => onLaunchPaperQuiz?.(paper.id)}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#6B4EFF] hover:bg-[#7C5DFA] text-xs font-bold text-white shadow-[0_0_12px_rgba(107,78,255,0.4)] transition-all active:scale-95 cursor-pointer"
                         >
                           <Play className="w-3 h-3 fill-white" />
-                          <span>Practice</span>
-                        </button>
+                          <span>{paper.quizReady ? 'Practice' : 'Questions coming soon'}</span>
+                        </button>}
 
                         <button
                           onClick={() => setDownloadModalPaper(paper)}

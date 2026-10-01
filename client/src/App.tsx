@@ -1,3 +1,4 @@
+import { PaperPracticeScreen } from './components/screens/PaperPracticeScreen';
 import { useScreenNavigation } from './hooks/useScreenNavigation';
 import { normalizeBatch } from './lib/batches';
 import { mistakeIdentity, uniqueMistakes } from './lib/mistakeIdentity';
@@ -44,7 +45,6 @@ import { StudyPlanner } from './components/planner/StudyPlanner';
 import { TopicTracker } from './components/topics/TopicTracker';
 import { CourseCatalogScreen } from './components/courses/CourseCatalogScreen';
 import { AdminCourseManager } from './components/courses/AdminCourseManager';
-import { PracticeQuizScreen } from './components/screens/PracticeQuizScreen';
 import { MistakeNotebookScreen } from './components/screens/MistakeNotebookScreen';
 import { PastPaperLibraryScreen } from './components/screens/PastPaperLibraryScreen';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
@@ -102,7 +102,8 @@ export function App() {
     const loadPapers = () => api.getPastPapers().then(res => setPastPapers(res.papers)).catch(err => console.error('Could not load papers', err));
     void loadPapers();
     window.addEventListener('focus', loadPapers);
-    return () => window.removeEventListener('focus', loadPapers);
+    window.addEventListener('mindmaze_papers_updated', loadPapers);
+    return () => { window.removeEventListener('focus', loadPapers); window.removeEventListener('mindmaze_papers_updated', loadPapers); };
   }, []);
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
@@ -1426,37 +1427,12 @@ export function App() {
 
           {/* Practice Quiz */}
           {currentScreen === 'quiz' && (
-            <PracticeQuizScreen
-              userProfile={userProfile}
-              onNavigate={setCurrentScreen}
-              onSaveMistake={(m) => {
-                const updated = uniqueMistakes([m, ...mistakes]);
-                setMistakes(updated);
-                saveStoredMistakes(updated);
-                if (getAuthToken()) {
-                  api.saveMistake({
-                    subject: m.subject || m.question?.subject || 'General',
-                    topic: m.topic || m.question?.topic || 'General Topic',
-                    questionText: m.questionText || m.question?.questionText || m.question?.text || m.topic || 'Practice Question',
-                    yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
-                    correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
-                    explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
-                    reviewStatus: m.reviewStatus || 'Needs Review',
-                    isMastered: Boolean(m.isMastered),
-                    dateAdded: m.dateAdded || new Date().toISOString(),
-                  }).then((res: any) => {
-                    if (res?.mistake?._id) {
-                      setMistakes((prev) => {
-                        const next = uniqueMistakes(prev.map((x) => mistakeIdentity(x) === mistakeIdentity(m) ? { ...x, id: res.mistake._id } : x));
-                        saveStoredMistakes(next);
-                        return next;
-                      });
-                    }
-                  }).catch(() => {});
-                }
-              }}
-              quizQuestions={quizQuestions}
-            />
+            <div className="mx-auto max-w-xl rounded-3xl border border-amber-400/30 bg-slate-900 p-8 text-center space-y-4">
+              <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-bold text-amber-300">Beta</span>
+              <h2 className="text-2xl font-bold text-white">Practice Quiz</h2>
+              <p className="text-slate-300">General practice is temporarily unavailable while we improve it. Visit Past Papers for available MCQ practice.</p>
+              <button onClick={() => setCurrentScreen('pastpapers')} className="rounded-xl bg-indigo-600 px-5 py-3 text-white">Open Past Papers</button>
+            </div>
           )}
 
           {/* Mistake Notebook */}
@@ -1493,8 +1469,10 @@ export function App() {
           )}
 
           {/* Past Papers */}
+          {currentScreen === 'paperquiz' && <PaperPracticeScreen key={new URLSearchParams(window.location.search).get('paper') || ''} paperId={new URLSearchParams(window.location.search).get('paper') || ''} onBack={() => setCurrentScreen('pastpapers')} />}
           {currentScreen === 'pastpapers' && (
             <PastPaperLibraryScreen
+              onLaunchPaperQuiz={(id) => setCurrentScreen('paperquiz', id)}
               onNavigate={setCurrentScreen}
               pastPapers={pastPapers}
             />

@@ -49,7 +49,7 @@ const navGroups = [
     label: 'Study Tools',
     items: [
       { id: 'courses' as ScreenId, label: 'Courses & Media', icon: GraduationCap, color: 'text-emerald-400', activeBg: 'bg-emerald-600' },
-      { id: 'quiz' as ScreenId, label: 'Practice Quiz', icon: Zap, color: 'text-yellow-400', activeBg: 'bg-yellow-600' },
+      { id: 'quiz' as ScreenId, label: 'Practice Quiz · Beta', icon: Zap, color: 'text-yellow-400', activeBg: 'bg-yellow-600' },
       { id: 'mistakes' as ScreenId, label: 'Mistake Notebook', icon: BookmarkCheck, color: 'text-rose-400', activeBg: 'bg-rose-600' },
       { id: 'pastpapers' as ScreenId, label: 'Past Papers', icon: FileText, color: 'text-orange-400', activeBg: 'bg-orange-600' },
     ],
@@ -130,6 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item.id)}
+                      disabled={item.id === 'quiz'}
                       title={isCollapsed ? item.label : undefined}
                       className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                         isActive

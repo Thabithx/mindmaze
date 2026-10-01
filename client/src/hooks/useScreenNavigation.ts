@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScreenId } from '../types';
 
-const screens = new Set<ScreenId>(['dashboard', 'planner', 'topics', 'progress', 'admin', 'settings', 'courses', 'quiz', 'mistakes', 'pastpapers', 'leaderboard', 'notifications']);
+const screens = new Set<ScreenId>(['dashboard', 'planner', 'topics', 'progress', 'admin', 'settings', 'courses', 'quiz', 'mistakes', 'pastpapers', 'paperquiz', 'leaderboard', 'notifications']);
 const aliases: Record<string, ScreenId> = { timetable: 'planner', daily: 'planner', 'study-plan': 'planner', practice: 'quiz', 'past-papers': 'pastpapers', analytics: 'progress', 'daily-topics': 'topics' };
 export function resolveScreen(value: string): ScreenId | null {
   return screens.has(value as ScreenId) ? value as ScreenId : aliases[value] || null;
@@ -22,10 +22,14 @@ export function useScreenNavigation(defaultScreen: ScreenId = 'dashboard') {
     };
   }, [defaultScreen]);
 
-  const navigate = useCallback((next: ScreenId) => {
+  const navigate = useCallback((next: ScreenId, paperId?: string) => {
     const target = resolveScreen(next);
     if (!target) return;
-    if (readScreen() !== target) window.history.pushState(null, '', `${window.location.pathname}${window.location.search}#/${target}`);
+    const url = new URL(window.location.href);
+    if (target === 'paperquiz' && paperId) url.searchParams.set('paper', paperId);
+    else if (target !== 'paperquiz') url.searchParams.delete('paper');
+    url.hash = '/' + target;
+    if (window.location.href !== url.href) window.history.pushState(null, '', url.pathname + url.search + url.hash);
     setScreen(target);
   }, []);
   return [screen, navigate] as const;

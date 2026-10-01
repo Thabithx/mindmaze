@@ -1,3 +1,4 @@
+import { PaperQuizEditor } from './PaperQuizEditor';
 import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
@@ -119,6 +120,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [paperPdfName, setPaperPdfName] = useState<string>('');
   const [paperCalculatedSize, setPaperCalculatedSize] = useState<string>('3.2 MB');
+  const [editingPaper, setEditingPaper] = useState<PastPaper | null>(null);
   const [publishingPaper, setPublishingPaper] = useState(false);
   const [paperSuccess, setPaperSuccess] = useState<string | null>(null);
 
@@ -987,6 +989,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </form>
           </div>
 
+          {editingPaper && <PaperQuizEditor paperId={editingPaper.id} title={editingPaper.title} onClose={() => setEditingPaper(null)} onSaved={() => window.dispatchEvent(new Event('mindmaze_papers_updated'))} />}
           {/* Past Papers List */}
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-white/10 backdrop-blur-xl shadow-xl space-y-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
@@ -1028,6 +1031,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
+                        {paper.type === 'MCQ' && <button type="button" onClick={() => setEditingPaper(paper)} className="mb-2 rounded-lg bg-indigo-600 px-3 py-2 text-white">Edit MCQ questions</button>}
                         <button
                           onClick={() => onDeletePastPaper && onDeletePastPaper(paper.id)}
                           className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold transition cursor-pointer flex items-center gap-1 ml-auto"

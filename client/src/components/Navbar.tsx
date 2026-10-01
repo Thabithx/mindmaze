@@ -1,3 +1,4 @@
+import { ThemeToggle } from './ThemeToggle';
 import React, { useState } from 'react';
 import { ScreenId, UserProfile } from '../types';
 import { Logo } from './Logo';
@@ -48,6 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <ThemeToggle />
         {/* Header Streak Counter Badge */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-black shadow-sm" title="Streak Days">
           <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
