@@ -1,5 +1,5 @@
 import React, {useEffect,useState} from 'react';
-import {api} from '../../services/api';
+import {api,paperImageUrl} from '../../services/api';
 import { PAPER_QUIZ_AI_PROMPT, parsePaperQuizImport, PaperQuestionDraft } from '../../lib/paperQuizImport';
 type Question=PaperQuestionDraft;
 const blank=():Question=>({text:'',options:['','','','',''],correctIndex:0,explanation:''});
@@ -31,7 +31,7 @@ export function PaperQuizEditor({paperId,title,onClose,onSaved}:{paperId:string;
   return <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Edit paper questions">
     <form onSubmit={save} className="mx-auto max-w-3xl rounded-2xl bg-slate-900 p-6 text-white space-y-5">
       <div className="flex justify-between gap-4"><h2 className="text-xl font-bold">MCQ questions — {title}</h2><button type="button" disabled={busy} onClick={onClose}>Close</button></div>
-      <p className="text-sm text-slate-300">Enter the questions from this paper in order and check the official answer key. The PDF is kept separately for download. One correct answer earns one mark. Diagrams must be described in the question text for this version.</p>
+      <p className="text-sm text-slate-300">Enter the questions from this paper in order and check the official answer key. The PDF is kept separately for download. One correct answer earns one mark. Attach a diagram below each question when needed. For image-based options, upload one crop containing all labelled options.</p>
       {loading&&<p>Loading…</p>}{error&&<p role="alert" className="text-rose-300">{error}</p>}
       <details className="rounded-xl border border-indigo-400/30 bg-indigo-500/5 p-4 space-y-3">
         <summary className="cursor-pointer font-semibold text-indigo-200">Import questions from AI output</summary>
@@ -47,6 +47,8 @@ export function PaperQuizEditor({paperId,title,onClose,onSaved}:{paperId:string;
           <div className="flex justify-between"><h3 className="font-bold">Question {i+1}</h3><button type="button" className="text-rose-300" onClick={()=>{setQuestions(prev=>prev.filter((_,n)=>n!==i));setReviewed(false);}}>Remove</button></div>
           {q.reviewNote&&<div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-200"><p>Review required: {q.reviewNote}</p><button type="button" className="mt-2 underline" onClick={()=>update(i,{reviewNote:''})}>I corrected this question against the PDF</button></div>}
           <label className="block">Question text<textarea required className={input} value={q.text} onChange={e=>update(i,{text:e.target.value})}/></label>
+          <label className="block text-sm">Question diagram (PNG, JPG or WebP, up to 5 MiB)<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>5*1024*1024){setError('Image must be at most 5 MiB.');return;}setBusy(true);setError('');try{const uploaded=await api.uploadQuestionImage(paperId,file);update(i,{imageId:uploaded.imageId});}catch(err:any){setError(err.message);}finally{setBusy(false);}}}/></label>
+          {q.imageId&&<div className="space-y-2"><img src={paperImageUrl(paperId,q.imageId)} alt={q.imageAlt||'Question diagram preview'} className="max-h-96 max-w-full object-contain rounded-lg bg-white"/><label className="block text-sm">Image description<input className={input} maxLength={1000} value={q.imageAlt||''} onChange={e=>update(i,{imageAlt:e.target.value})}/></label><button type="button" onClick={()=>update(i,{imageId:'',imageAlt:''})} className="text-rose-300">Remove image from question</button></div>}
           {q.options.map((option,n)=><label key={n} className="block text-sm">Answer {n+1}<input required className={input} value={option} onChange={e=>update(i,{options:q.options.map((v,k)=>k===n?e.target.value:v)})}/></label>)}
           <div className="flex gap-3"><button type="button" disabled={q.options.length>=5} onClick={()=>update(i,{options:[...q.options,'']})}>Add answer</button><button type="button" disabled={q.options.length<=2} onClick={()=>update(i,{options:q.options.slice(0,-1),correctIndex:Math.min(q.correctIndex,q.options.length-2)})}>Remove last answer</button></div>
           <label className="block">Correct answer<select required className={input} value={q.correctIndex<0?'':q.correctIndex} onChange={e=>update(i,{correctIndex:Number(e.target.value)})}><option value="" disabled>Select the verified correct answer</option>{q.options.map((_,n)=><option key={n} value={n}>Answer {n+1}</option>)}</select></label>

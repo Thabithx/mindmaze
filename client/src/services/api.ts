@@ -76,14 +76,18 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   }
 };
 
+export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-papers/'+encodeURIComponent(paperId)+'/question-images/'+encodeURIComponent(imageId);
+
 // API Methods
 export const api = {
+  uploadMarkingScheme: (id:string,file:File) => {const body=new FormData();body.append('pdfFile',file);return apiFetch('/past-papers/'+id+'/marking-scheme',{method:'POST',body});},
+  uploadQuestionImage: (id:string,file:File) => {const body=new FormData();body.append('imageFile',file);return apiFetch('/past-papers/'+id+'/question-images',{method:'POST',body});},
   getPaperQuiz: (id: string) => apiFetch('/past-papers/' + id + '/quiz'),
   getPaperQuizForEdit: (id: string) => apiFetch('/past-papers/' + id + '/quiz/edit'),
   savePaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz', {method:'PUT',body:JSON.stringify(body)}),
   submitPaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz/submit', {method:'POST',body:JSON.stringify(body)}),
-  getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, pdfUrl: API_BASE + p.pdfPath}))})),
-  createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, pdfUrl: API_BASE + res.paper.pdfPath}})),
+  getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl: API_BASE + p.pdfPath}))})),
+  createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
   // Auth
   register: (body: any) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),

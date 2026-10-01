@@ -1,3 +1,4 @@
+import { MarkingSchemeUpload } from './MarkingSchemeUpload';
 import { setBatches } from '../../lib/batches';
 import { PaperQuizEditor } from './PaperQuizEditor';
 import React, { useEffect, useState } from 'react';
@@ -110,6 +111,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [paperSyllabus, setPaperSyllabus] = useState<'current' | 'old'>('current');
   const [paperType, setPaperType] = useState<any>('MCQ');
   const [paperMedium, setPaperMedium] = useState<any>('English');
+  const [markingPdf,setMarkingPdf]=useState<File|null>(null);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [paperPdfName, setPaperPdfName] = useState<string>('');
   const [paperCalculatedSize, setPaperCalculatedSize] = useState<string>('3.2 MB');
@@ -268,7 +270,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       Object.entries({title: paperTitle.trim(), subject: paperSubject, streams: JSON.stringify(paperStreams), year: String(paperYear), syllabus: paperSyllabus, type: paperType, medium: paperMedium, isModelPaper: String(paperIsModel)}).forEach(([key, value]) => data.append(key, value));
       const {paper} = await api.createPastPaper(data);
       onAddPastPaper?.(paper);
-      setPaperSuccess('Published: ' + paper.title);
+      let notice='Published: '+paper.title;
+      if(markingPdf){try{await api.uploadMarkingScheme(paper.id,markingPdf);notice+=' (marking scheme included)';}catch(e:any){notice+=' - marking scheme was not saved: '+e.message+'. Use Add marking scheme PDF in the published list to retry.';}}
+      window.dispatchEvent(new Event('mindmaze_papers_updated'));
+      setPaperSuccess(notice);setMarkingPdf(null);
       setPaperTitle('');
       setSelectedPdfFile(null);
       setPaperPdfName('');
@@ -897,6 +902,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {!paperStreams.length&&<p className="text-xs text-rose-300">Select at least one target stream.</p>}
                 </fieldset>
 
+                <label className="block text-xs text-slate-300">Marking scheme PDF (optional, up to 25 MiB)<input type="file" accept="application/pdf,.pdf" disabled={publishingPaper} onChange={e=>{const file=e.target.files?.[0]||null;if(file&&file.size>25*1024*1024){alert('Maximum marking scheme size is 25 MiB.');e.target.value='';setMarkingPdf(null);return;}setMarkingPdf(file);}} className="block mt-2"/><span>{markingPdf?.name||'You can also add it later from the published papers list.'}</span></label>
                 {/* Examination Year */}
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">Exam / Practice Year</label>
@@ -1017,6 +1023,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
+                        <MarkingSchemeUpload paper={paper}/>
                         {paper.type === 'MCQ' && <button type="button" onClick={() => setEditingPaper(paper)} className="mb-2 rounded-lg bg-indigo-600 px-3 py-2 text-white">Edit MCQ questions</button>}
                         <button
                           onClick={() => onDeletePastPaper && onDeletePastPaper(paper.id)}

@@ -1,3 +1,4 @@
+import { MarkingSchemeButton } from '../MarkingSchemeButton';
 import { PAPER_STREAMS, paperStreams } from '../../lib/paperStreams';
 import React, { useState, useMemo } from 'react';
 import { MediumType, PaperType, PastPaper, ScreenId, SyllabusType } from '../../types';
@@ -243,7 +244,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search past papers by topic (e.g., Projectile, Equilibrium)..."
+            placeholder="Search past papers"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white/10 border border-white/10 text-sm text-white placeholder-slate-400 focus:border-[#6B4EFF] focus:outline-none backdrop-blur-sm"
@@ -407,7 +408,8 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
               )}
 
               {/* Actions Footer */}
-              <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+                <MarkingSchemeButton paper={paper}/>
                 {paper.type === 'MCQ' && <button
                   disabled={!paper.quizReady || !onLaunchPaperQuiz}
                   title={paper.quizReady ? 'Practice this paper' : 'Questions not available yet'}
@@ -510,7 +512,8 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
 
                     {/* Actions */}
                     <td className="py-4 px-5 text-right">
-                      <div className="inline-flex items-center justify-end gap-2">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                        <MarkingSchemeButton paper={paper}/>
                         {paper.type === 'MCQ' && <button
                           disabled={!paper.quizReady || !onLaunchPaperQuiz}
                   title={paper.quizReady ? 'Practice this paper' : 'Questions not available yet'}
@@ -573,8 +576,8 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 <span className="font-semibold text-white">{downloadModalPaper.medium}</span>
               </div>
               <div className="flex justify-between">
-                <span>Verified Solution:</span>
-                <span className="text-emerald-400 font-semibold">Included (PDF)</span>
+                <span>Marking Scheme:</span>
+                <span className="text-emerald-400 font-semibold">{downloadModalPaper.markingSchemeUrl?'Available separately':'Not uploaded'}</span>
               </div>
             </div>
 

@@ -1,3 +1,5 @@
+import PaperAsset from '../models/PaperAsset.js';
+import { removeAsset } from '../services/paperAssets.js';
 import { deliverRemotePdf } from '../services/pdfDelivery.js';
 import {Router} from 'express';
 import multer from 'multer';
@@ -10,7 +12,7 @@ import {protect,adminOnly,AuthRequest} from '../middleware/authMiddleware.js';
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024}}).single('pdfFile');
 const directory=()=>path.resolve(process.env.UPLOAD_DIR||'uploads');
-const present=(p:any)=>({id:String(p._id),questionCount:p.quizQuestions?.length||0,quizReady:p.type==='MCQ'&&Boolean(p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,pdfPath:`/past-papers/${p._id}/download`});
+const present=(p:any)=>({id:String(p._id),questionCount:p.quizQuestions?.length||0,quizReady:p.type==='MCQ'&&Boolean(p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,markingSchemePath:p.markingSchemeId?`/past-papers/${p._id}/marking-scheme`:null,pdfPath:`/past-papers/${p._id}/download`});
 async function removeFile(p:any){if(p.provider==='local')await unlink(path.join(directory(),path.basename(p.fileKey))).catch((e:any)=>{if(e.code!=='ENOENT')throw e;});else await cloudinary.uploader.destroy(p.fileKey,{resource_type:'raw'});}
 router.get('/',async(_req,res)=>{try{res.json({papers:(await PastPaper.find().sort({createdAt:-1})).map(present)});}catch{res.status(500).json({message:'Could not load published papers.'});}});
 router.post('/',protect,adminOnly,(req,res,next)=>{upload(req,res,e=>{if(e)res.status(400).json({message:e.message});else next();});},async(req:AuthRequest,res)=>{
@@ -44,5 +46,5 @@ router.get('/:id/download',async(req,res)=>{
     await deliverRemotePdf(p.remoteUrl,p.fileName,res);
   }catch{if(!res.headersSent)res.status(500).json({message:'Could not download this paper.'});}
 });
-router.delete('/:id',protect,adminOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});
+router.delete('/:id',protect,adminOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();for(const asset of await PaperAsset.find({paper:p._id}))await removeAsset(asset).catch(()=>{});res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});
 export default router;

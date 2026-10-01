@@ -1,3 +1,4 @@
+import PaperAsset from '../models/PaperAsset.js';
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
@@ -27,12 +28,15 @@ router.put('/:id/quiz', protect, adminOnly, async (req, res) => {
       q.options.every((o:any) => typeof o === 'string' && o.trim() && o.length <= 5000) &&
       Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < q.options.length &&
       (q.explanation === undefined || typeof q.explanation === 'string' && q.explanation.length <= 10000));
+    const imageIds=questions.filter(q=>q?.imageId).map(q=>q.imageId);
+    if(imageIds.some(id=>typeof id!=='string'||!mongoose.isValidObjectId(id))||questions.some(q=>q?.imageAlt!==undefined&&(typeof q.imageAlt!=='string'||q.imageAlt.length>1000))){res.status(400).json({message:'Invalid question image or description.'});return;}
+    if(imageIds.length&&await PaperAsset.countDocuments({_id:{$in:imageIds},paper:paper._id,kind:'image'})!==new Set(imageIds).size){res.status(400).json({message:'Use images uploaded to this paper.'});return;}
     if (!valid) { res.status(400).json({message:'Every question needs text, 2–5 answers, and one correct answer.'}); return; }
     if ((version || '') !== (paper.quizVersion || '')) { res.status(409).json({message:'These questions changed in another session. Reload before editing.'}); return; }
     const filter:any = {_id:paper._id};
     if (paper.quizVersion) filter.quizVersion = version;
     else filter.$or = [{quizVersion:{$exists:false}},{quizVersion:''}];
-    const updated = await PastPaper.findOneAndUpdate(filter, {$set:{quizVersion:randomUUID(),quizQuestions:questions.map(q=>({text:q.text.trim(), options:q.options.map((o:string)=>o.trim()),correctIndex:q.correctIndex,explanation:q.explanation?.trim()||''}))}}, {new:true,runValidators:true});
+    const updated = await PastPaper.findOneAndUpdate(filter, {$set:{quizVersion:randomUUID(),quizQuestions:questions.map(q=>({text:q.text.trim(),imageId:q.imageId||'',imageAlt:q.imageAlt?.trim()||'', options:q.options.map((o:string)=>o.trim()),correctIndex:q.correctIndex,explanation:q.explanation?.trim()||''}))}}, {new:true,runValidators:true});
     if (!updated) { res.status(409).json({message:'These questions changed in another session. Reload before editing.'}); return; }
     res.json({version:updated.quizVersion,questionCount:updated.quizQuestions.length});
   } catch { res.status(500).json({message:'Could not save questions.'}); }
@@ -41,7 +45,7 @@ router.get('/:id/quiz', async (req, res) => {
   try {
     const paper = await PastPaper.findById(req.params.id);
     if (!paper || paper.type !== 'MCQ' || !paper.quizQuestions?.length) { res.status(404).json({message:'Online questions have not been published for this MCQ paper yet.'}); return; }
-    res.json({title:paper.title,version:paper.quizVersion,questions:paper.quizQuestions.map(q=>({text:q.text,options:q.options}))});
+    res.json({title:paper.title,version:paper.quizVersion,questions:paper.quizQuestions.map(q=>({text:q.text,options:q.options,imageId:q.imageId,imageAlt:q.imageAlt}))});
   } catch { res.status(500).json({message:'Could not load practice questions.'}); }
 });
 router.post('/:id/quiz/submit', async (req, res) => {

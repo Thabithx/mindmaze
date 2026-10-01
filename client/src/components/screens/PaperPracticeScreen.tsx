@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../../services/api';
+import { api, paperImageUrl } from '../../services/api';
 
 export function PaperPracticeScreen({paperId,onBack}:{paperId:string;onBack:()=>void}) {
   const [quiz,setQuiz]=useState<any>(null);
@@ -32,7 +32,8 @@ export function PaperPracticeScreen({paperId,onBack}:{paperId:string;onBack:()=>
       <h2 className="text-xl font-bold">Your marks: {result.score} / {result.total} ({result.percentage}%)</h2>
       <p className="text-sm text-slate-300">One mark per correct answer. No negative marking. This is a practice result, not an official examination grade.</p>
       {result.review.map((r:any,i:number)=><div key={i} className="border-t border-white/10 pt-4 space-y-1">
-        <p className="font-semibold">{i+1}. {quiz.questions[i].text}</p>
+        <p className="font-semibold whitespace-pre-wrap">{i+1}. {quiz.questions[i].text}</p>
+        {quiz.questions[i].imageId&&<img src={paperImageUrl(paperId,quiz.questions[i].imageId)} alt={quiz.questions[i].imageAlt||'Diagram for question '+(i+1)} className="max-h-[32rem] max-w-full object-contain bg-white rounded-lg"/>}
         <p className={r.correct?'text-emerald-300':'text-rose-300'}>{r.correct?'Correct':'Incorrect'} — Your answer: {quiz.questions[i].options[answers[i]]}</p>
         {!r.correct&&<p>Correct answer: {quiz.questions[i].options[r.correctIndex]}</p>}
         {r.explanation&&<p className="text-sm text-slate-400">{r.explanation}</p>}
@@ -42,6 +43,7 @@ export function PaperPracticeScreen({paperId,onBack}:{paperId:string;onBack:()=>
       <p className="text-sm text-slate-400">Question {index+1} of {quiz.questions.length} · {answers.filter(a=>a>=0).length} answered</p>
       <fieldset disabled={busy} className="space-y-3">
         <legend className="mb-4 whitespace-pre-wrap text-lg font-semibold">{question.text}</legend>
+        {question.imageId&&<a href={paperImageUrl(paperId,question.imageId)} target="_blank" rel="noopener noreferrer" title="Open full-size diagram"><img src={paperImageUrl(paperId,question.imageId)} alt={question.imageAlt||'Question diagram'} className="max-h-[32rem] max-w-full object-contain bg-white rounded-lg"/></a>}
         {question.options.map((option:string,i:number)=><label key={i} className={`flex gap-3 rounded-xl border p-4 cursor-pointer ${answers[index]===i?'border-indigo-400 bg-indigo-500/10':'border-white/10'}`}>
           <input type="radio" name={'question-'+index} checked={answers[index]===i} onChange={()=>setAnswers(prev=>prev.map((v,n)=>n===index?i:v))}/>
           <span className="whitespace-pre-wrap">{i+1}. {option}</span>

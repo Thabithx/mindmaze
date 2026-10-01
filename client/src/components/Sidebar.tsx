@@ -238,6 +238,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="p-3 border-t border-white/[0.06] shrink-0">
+          {!isCollapsed&&<address className="not-italic text-[10px] leading-relaxed text-slate-400 mb-3 text-right">
+            <p className="font-bold">FOR SUPPORT CONTACT MINDMAZE TEAM</p>
+            <a className="block hover:underline break-all" href="mailto:Mindmazeorg@gmail.com">Mindmazeorg@gmail.com</a>
+            <a className="block hover:underline" href="tel:+94741135855">Asjadh Azhar - 0741135855</a>
+            <a className="block hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
+          </address>}
           {!isCollapsed && <p className="text-right text-[9px] leading-relaxed tracking-wide text-slate-400">DEVELOPED BY THABITH &amp; ASJADH AZHAR</p>}
           <button
             onClick={onToggleCollapse}

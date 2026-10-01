@@ -276,14 +276,16 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       ) : (
         <>
           {top3.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 items-end gap-2 sm:gap-4 pt-5" aria-label="Top three podium">
               {top3.map((e, i) => {
                 const timeLabel = formatStudyTime(e);
 
                 return (
                   <div
                     key={e.userId}
-                    className={`rounded-2xl border p-3 text-center ${
+                    aria-label={`Rank ${i+1}: ${e.username}`}
+                    style={{gridColumn:i===0?2:i===1?1:3,gridRow:1,minHeight:i===0?220:i===1?185:160}}
+                    className={`min-w-0 flex flex-col justify-between rounded-t-2xl rounded-b-lg border p-2 sm:p-4 text-center ${
                       isMe(e)
                         ? 'border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/40'
                         : i === 0
@@ -292,8 +294,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                     }`}
                   >
                     <div className="flex justify-center">{medal(i)}</div>
+                    <div className="text-3xl sm:text-5xl font-black text-white">{i+1}<span className="text-xs ml-1">{i===0?'ST':i===1?'ND':'RD'}</span></div>
                     <div className="text-xs font-black text-white truncate mt-1 flex items-center justify-center gap-1">
-                      <span>@{e.username}</span>
+                      <span className="min-w-0 truncate" title={e.username}>@{e.username}</span>
                       {isMe(e) && (
                         <span className="text-[8px] font-black px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                       )}
