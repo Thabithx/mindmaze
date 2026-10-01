@@ -10,7 +10,7 @@ export interface LeaderboardEntry {
   totalStudyMinutes?: number;
   completedTasks: number;
   currentStreak: number;
-  syllabusCompletedPercent: number;
+  score: number;
 }
 
 export interface AdminProgressEntry {
@@ -32,50 +32,10 @@ export interface AdminProgressEntry {
   monthMinutes: number;
 }
 
-export const sortLeaderboardEntries = (entries: LeaderboardEntry[]): LeaderboardEntry[] => {
-  return [...entries].sort((a, b) => {
-    // 1. Syllabus % (highest first)
-    if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) {
-      return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
-    }
-    // 2. Total Study Minutes (highest first)
-    const minsA = a.totalStudyMinutes !== undefined ? a.totalStudyMinutes : Math.round((a.completedHours || 0) * 60);
-    const minsB = b.totalStudyMinutes !== undefined ? b.totalStudyMinutes : Math.round((b.completedHours || 0) * 60);
-    if (minsB !== minsA) {
-      return minsB - minsA;
-    }
-    // 3. Current Streak (highest first)
-    return b.currentStreak - a.currentStreak;
-  });
-};
+export const sortLeaderboardEntries = (entries: LeaderboardEntry[]): LeaderboardEntry[] =>
+  [...entries].sort((a,b)=>b.score-a.score || (b.totalStudyMinutes || 0)-(a.totalStudyMinutes || 0) || b.currentStreak-a.currentStreak || String(a.userId).localeCompare(String(b.userId)));
 
-const formatUsersToEntries = (users: any[]): LeaderboardEntry[] => {
-  const entries: LeaderboardEntry[] = users.map((u) => {
-    const streak = u.streakDays || u.currentStreak || 1;
-    const syllabusPercent = typeof u.syllabusCompletedPercent === 'number' 
-      ? u.syllabusCompletedPercent 
-      : (typeof u.syllabusPercent === 'number' ? u.syllabusPercent : 0);
-    const hours = typeof u.completedHours === 'number' 
-      ? u.completedHours 
-      : (typeof u.hours === 'number' ? u.hours : 0);
-    const tasks = typeof u.completedTasks === 'number' 
-      ? u.completedTasks 
-      : (typeof u.lessons === 'number' ? u.lessons : 0);
-    return {
-      userId: u.userId || u._id || 'u',
-      username: u.username || u.name || 'A/L Scholar',
-      stream: u.stream || 'Physical Science',
-      completedHours: hours,
-      completedTasks: tasks,
-      currentStreak: streak,
-      syllabusCompletedPercent: syllabusPercent,
-    };
-  });
-
-  return sortLeaderboardEntries(entries);
-};
-
-const CACHE_PREFIX = 'mind_maze_student_leaderboard_v2_';
+const CACHE_PREFIX = 'mind_maze_student_leaderboard_score_v3_';
 
 export function getCachedLeaderboard(period: LeaderboardPeriod, limit = 50): LeaderboardEntry[] {
   try {
@@ -100,7 +60,7 @@ export async function fetchLeaderboard(
     // Try fast public endpoint first
     try {
       const res = await api.getLeaderboard(period, limit);
-      if (res && Array.isArray(res.entries)) {
+      if (res && Array.isArray(res.entries) && res.entries.every((e: any) => Number.isFinite(e.score))) {
         try {
           localStorage.setItem(`${CACHE_PREFIX}${period}`, JSON.stringify(res.entries));
         } catch {

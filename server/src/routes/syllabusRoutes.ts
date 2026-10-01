@@ -1,3 +1,4 @@
+import { leaderboardStats } from '../services/leaderboardScore.js';
 import { Router, Request, Response } from 'express';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import User from '../models/User.js';
@@ -8,56 +9,25 @@ const router = Router();
 
 router.get('/leaderboard', async (req: Request, res: Response): Promise<void> => {
   try {
-    const limit = Math.min(100, Math.max(5, parseInt(String(req.query.limit || '50'), 10)));
-    const period = String(req.query.period || 'weekly');
-
-    const users = await User.find({ isActive: true, role: 'student' })
-      .select('name stream streakDays bestStreak xp completedDates totalStudyMinutes createdAt')
-      .lean();
-
-    const userIds = users.map((u: any) => u._id);
-
-    // Fetch user syllabus progress counts
-    const progressDocs = await SyllabusProgress.find({ user: { $in: userIds } }).lean();
-    const progressMap = new Map<string, number>();
-    progressDocs.forEach((doc: any) => {
-      const uId = doc.user.toString();
-      const count = doc.completedSubtopics ? doc.completedSubtopics.length : 0;
-      progressMap.set(uId, (progressMap.get(uId) || 0) + count);
-    });
-
-    const entries = users.map((u: any) => {
-      const uId = u._id.toString();
-      const streak = Math.max(1, u.streakDays || 1);
-      
-      const realSubtopicsCount = progressMap.get(uId) || 0;
-      const computedSyllabusPercent = Math.min(100, Math.round((realSubtopicsCount / 110) * 100));
-
-      const totalMinutes = u.totalStudyMinutes || 0;
-      const computedHours = totalMinutes / 60;
-
-      return {
-        userId: uId,
-        username: u.name || 'A/L Scholar',
-        stream: u.stream || 'Physical Science',
-        completedHours: computedHours,
-        totalStudyMinutes: totalMinutes,
-        completedTasks: realSubtopicsCount,
-        currentStreak: streak,
-        syllabusCompletedPercent: computedSyllabusPercent,
-      };
-    });
-
-    // Sort strictly by Syllabus % > Total Study Minutes > Streak
-    entries.sort((a, b) => {
-      if (b.syllabusCompletedPercent !== a.syllabusCompletedPercent) {
-        return b.syllabusCompletedPercent - a.syllabusCompletedPercent;
+    const requestedLimit = Number.parseInt(String(req.query.limit || '50'), 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(100, Math.max(5, requestedLimit)) : 50;
+    const period = req.query.period === 'monthly' ? 'monthly' : 'weekly';
+    const users = await User.find({isActive:true,role:'student'})
+      .select('name stream completedDates studyMinutesByDate timezone').lean();
+    const progressDocs = await SyllabusProgress.find({user:{$in:users.map(u=>u._id)}}).lean();
+    const progressMap = new Map<string, Set<string>>();
+    for(const doc of progressDocs) {
+      const id = String(doc.user), completed = progressMap.get(id) || new Set<string>();
+      for(const subtopic of doc.completedSubtopics || []) {
+        if(typeof subtopic === 'string' && subtopic.trim()) completed.add(JSON.stringify([doc.topicId,subtopic.trim()]));
       }
-      if ((b.totalStudyMinutes || 0) !== (a.totalStudyMinutes || 0)) {
-        return (b.totalStudyMinutes || 0) - (a.totalStudyMinutes || 0);
-      }
-      return b.currentStreak - a.currentStreak;
-    });
+      progressMap.set(id,completed);
+    }
+    const entries = users.map(u=>({
+      userId:String(u._id),username:u.name || 'A/L Scholar',stream:u.stream,
+      ...leaderboardStats(u,progressMap.get(String(u._id))?.size || 0,period),
+    }));
+    entries.sort((a,b)=>b.score-a.score || b.totalStudyMinutes-a.totalStudyMinutes || b.currentStreak-a.currentStreak || a.userId.localeCompare(b.userId));
 
     res.json({ entries: entries.slice(0, limit), period, needsSetup: false });
   } catch (error: any) {

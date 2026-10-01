@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { Trophy, Medal, Flame, RefreshCw, Crown } from 'lucide-react';
 import { ScreenId, StreamType, SyllabusTopic, TimetableEntry, DailyTask, StreakData } from '../../types';
 import {
@@ -8,8 +8,6 @@ import {
   getCachedLeaderboard,
   sortLeaderboardEntries,
 } from '../../lib/leaderboard';
-import { getSubjectsForStream } from '../../data/alSyllabusData';
-import { calculateOverallStreamProgression } from '../../lib/syllabusProgression';
 
 interface LeaderboardProps {
   currentUserId?: string | null;
@@ -29,128 +27,36 @@ interface LeaderboardProps {
 export const Leaderboard: React.FC<LeaderboardProps> = ({
   currentUserId = null,
   currentUserProfile,
-  onNavigate,
   compact = false,
   onViewAll,
-  syllabusTopics = [],
-  timetable = [],
-  dailyTasks = [],
-  streakDays = 1,
-  streakData,
-  stream = 'Physical Science',
-  physicalScienceElective = 'Chemistry',
 }) => {
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
   const [rawEntries, setRawEntries] = useState<LeaderboardEntry[]>(() =>
     getCachedLeaderboard('weekly', 50)
   );
   const [loading, setLoading] = useState(false);
-  const [needsSetup, setNeedsSetup] = useState(false);
+  const requestVersion = useRef(0);
 
-  // Calculate live user stats
-  const effectiveStream = currentUserProfile?.stream || stream || 'Physical Science';
-  const effectiveElective = physicalScienceElective || 'Chemistry';
-  const streamSubjects = getSubjectsForStream(effectiveStream, effectiveElective);
-  const progression = calculateOverallStreamProgression(streamSubjects, syllabusTopics);
-  const liveSyllabusPercent = progression.totalPercentage;
-
-  // Calculate real live study hours strictly from completed timer minutes
-  const storedUserObj = (() => {
-    try {
-      const raw = localStorage.getItem('mind_maze_user') || localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  })();
-
-  const dbTimerMinutes = Math.max(
-    Number(currentUserProfile?.totalStudyMinutes || 0),
-    Number(currentUserProfile?.user?.totalStudyMinutes || 0),
-    Number(storedUserObj?.totalStudyMinutes || 0)
-  );
-  const completedTaskCount = progression.completedTopics || 0;
-  const liveStreak = streakDays || streakData?.currentStreak || currentUserProfile?.streakDays || 1;
-
-  const storedStudentName = (() => {
-    try {
-      const storedSettings = localStorage.getItem('mindmaze_user_settings');
-      if (storedSettings) {
-        const parsed = JSON.parse(storedSettings);
-        if (parsed?.studentName) return parsed.studentName;
-      }
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed?.name) return parsed.name;
-        if (parsed?.username) return parsed.username;
-      }
-    } catch {}
-    return null;
-  })();
-
-  const myUsername = currentUserProfile?.name || currentUserProfile?.username || storedStudentName || 'A/L Scholar';
-  const myUserId = currentUserId || currentUserProfile?.id || currentUserProfile?._id || currentUserProfile?.email || 'current-user';
-
-  const isMe = useCallback((e: LeaderboardEntry) => {
-    if (myUserId && myUserId !== 'current-user' && (e.userId === myUserId || String(e.userId) === String(myUserId))) {
-      return true;
-    }
-    if (myUsername && e.username && e.username.trim().toLowerCase() === myUsername.trim().toLowerCase()) {
-      return true;
-    }
-    return false;
-  }, [myUserId, myUsername]);
-
-  // Merge current user's live entry into leaderboard entries
+  const myUserId = String(currentUserId || currentUserProfile?.id || currentUserProfile?._id || '');
+  const isMe = useCallback((e: LeaderboardEntry) => !!myUserId && String(e.userId) === myUserId, [myUserId]);
+  // Use the same server-calculated scores for every student and device.
   const entries = useMemo(() => {
-    const list = [...rawEntries];
-    if ((currentUserProfile?.role || storedUserObj?.role) === 'admin') {
-      const students = sortLeaderboardEntries(list.filter(e => String(e.userId) !== String(myUserId)));
-      return compact ? students.slice(0, 5) : students;
-    }
-    const userIndex = list.findIndex(isMe);
-
-    const serverMins = userIndex >= 0 ? Number(list[userIndex].totalStudyMinutes || 0) : 0;
-    const finalStudyMinutes = Math.max(dbTimerMinutes, serverMins);
-    const finalHours = finalStudyMinutes / 60;
-
-    const myEntry: LeaderboardEntry = {
-      userId: myUserId,
-      username: myUsername,
-      stream: effectiveStream,
-      completedHours: finalHours,
-      totalStudyMinutes: finalStudyMinutes,
-      completedTasks: completedTaskCount,
-      currentStreak: liveStreak,
-      syllabusCompletedPercent: liveSyllabusPercent,
-    };
-
-    if (userIndex >= 0) {
-      list[userIndex] = {
-        ...list[userIndex],
-        ...myEntry,
-        totalStudyMinutes: finalStudyMinutes,
-        completedHours: finalHours,
-      };
-    } else {
-      list.push(myEntry);
-    }
-
-    const sorted = sortLeaderboardEntries(list);
-    return compact ? sorted.slice(0, 5) : sorted;
-  }, [rawEntries, currentUserProfile?.role, storedUserObj?.role, isMe, myUserId, myUsername, effectiveStream, dbTimerMinutes, completedTaskCount, liveStreak, liveSyllabusPercent, compact]);
+    const sorted = sortLeaderboardEntries(rawEntries);
+    return compact ? sorted.slice(0,5) : sorted;
+  },[rawEntries,compact]);
 
   const load = useCallback(async (p: LeaderboardPeriod) => {
+    const version = ++requestVersion.current;
     setLoading(true);
     try {
       const res = await fetchLeaderboard(p, 50);
+      if (version !== requestVersion.current) return;
       if (res.entries) {
         setRawEntries(res.entries);
       }
-      setNeedsSetup(res.needsSetup);
+
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, []);
 
@@ -161,16 +67,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     };
     window.addEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
     return () => {
+      requestVersion.current++;
       window.removeEventListener('mindmaze_study_time_updated', handleStudyTimeUpdated);
     };
   }, [period, load]);
 
   const top3 = entries.slice(0, 3);
   const rest = entries.slice(3);
-  const myRank = entries.findIndex(
-    (e) => (myUserId && e.userId === myUserId) || e.username.toLowerCase() === myUsername.toLowerCase()
-  );
-
+  const myRank = entries.findIndex(isMe);
 
   const medal = (i: number) =>
     i === 0 ? (
@@ -197,7 +101,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-base font-black text-white flex items-center gap-2">
           <Trophy className="w-5 h-5 text-amber-400" />
-          <span>Syllabus Master Leaderboard</span>
+          <span>Study Leaderboard</span>
         </h3>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl bg-white/5 border border-white/10 p-1">
@@ -225,7 +129,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       </div>
 
       <p className="text-[11px] text-slate-400 leading-relaxed">
-        Ranked by total A/L syllabus completed %, study hours, and streak consistency!
+        Score: 10 points per study hour in the last {period === 'weekly' ? 7 : 30} days, 20 per current streak day, and 5 per completed syllabus subtopic. Study-time points are rounded down. Streak and syllabus points reflect current progress.
         {myRank >= 0 && (
           <span className="text-cyan-300 font-bold"> You&apos;re #{myRank + 1}!</span>
         )}
@@ -259,7 +163,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">
                     {formatStudyTime(e)}
                   </span>
-                  <span className="text-xs font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</span>
+                  <span className="text-xs font-black text-cyan-300">{e.score.toLocaleString()} pts</span>
                 </div>
               </div>
             ))}
@@ -301,7 +205,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                         <span className="text-[8px] font-black px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">you</span>
                       )}
                     </div>
-                    <div className="text-sm font-black text-cyan-300 mt-0.5">{e.syllabusCompletedPercent || 0}% Done</div>
+                    <div className="text-sm font-black text-cyan-300 mt-0.5">{e.score.toLocaleString()} pts</div>
                     <div className="text-[10px] text-slate-400 font-medium">
                       {timeLabel} • {e.currentStreak}d streak
                     </div>
@@ -318,7 +222,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                     <th className="py-2 pr-3 font-bold">#</th>
                     <th className="py-2 pr-3 font-bold">Student</th>
                     <th className="py-2 pr-3 font-bold">Study Time</th>
-                    <th className="py-2 pr-3 font-bold">Syllabus %</th>
+                    <th className="py-2 pr-3 font-bold">Score</th>
                     <th className="py-2 font-bold">Streak</th>
                   </tr>
                 </thead>
@@ -339,7 +243,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                           )}
                         </td>
                         <td className="py-2 pr-3 font-black text-amber-300">{timeLabel}</td>
-                        <td className="py-2 pr-3 font-black text-cyan-300">{e.syllabusCompletedPercent || 0}%</td>
+                        <td className="py-2 pr-3 font-black text-cyan-300">{e.score.toLocaleString()} pts</td>
                         <td className="py-2 text-slate-300 flex items-center gap-1">
                           <Flame className="w-3 h-3 text-amber-400" />
                           {e.currentStreak}d
