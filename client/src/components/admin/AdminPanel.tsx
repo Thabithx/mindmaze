@@ -1,3 +1,4 @@
+import { PAPER_STREAMS, paperStreams as getPaperStreams } from '../../lib/paperStreams';
 import { MarkingSchemeUpload } from './MarkingSchemeUpload';
 import { setBatches } from '../../lib/batches';
 import { PaperQuizEditor } from './PaperQuizEditor';
@@ -102,6 +103,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
+
+  const [paperSearch, setPaperSearch] = useState('');
+  const [paperFilters, setPaperFilters] = useState({subject:'',stream:'',year:'',medium:'',type:'',syllabus:''});
+  const clearPaperFilters = () => {
+    setPaperSearch('');
+    setPaperFilters({subject:'',stream:'',year:'',medium:'',type:'',syllabus:''});
+  };
+  const paperFilterOptions = [
+    {key:'subject', label:'Subject', values:[...new Set(pastPapers.map(p=>p.subject))].sort()},
+    {key:'stream', label:'Stream', values:PAPER_STREAMS},
+    {key:'year', label:'Year', values:[...new Set(pastPapers.map(p=>String(p.year)))].sort((a,b)=>Number(b)-Number(a))},
+    {key:'medium', label:'Medium', values:[...new Set(pastPapers.map(p=>p.medium))].sort()},
+    {key:'type', label:'Paper type', values:['MCQ','Structured','Essay']},
+    {key:'syllabus', label:'Syllabus', values:['current','old']},
+  ] as const;
+  const filteredAdminPapers = pastPapers.filter(paper => {
+    const query = paperSearch.trim().toLowerCase();
+    if(query && ![paper.title,paper.subject,paper.year].join(' ').toLowerCase().includes(query)) return false;
+    return Object.entries(paperFilters).every(([key,value]) => !value ||
+      (key==='stream' ? getPaperStreams(paper).includes(value) : String(paper[key])===value));
+  });
+  const hasPaperFilters = Boolean(paperSearch || Object.values(paperFilters).some(Boolean));
 
   // Simplified Past Paper Form State
   const [paperTitle, setPaperTitle] = useState('');
@@ -1014,6 +1037,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <span>Published Past Papers Library ({pastPapers.length})</span>
             </h3>
 
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-slate-300">
+                Search papers
+                <input type="search" value={paperSearch} onChange={e=>setPaperSearch(e.target.value)} placeholder="Search by title, subject or year" className="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400" />
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                {paperFilterOptions.map(({key,label,values})=>(
+                  <label key={key} className="block text-xs font-semibold text-slate-300">
+                    {label}
+                    <select value={paperFilters[key]} onChange={e=>setPaperFilters(prev=>({...prev,[key]:e.target.value}))} className="mt-1 w-full rounded-xl bg-[#1e2042] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+                      <option value="">All</option>
+                      {values.map(value=><option key={value} value={value}>{key==='syllabus' ? (value==='current'?'Current (2019+)':'Old (pre-2019)') : value}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+                <span role="status">Showing {filteredAdminPapers.length} of {pastPapers.length} papers</span>
+                {hasPaperFilters && <button type="button" onClick={clearPaperFilters} className="rounded-lg border border-white/20 px-3 py-2 text-cyan-300 hover:bg-white/5">Clear filters</button>}
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead>
@@ -1025,7 +1070,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {pastPapers.map((paper) => (
+                  {filteredAdminPapers.length===0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{pastPapers.length ? 'No papers match your search and filters. Clear filters to see all papers.' : 'No past papers uploaded yet.'}</td></tr>}
+                  {filteredAdminPapers.map((paper) => (
                     <tr key={paper.id} className="hover:bg-white/5 transition">
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-white flex items-center gap-2">
