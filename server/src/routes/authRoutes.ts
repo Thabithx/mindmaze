@@ -1,4 +1,3 @@
-import { issueVerification, verificationFields } from '../services/emailVerification.js';
 import { getBatchConfig } from '../services/batchConfig.js';
 import { normalizeBatch } from '../services/batches.js';
 import crypto from 'crypto';
@@ -79,8 +78,6 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
       name,
       email,
       passwordHash,
-      emailVerificationRequired:true,
-      emailVerified:false,
       role,
       stream: selectedStream,
       physicalScienceElective: physicalScienceElective === 'ICT' ? 'ICT' : 'Chemistry',
@@ -94,16 +91,12 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
 
     const token = generateToken(user._id.toString());
 
-    let verificationMessage='';
-    try{await issueVerification(user);}catch(e:any){verificationMessage=e.message;}
     res.status(201).json({
-      verificationMessage,
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        ...verificationFields(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
@@ -213,7 +206,6 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         id: user._id,
         name: user.name,
         email: user.email,
-        ...verificationFields(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,
@@ -295,8 +287,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
         res.status(400).json({ message: 'This email is already in use by another account' });
         return;
       }
-      if(!currentPassword||!await bcrypt.compare(currentPassword,user.passwordHash)){res.status(400).json({message:'Enter your current password to request an email change.'});return;}
-      user.pendingEmail = cleanEmail;
+      user.email = cleanEmail;
     }
 
     if (newPassword) {
@@ -403,14 +394,12 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
 
     await user.save();
 
-    if(user.pendingEmail&&email&&email.trim().toLowerCase()===user.pendingEmail){try{await issueVerification(user);}catch{/* Resend is available in the verification panel. */}}
     res.json({
-      message: user.pendingEmail ? 'Profile saved. Verify the new email before it becomes your login address.' : 'Profile updated successfully',
+      message: 'Profile updated successfully',
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        ...verificationFields(user),
         role: user.role,
         stream: user.stream,
         physicalScienceElective: user.physicalScienceElective,

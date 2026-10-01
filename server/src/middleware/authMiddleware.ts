@@ -31,9 +31,6 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       res.status(403).json({ message: 'Your account has been deactivated by an admin' });
       return;
     }
-    const verificationRoute=req.originalUrl.split('?')[0];
-    const allowed=verificationRoute==='/api/auth/profile'&&req.method==='GET'||['/api/auth/email-verification/send','/api/auth/email-verification/confirm'].includes(verificationRoute)&&req.method==='POST';
-    if(user.emailVerificationRequired&&!user.emailVerified&&!allowed){res.status(403).json({message:'Verify your email to activate your account.',code:'EMAIL_VERIFICATION_REQUIRED'});return;}
     req.user = user;
     next();
   } catch (error) {

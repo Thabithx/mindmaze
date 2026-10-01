@@ -347,8 +347,3 @@ export const sendPasswordResetEmail = async (
 
   console.log(`[Email] Password reset email sent to ${toEmail}`);
 };
-
-
-export async function sendVerificationEmail(to:string,code:string) {
- await dispatchEmail({fromName:'Mind Maze',fromEmail:FROM_ADDR,to,subject:'Verify your Mind Maze email',html:'<div style="font-family:Arial;padding:24px"><h2>Verify your email</h2><p>Your Mind Maze verification code is:</p><p style="font-size:32px;font-weight:bold;letter-spacing:6px">'+code+'</p><p>This code expires in 10 minutes. Do not share it. If you did not request it, ignore this email.</p></div>'});
-}

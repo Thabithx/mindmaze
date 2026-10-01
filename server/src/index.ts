@@ -1,4 +1,3 @@
-import emailVerificationRoutes from './routes/emailVerificationRoutes.js';
 import paperQuizRoutes from './routes/paperQuizRoutes.js';
 import pastPaperRoutes from './routes/pastPaperRoutes.js';
 import express from 'express';
@@ -50,7 +49,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', emailVerificationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/past-papers', paperQuizRoutes);
