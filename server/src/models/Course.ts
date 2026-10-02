@@ -71,4 +71,6 @@ const CourseSchema = new Schema<ICourse>(
   { timestamps: true }
 );
 
+CourseSchema.index({subject:1,topicOrder:1,lessonOrder:1,_id:1});
+CourseSchema.index({status:1,subject:1,topicOrder:1,lessonOrder:1,_id:1});
 export default mongoose.model<ICourse>('Course', CourseSchema);

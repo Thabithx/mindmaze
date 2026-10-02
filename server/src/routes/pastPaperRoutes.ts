@@ -1,3 +1,4 @@
+import {readPagination,pageInfo,paperListFilter,PaginationError} from '../services/pagination.js';
 import PaperAsset from '../models/PaperAsset.js';
 import { removeAsset } from '../services/paperAssets.js';
 import { deliverRemotePdf } from '../services/pdfDelivery.js';
@@ -12,9 +13,18 @@ import {protect,adminOnly,AuthRequest} from '../middleware/authMiddleware.js';
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024}}).single('pdfFile');
 const directory=()=>path.resolve(process.env.UPLOAD_DIR||'uploads');
-const present=(p:any)=>({id:String(p._id),questionCount:p.quizQuestions?.length||0,quizReady:p.type==='MCQ'&&Boolean(p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,markingSchemePath:p.markingSchemeId?`/past-papers/${p._id}/marking-scheme`:null,pdfPath:`/past-papers/${p._id}/download`});
+const present=(p:any)=>({id:String(p._id),questionCount:p.questionCount??p.quizQuestions?.length??0,quizReady:p.type==='MCQ'&&Boolean(p.questionCount??p.quizQuestions?.length),title:p.title,subject:p.subject,stream:p.stream,streams:p.streams?.length?p.streams:p.stream==='Both'?['Maths','Bio']:[p.stream==='Physical Science'?'Maths':p.stream==='Biological Science'?'Bio':p.stream||'Non-stream'],year:p.year,syllabus:p.syllabus,type:p.type,medium:p.medium,isModelPaper:p.isModelPaper,topicTags:p.topicTags||[],downloadSize:`${(p.size/1024/1024).toFixed(2)} MB`,markingSchemePath:p.markingSchemeId?`/past-papers/${p._id}/marking-scheme`:null,pdfPath:`/past-papers/${p._id}/download`});
 async function removeFile(p:any){if(p.provider==='local')await unlink(path.join(directory(),path.basename(p.fileKey))).catch((e:any)=>{if(e.code!=='ENOENT')throw e;});else await cloudinary.uploader.destroy(p.fileKey,{resource_type:'raw'});}
-router.get('/',async(_req,res)=>{try{res.json({papers:(await PastPaper.find().sort({createdAt:-1})).map(present)});}catch{res.status(500).json({message:'Could not load published papers.'});}});
+router.get('/filters',async(_req,res)=>{try{
+  const [subjects,years,mediums]=await Promise.all([PastPaper.distinct('subject'),PastPaper.distinct('year'),PastPaper.distinct('medium')]);
+  res.json({subjects:subjects.sort(),years:years.sort((a,b)=>b-a),mediums:mediums.sort()});
+}catch{res.status(500).json({message:'Could not load paper filters.'});}});
+router.get('/',async(req,res)=>{try{
+  const requested=readPagination(req.query),filter=paperListFilter(req.query);
+  const pagination=pageInfo(await PastPaper.countDocuments(filter),requested);
+  const papers=await PastPaper.aggregate([{$match:filter},{$sort:{createdAt:-1,_id:-1}},{$skip:(pagination.page-1)*pagination.pageSize},{$limit:pagination.pageSize},{$project:{title:1,subject:1,stream:1,streams:1,year:1,syllabus:1,type:1,medium:1,isModelPaper:1,topicTags:1,size:1,markingSchemeId:1,questionCount:{$size:{$ifNull:['$quizQuestions',[]]}}}}]);
+  res.json({papers:papers.map(present),pagination});
+}catch(e){res.status(e instanceof PaginationError?400:500).json({message:e instanceof PaginationError?e.message:'Could not load published papers.'});}});
 const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({message:e.code==='LIMIT_FILE_SIZE'?'The PDF exceeds the application limit of 25 MiB. Compress it before uploading.':e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
   let stored:any;
   try{

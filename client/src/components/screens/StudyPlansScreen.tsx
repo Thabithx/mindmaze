@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -525,6 +527,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     });
 
   const filteredSlots = processedSlots;
+  const slotsPage=usePagination(processedSlots,JSON.stringify([selectedDay,subjectFilter,tableSearchQuery,tableSortField,tableSortAsc,selectedStream]));
 
   const getActiveCellCoordinate = () => {
     if (!activeCell) return 'A1';
@@ -581,6 +584,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
       : dailyTopics[0]?.dateStr || '2026-09-04';
 
   const filteredTopics = dailyTopics.filter((t) => t.dateStr === effectiveTopicDate);
+  const topicsPage=usePagination(filteredTopics,effectiveTopicDate);
   const totalCoveredForDate = filteredTopics.filter((t) => t.status === 'completed').length;
 
   return (
@@ -1175,6 +1179,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
             </div>
           ) : (
             <>
+              {timetableViewMode!=='weekly-grid'&&<Pagination {...slotsPage.pagination} label="Timetable slots"/>}
               {timetableViewMode === 'table' && (
                 <div className="rounded-2xl border border-emerald-500/30 bg-[#0F141E] shadow-2xl overflow-hidden backdrop-blur-xl">
                   {/* Excel Top Ribbon Header */}
@@ -1458,8 +1463,8 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
 
                       {/* Spreadsheet Rows */}
                       <tbody className="divide-y divide-slate-800/80 text-xs font-sans">
-                        {processedSlots.map((slot, index) => {
-                          const rowNum = index + 1;
+                        {slotsPage.items.map((slot, index) => {
+                          const rowNum = slotsPage.offset + index + 1;
                           const isRowSelected = selectedRowId === slot.id;
                           const isPhysics = slot.subject.toLowerCase().includes('physic');
 
@@ -1936,7 +1941,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
               {/* OPTION 3: ORIGINAL CARDS VIEW (PRESERVED) */}
               {timetableViewMode === 'cards' && (
                 <div className="space-y-3">
-                  {filteredSlots.map((slot) => {
+                  {slotsPage.items.map((slot) => {
                     const isPhysics = slot.subject.toLowerCase().includes('physic');
 
                     return (
@@ -2124,6 +2129,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
           </div>
 
           {/* Daily Cover Topic Cards */}
+          <Pagination {...topicsPage.pagination} label="Daily topics"/>
           {filteredTopics.length === 0 ? (
             <div className="rounded-3xl border border-white/10 bg-white/5 p-12 text-center space-y-3">
               <BookOpen className="w-10 h-10 text-slate-400 mx-auto" />
@@ -2140,7 +2146,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredTopics.map((topic) => (
+              {topicsPage.items.map((topic) => (
                 <div
                   key={topic.id}
                   className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md space-y-5 hover:border-white/20 transition-all shadow-lg"

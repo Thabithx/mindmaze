@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { MistakeItem, ScreenId } from '../../types';
 import {
@@ -62,6 +64,7 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
     return true;
   });
 
+  const mistakesPage=usePagination(filteredMistakes,JSON.stringify([selectedSubject,selectedTopic,searchQuery]));
   const masteredCount = safeMistakes.filter((m) => m && m.isMastered).length;
 
   return (
@@ -170,6 +173,7 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
         </div>
       </div>
 
+      <Pagination {...mistakesPage.pagination} label="Mistakes"/>
       {/* Mistakes List */}
       <div className="space-y-4">
         {filteredMistakes.length === 0 ? (
@@ -187,7 +191,7 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
             </button>
           </div>
         ) : (
-          filteredMistakes.map((item) => {
+          mistakesPage.items.map((item) => {
             const isExpanded = expandedId === item.id;
             const subj = item.subject || item.question?.subject || 'Physics';
             const top = item.topic || item.question?.topic || 'General Topic';

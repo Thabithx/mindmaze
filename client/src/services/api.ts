@@ -46,6 +46,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   }
 
   const controller = new AbortController();
+  const cancelRequest = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener('abort', cancelRequest, {once:true});
   const isUpload = options.body instanceof FormData;
   const timeoutId = setTimeout(() => controller.abort(), isUpload ? 180000 : 45000);
 
@@ -53,7 +56,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
-      signal: options.signal || controller.signal,
+      signal: controller.signal,
     });
 
     const data = await response.json().catch(() => ({}));
@@ -74,6 +77,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     throw err;
   } finally {
     clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', cancelRequest);
   }
 };
 
@@ -81,6 +85,7 @@ export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-pape
 
 // API Methods
 export const api = {
+  presentPaper: (p:any) => ({...p,markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl:API_BASE+p.pdfPath}),
   telegramStatus:()=>apiFetch('/telegram/status'),
   startTelegramVerification:(body:{phone:string;currentPassword?:string})=>apiFetch('/telegram/start',{method:'POST',body:JSON.stringify(body)}),
   confirmTelegramVerification:(code:string)=>apiFetch('/telegram/confirm',{method:'POST',body:JSON.stringify({code})}),
@@ -90,7 +95,7 @@ export const api = {
   getPaperQuizForEdit: (id: string) => apiFetch('/past-papers/' + id + '/quiz/edit'),
   savePaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz', {method:'PUT',body:JSON.stringify(body)}),
   submitPaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz/submit', {method:'POST',body:JSON.stringify(body)}),
-  getPastPapers: () => apiFetch('/past-papers').then(res => ({papers: res.papers.map((p: any) => ({...p, markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl: API_BASE + p.pdfPath}))})),
+  getPastPapers: (params:Record<string,string>={}) => apiFetch('/past-papers?'+new URLSearchParams(params)).then(res=>({...res,papers:res.papers.map(api.presentPaper)})),
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   updatePastPaper: (id: string, body: FormData) => apiFetch('/past-papers/' + id, {method: 'PUT', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
@@ -114,7 +119,7 @@ export const api = {
 
   // Courses
   courseResourceUrl: (path: string) => API_BASE + path,
-  getAdminCourses: () => apiFetch('/courses/admin/list'),
+  getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
   getCourseProgress: () => apiFetch('/courses/progress'),
   saveCourseProgress: (id: string, body: {completed?:boolean}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
@@ -159,7 +164,7 @@ export const api = {
 
   // Admin
   manuallyVerifyUser:(id:string,body:{phone:string;method:'call'|'whatsapp'})=>apiFetch('/admin/users/'+encodeURIComponent(id)+'/manual-verification',{method:'PUT',body:JSON.stringify(body)}),
-  getAdminUsers: () => apiFetch('/admin/users'),
+  getAdminUsers: (params:Record<string,string>={}) => apiFetch('/admin/users?'+new URLSearchParams(params)),
   updateUserRole: (id: string, role: string) => apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   updateUserStatus: (id: string, isActive: boolean) => apiFetch(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
   deleteUser: (id: string) => apiFetch(`/admin/users/${id}`, { method: 'DELETE' }),

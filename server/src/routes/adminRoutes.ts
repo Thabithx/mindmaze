@@ -1,3 +1,4 @@
+import {readPagination,pageInfo,userListFilter,PaginationError} from '../services/pagination.js';
 import {telegramState,userPhone,normalizePhone} from '../services/telegramVerification.js';
 import { getBatchConfig, validBatches } from '../services/batchConfig.js';
 import { Router, Response } from 'express';
@@ -28,10 +29,12 @@ router.put('/site-config/exam-date',protect,adminOnly,async(req:AuthRequest,res:
 
 router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
-    res.json({ users:users.map(u=>({...u.toObject(),...telegramState(u)})) });
+    const requested=readPagination(req.query), filter=userListFilter(req.query);
+    const pagination=pageInfo(await User.countDocuments(filter),requested);
+    const users=await User.find(filter).select('-passwordHash -resetPasswordToken -resetPasswordExpires -pushSubscriptions -studyMinutesByDate -completedDates -manualVerificationHistory').sort({createdAt:-1,_id:-1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
+    res.json({users:users.map(u=>({...u,...telegramState(u)})),pagination});
   } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching users list' });
+    res.status(error instanceof PaginationError?400:500).json({ message: error instanceof PaginationError?error.message:'Error fetching users list' });
   }
 });
 

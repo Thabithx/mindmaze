@@ -1,3 +1,6 @@
+import {Pagination} from '../common/Pagination';
+import {usePagedResource,usePaperFilters} from '../../hooks/usePagedResource';
+import {usePagination} from '../../hooks/usePagination';
 import { PAPER_STREAMS, paperStreams as getPaperStreams } from '../../lib/paperStreams';
 import { MarkingSchemeUpload } from './MarkingSchemeUpload';
 import { setBatches } from '../../lib/batches';
@@ -113,6 +116,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
+  const usersPage=usePagedResource<any>('/admin/users','users',{q:searchTerm,stream:streamFilter},undefined,userRole==='admin'&&activeTab==='directory');
+  useEffect(()=>setUsers(usersPage.items),[usersPage.items]);
+  const quizPage=usePagination(quizQuestions);
+  const facets=usePaperFilters();
 
   const [paperSearch, setPaperSearch] = useState('');
   const [paperFilters, setPaperFilters] = useState({subject:'',stream:'',year:'',medium:'',type:'',syllabus:''});
@@ -121,19 +128,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setPaperFilters({subject:'',stream:'',year:'',medium:'',type:'',syllabus:''});
   };
   const paperFilterOptions = [
-    {key:'subject', label:'Subject', values:[...new Set(pastPapers.map(p=>p.subject))].sort()},
+    {key:'subject', label:'Subject', values:facets.subjects},
     {key:'stream', label:'Stream', values:PAPER_STREAMS},
-    {key:'year', label:'Year', values:[...new Set(pastPapers.map(p=>String(p.year)))].sort((a,b)=>Number(b)-Number(a))},
-    {key:'medium', label:'Medium', values:[...new Set(pastPapers.map(p=>p.medium))].sort()},
+    {key:'year', label:'Year', values:facets.years.map(String)},
+    {key:'medium', label:'Medium', values:facets.mediums},
     {key:'type', label:'Paper type', values:['MCQ','Structured','Essay']},
     {key:'syllabus', label:'Syllabus', values:['current','old']},
   ] as const;
-  const filteredAdminPapers = pastPapers.filter(paper => {
-    const query = paperSearch.trim().toLowerCase();
-    if(query && ![paper.title,paper.subject,paper.year].join(' ').toLowerCase().includes(query)) return false;
-    return Object.entries(paperFilters).every(([key,value]) => !value ||
-      (key==='stream' ? getPaperStreams(paper).includes(value) : String(paper[key])===value));
-  });
+  const papersPage=usePagedResource<PastPaper>('/past-papers','papers',{q:paperSearch,...paperFilters},'mindmaze_papers_updated',userRole==='admin'&&activeTab==='pastpapers');
+  const filteredAdminPapers=papersPage.items;
   const hasPaperFilters = Boolean(paperSearch || Object.values(paperFilters).some(Boolean));
 
   // Simplified Past Paper Form State
@@ -193,11 +196,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [usersRes, statsRes] = await Promise.all([
-        api.getAdminUsers(),
-        api.getAdminStats(),
-      ]);
-      setUsers(usersRes.users || []);
+      usersPage.reload();
+      const statsRes=await api.getAdminStats();
       setStats(statsRes.stats || null);
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);
@@ -240,7 +240,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     try {
       await api.deleteUser(userId);
-      setUsers((prev) => prev.filter((u) => u._id !== userId));
+      usersPage.reload();
+      void fetchAdminData();
     } catch (err: any) {
       alert(err.message || 'Failed to delete user');
     }
@@ -398,15 +399,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     window.open(`${API_URL}/admin/export-csv?token=${token}`, '_blank');
   };
 
-  const filteredUsers = (users || []).filter((u) => {
-    const userPhone = u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || '';
-    const matchesSearch =
-      (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      userPhone.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStream = streamFilter === 'all' || u.stream === streamFilter;
-    return matchesSearch && matchesStream;
-  });
+  const filteredUsers = users;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -471,7 +464,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <BookOpen className="w-4 h-4 text-cyan-300" />
           <span>Past Paper Manager</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-            {pastPapers.length}
+            Papers
           </span>
         </button>
 
@@ -711,7 +704,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="text-base font-black text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-cyan-400" />
-                <span>Registered Student Directory ({filteredUsers.length})</span>
+                <span>Registered Student Directory ({usersPage.pagination.total})</span>
               </h3>
 
               <div className="flex items-center gap-2">
@@ -747,6 +740,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
  {verificationError&&<p role="alert" className="text-rose-300 text-sm">{verificationError}</p>}
  <div className="flex justify-end gap-3"><button type="button" disabled={verificationBusy} onClick={()=>setVerificationTarget(null)}>Cancel</button><button type="submit" disabled={verificationBusy||!(verificationTarget.whatsappNumber||verificationTarget.mobileNumber||verificationTarget.phoneNumber||verificationTarget.phone)} className="rounded-lg bg-emerald-600 px-4 py-2 disabled:opacity-40">{verificationBusy?'Verifying…':'Confirm verification'}</button></div>
  </form></div>}
+ {usersPage.error&&<p role="alert" className="p-4 text-rose-300">{usersPage.error} <button onClick={usersPage.reload}>Retry</button></p>}
+ <Pagination {...usersPage.pagination} label="Registered users"/>
  <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead>
                   <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
@@ -764,14 +759,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-slate-400">
-                        No matching registered students found.
+                        {usersPage.loading?'Loading users…':usersPage.error?'Unable to load users. Please retry.':'No matching registered students found.'}
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((u) => (
+                    filteredUsers.map((u, i) => (
                       <tr key={u._id} className="hover:bg-white/5 transition">
                         <td className="py-3.5 px-4 font-semibold text-white">
-                          <div>{u.name}</div>
+                          <div><span className="mr-2 text-slate-400">{(usersPage.pagination.page-1)*usersPage.pagination.pageSize+i+1}.</span>{u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
                         </td>
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
@@ -1060,7 +1055,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="p-6 rounded-3xl bg-[#161831]/80 border border-white/10 backdrop-blur-xl shadow-xl space-y-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-cyan-300" />
-              <span>Published Past Papers Library ({pastPapers.length})</span>
+              <span>Published Past Papers Library ({papersPage.pagination.total})</span>
             </h3>
 
             <div className="space-y-3">
@@ -1080,7 +1075,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ))}
               </div>
               <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                <span role="status">Showing {filteredAdminPapers.length} of {pastPapers.length} papers</span>
+                <span role="status">{papersPage.pagination.total} matching papers</span>
+                {papersPage.error&&<p role="alert" className="text-rose-300">{papersPage.error} <button onClick={papersPage.reload}>Retry</button></p>}
+                <Pagination {...papersPage.pagination} label="Published papers"/>
                 {hasPaperFilters && <button type="button" onClick={clearPaperFilters} className="rounded-lg border border-white/20 px-3 py-2 text-cyan-300 hover:bg-white/5">Clear filters</button>}
               </div>
             </div>
@@ -1096,12 +1093,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredAdminPapers.length===0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{pastPapers.length ? 'No papers match your search and filters. Clear filters to see all papers.' : 'No past papers uploaded yet.'}</td></tr>}
-                  {filteredAdminPapers.map((paper) => (
+                  {filteredAdminPapers.length===0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{papersPage.loading?'Loading papers…':papersPage.error?'Unable to load papers. Please retry.':'No papers match your search and filters.'}</td></tr>}
+                  {filteredAdminPapers.map((paper, i) => (
                     <tr key={paper.id} className="hover:bg-white/5 transition">
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-white flex items-center gap-2">
-                          <span>{paper.title}</span>
+                          <span><span className="mr-2 text-slate-400">{(papersPage.pagination.page-1)*papersPage.pagination.pageSize+i+1}.</span>{paper.title}</span>
                           {paper.isModelPaper && (
                             <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] font-bold">Official Past Paper</span>
                           )}
@@ -1299,7 +1296,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="py-8 text-center text-slate-500 text-xs">No quiz questions added yet. Add your first question above.</div>
             ) : (
               <div className="space-y-3">
-                {quizQuestions.map((q, i) => (
+                <Pagination {...quizPage.pagination} label="Quiz questions"/>
+                {quizPage.items.map((q, i) => (
                   <div key={q.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
@@ -1308,7 +1306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px]">{q.topic}</span>
                           <span className="text-[10px] text-slate-500">{q.paperYear}</span>
                         </div>
-                        <p className="text-xs text-white font-semibold leading-relaxed">Q{i + 1}. {q.questionText}</p>
+                        <p className="text-xs text-white font-semibold leading-relaxed">Q{quizPage.offset + i + 1}. {q.questionText}</p>
                         <div className="mt-1.5 grid grid-cols-2 gap-1">
                           {q.options.map((opt) => (
                             <div key={opt.id} className={`text-[10px] px-2 py-1 rounded-lg ${opt.isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold' : 'text-slate-400 bg-white/5 border border-white/5'}`}>

@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SyllabusTopic, StreamType, TopicStatus, DailyTask } from '../../types';
@@ -226,21 +228,22 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
     return true;
   });
 
+  const topicsPage=usePagination(displayedTopics,JSON.stringify([selectedSubject,statusFilter,searchQuery]));
   type TopicListRow =
     | { kind: 'group'; key: string; title: string; paper: string; range: string; topics: SyllabusTopic[] }
     | { kind: 'topic'; topic: SyllabusTopic };
   const isCombinedMathsSelected = selectedSubject === 'Combined Mathematics';
   const topicRows: TopicListRow[] = (() => {
-    if (!isCombinedMathsSelected) return displayedTopics.map((topic) => ({ kind: 'topic' as const, topic }));
+    if (!isCombinedMathsSelected) return topicsPage.items.map((topic) => ({ kind: 'topic' as const, topic }));
     const groups = [
       { key: 'pure', title: 'Pure Mathematics', paper: 'Paper I', range: 'Units 1–11' },
       { key: 'applied', title: 'Applied Mathematics', paper: 'Paper II', range: 'Units 12–18' },
     ];
     const rows: TopicListRow[] = [];
     for (const g of groups) {
-      const groupTopics = displayedTopics.filter((t) => getCombinedMathsGroup(t) === g.title);
+      const groupTopics = topicsPage.items.filter((t) => getCombinedMathsGroup(t) === g.title);
       if (groupTopics.length === 0) continue;
-      rows.push({ kind: 'group', ...g, topics: groupTopics });
+      rows.push({ kind: 'group', ...g, topics: displayedTopics.filter(t=>getCombinedMathsGroup(t)===g.title) });
       for (const topic of groupTopics) rows.push({ kind: 'topic', topic });
     }
     return rows;
@@ -455,6 +458,7 @@ export const TopicTracker: React.FC<TopicTrackerProps> = ({
         </div>
       </div>
 
+      <Pagination {...topicsPage.pagination} label="Syllabus topics"/>
       {/* Topic Cards List */}
       <div className="space-y-3">
         {topicRows.length === 0 ? (

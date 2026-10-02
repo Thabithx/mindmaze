@@ -101,13 +101,7 @@ export function App() {
   const [dismissedBlockIds, setDismissedBlockIds] = useState<string[]>([]);
   const [streakDays, setStreakDays] = useState<number>(() => calculateStreak(getStoredDailyTasks() || []).currentStreak || 1);
 
-  useEffect(() => {
-    const loadPapers = () => api.getPastPapers().then(res => setPastPapers(res.papers)).catch(err => console.error('Could not load papers', err));
-    void loadPapers();
-    window.addEventListener('focus', loadPapers);
-    window.addEventListener('mindmaze_papers_updated', loadPapers);
-    return () => { window.removeEventListener('focus', loadPapers); window.removeEventListener('mindmaze_papers_updated', loadPapers); };
-  }, []);
+
 
   const handleAddPastPaper = (newPaper: PastPaper) => {
     const updated = [newPaper, ...pastPapers];
@@ -121,6 +115,7 @@ export function App() {
     const updated = pastPapers.filter((p) => p.id !== paperId);
     setPastPapers(updated);
     saveStoredPastPapers(updated);
+    window.dispatchEvent(new Event('mindmaze_papers_updated'));
   };
 
   const handleAddQuizQuestion = (newQ: Question) => {

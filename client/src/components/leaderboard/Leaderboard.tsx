@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { Trophy, Medal, Flame, RefreshCw, Crown } from 'lucide-react';
 import { ScreenId, StreamType, SyllabusTopic, TimetableEntry, DailyTask, StreakData } from '../../types';
@@ -74,6 +76,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
   const top3 = entries.slice(0, 3);
   const rest = entries.slice(3);
+  const ranksPage=usePagination(rest,period);
   const myRank = entries.findIndex(isMe);
 
   const medal = (i: number) =>
@@ -216,6 +219,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
           )}
           {rest.length > 0 && (
             <div className="overflow-x-auto">
+              <Pagination {...ranksPage.pagination} label="Leaderboard ranks 4 onward"/>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/10">
@@ -227,7 +231,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {rest.map((e, i) => {
+                  {ranksPage.items.map((e, i) => {
                     const timeLabel = formatStudyTime(e);
 
                     return (
@@ -235,7 +239,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                         key={e.userId}
                         className={`border-b border-white/5 ${isMe(e) ? 'bg-cyan-500/10' : ''}`}
                       >
-                        <td className="py-2 pr-3 font-black text-slate-400">{i + 4}</td>
+                        <td className="py-2 pr-3 font-black text-slate-400">{ranksPage.offset + i + 4}</td>
                         <td className="py-2 pr-3 font-bold text-white">
                           @{e.username}
                           {isMe(e) && (

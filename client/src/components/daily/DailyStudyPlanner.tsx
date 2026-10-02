@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DailyTask, StreamType, SubtopicTarget, TimetableEntry, SyllabusTopic, BlockType } from '../../types';
@@ -209,6 +211,7 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
     setSelectedDate(`${newY}-${newM}-${newD}`);
   };
 
+  const tasksPage=usePagination(displayedTasks,JSON.stringify([selectedDate,taskFilter]));
   return (
     <div id="daily-study-planner-view" className="space-y-6 max-w-5xl mx-auto pb-8">
       {/* Top Header Card */}
@@ -362,6 +365,7 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
 
       {/* Tasks List */}
       <div className="space-y-3">
+        <Pagination {...tasksPage.pagination} label="Daily tasks"/>
         {displayedTasks.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-[#161831]/60 p-8 text-center text-slate-400 backdrop-blur-md">
             <BookOpen className="w-10 h-10 mx-auto text-slate-500 mb-2 opacity-50" />
@@ -391,7 +395,7 @@ export const DailyStudyPlanner: React.FC<DailyStudyPlannerProps> = ({
             </div>
           </div>
         ) : (
-          displayedTasks.map((task) => {
+          tasksPage.items.map((task) => {
             return (
               <div
                 key={task.id}

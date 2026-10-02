@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { ScreenId, UserSettings, TimetableEntry, SyllabusTopic, UserProfile } from '../../types';
 import { api } from '../../services/api';
@@ -34,6 +36,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   timetableEntries = [],
   syllabusTopics = [],
 }) => {
+  const remindersPage=usePagination(timetableEntries);
   const effectiveSettings = settings || userSettings || {};
   const isEmailEnabled = effectiveSettings.emailNotificationsEnabled !== false; // Enabled by default
   const studentEmail = userProfile?.email || '';
@@ -128,6 +131,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </button>
         </div>
 
+        <Pagination {...remindersPage.pagination} label="Scheduled reminders"/>
         {timetableEntries.length === 0 ? (
           <div className="p-8 text-center text-slate-400 space-y-3">
             <Calendar className="w-10 h-10 text-slate-600 mx-auto" />
@@ -141,7 +145,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </div>
         ) : (
           <div className="space-y-2.5">
-            {timetableEntries.map((entry) => (
+            {remindersPage.items.map((entry) => (
               <div
                 key={entry.id}
                 className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 text-xs hover:bg-white/[0.08] transition"

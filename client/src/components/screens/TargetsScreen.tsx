@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { MilestoneBadge, ScreenId, TargetCard, UserProfile } from '../../types';
 import {
@@ -49,6 +51,7 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
     return card.timeframe === selectedTimeframe;
   });
 
+  const targetsPage=usePagination(filteredCards,selectedTimeframe);
   const handleSaveGoal = () => {
     onUpdateProfile({
       targetGrade: tempGoalGrade,
@@ -220,8 +223,9 @@ export const TargetsScreen: React.FC<TargetsScreenProps> = ({
           </div>
         </div>
 
+        <Pagination {...targetsPage.pagination} label="Targets"/>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCards.map((card) => {
+          {targetsPage.items.map((card) => {
             const pct = Math.min(100, Math.round((card.current / card.target) * 100));
             return (
               <div

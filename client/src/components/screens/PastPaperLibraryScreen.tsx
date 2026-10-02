@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagedResource,usePaperFilters} from '../../hooks/usePagedResource';
 import { MarkingSchemeButton } from '../MarkingSchemeButton';
 import { PAPER_STREAMS, paperStreams } from '../../lib/paperStreams';
 import React, { useState, useMemo } from 'react';
@@ -53,59 +55,14 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
   const mediums = ['All', 'English', 'Sinhala', 'Tamil'];
   const yearRanges = ['All', '2026', '2020-2026', '2015-2019', '2010-2014', '2000-2009'];
 
-  const paperList = pastPapers ?? [];
-
-  const filteredPapers = useMemo(() => {
-    return paperList.filter((paper) => {
-      if(selectedStream!=='All'&&!paperStreams(paper).includes(selectedStream))return false;
-      // Search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchTitle = paper.title.toLowerCase().includes(query);
-        const matchSubject = paper.subject.toLowerCase().includes(query);
-        const matchTags = (paper.topicTags || []).some((t) => t.toLowerCase().includes(query));
-        if (!matchTitle && !matchSubject && !matchTags && !paperStreams(paper).some(s=>s.toLowerCase().includes(query))) return false;
-      }
-
-      // Subject
-      if (selectedSubject !== 'All' && paper.subject !== selectedSubject) {
-        return false;
-      }
-
-      // Syllabus "Current Only" filter
-      if (currentOnly && paper.syllabus !== 'current') {
-        return false;
-      }
-
-      // Paper Type
-      if (selectedType !== 'All' && paper.type !== selectedType) {
-        return false;
-      }
-
-      // Medium
-      if (selectedMedium !== 'All' && paper.medium !== selectedMedium) {
-        return false;
-      }
-
-      // Year range
-      if (selectedYearRange !== 'All') {
-        if (selectedYearRange === '2026') {
-          if (paper.year !== 2026) return false;
-        } else {
-          const [start, end] = selectedYearRange.split('-').map(Number);
-          if (paper.year < start || paper.year > end) {
-            return false;
-          }
-        }
-      }
-
-      return true;
-    });
-  }, [paperList, selectedStream, searchQuery, selectedSubject, currentOnly, selectedType, selectedMedium, selectedYearRange]);
+  const facets=usePaperFilters();
+  const papersPage=usePagedResource<PastPaper>('/past-papers','papers',{q:searchQuery,stream:selectedStream,subject:selectedSubject,syllabus:currentOnly?'current':'',type:selectedType,medium:selectedMedium,year:selectedYearRange},'mindmaze_papers_updated');
+  const filteredPapers=papersPage.items;
 
   return (
     <div id="mind-maze-past-paper-library" className="space-y-6 sm:space-y-8 pb-12 px-1 sm:px-0">
       <label className="block text-sm text-slate-300">Target stream<select aria-label="Filter by target stream" value={selectedStream} onChange={e=>setSelectedStream(e.target.value)} className="ml-3 rounded-lg border border-white/20 bg-slate-900 p-2">{['All',...PAPER_STREAMS].map(s=><option key={s} value={s}>{s==='All'?'All streams':s}</option>)}</select></label>
+      {papersPage.error&&<p role="alert" className="text-rose-300">{papersPage.error} <button onClick={papersPage.reload} className="underline">Retry</button></p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -160,7 +117,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
           { id: 'ICT', label: 'ICT', isLive: false, badge: 'Soon' },
           { id: 'Combined Maths', label: 'Combined Maths', isLive: false, badge: 'Soon' },
         ].map((item) => {
-          const available=item.id==='All'||paperList.some(p=>p.subject===item.id);
+          const available=item.id==='All'||facets.subjects.includes(item.id);
           const tab={...item,isLive:available,badge:available?'Available':'Soon'};
           const isSelected = selectedSubject === tab.id;
           return (
@@ -195,7 +152,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         })}
       </div>
 
-      {selectedSubject !== 'All' && !paperList.some(p=>p.subject===selectedSubject) && (
+      {selectedSubject !== 'All' && !facets.subjects.includes(selectedSubject) && (
         <div className="rounded-3xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 p-4 sm:p-6 backdrop-blur-xl space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3">
@@ -322,7 +279,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
       {/* Results Count & Quick Tags */}
       <div className="flex items-center justify-between text-xs text-slate-400 px-1">
         <span>
-          Showing <strong className="text-white">{filteredPapers.length}</strong> past papers
+          Showing <strong className="text-white">{papersPage.pagination.total}</strong> past papers
         </span>
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline">Active Filters:</span>
@@ -339,9 +296,10 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         </div>
       </div>
 
+      <Pagination {...papersPage.pagination} label="Past papers"/>
       {/* Mobile Card List (block md:hidden) */}
       <div className="block md:hidden space-y-3.5">
-        {filteredPapers.length === 0 ? (
+        {papersPage.loading ? <p role="status">Loading papers…</p> : papersPage.error ? null : filteredPapers.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-400">
             <p className="text-sm font-semibold text-slate-300">No past papers found matching the active filters.</p>
             <p className="text-xs text-slate-400 mt-1">Try turning off "Current Syllabus Only" or adjusting your search keyword.</p>
@@ -447,7 +405,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredPapers.length === 0 ? (
+              {papersPage.loading ? <tr><td colSpan={4} className="p-6" role="status">Loading papers…</td></tr> : papersPage.error ? null : filteredPapers.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold text-slate-300">No past papers found matching the active filters.</p>
@@ -618,6 +576,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
         </div>
       )}
 
+      <Pagination {...papersPage.pagination} label="Past papers bottom"/>
       {/* Coming Soon Modal */}
       <ComingSoonModal
         isOpen={!!comingSoonModalSubject}

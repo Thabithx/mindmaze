@@ -1,3 +1,5 @@
+import {Pagination} from '../common/Pagination';
+import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -389,6 +391,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
   const dayEntries = entries
     .filter((e) => e.dayOfWeek === selectedDay)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const tasksPage=usePagination(dateTasks,selectedDate),repeatsPage=usePagination(dayEntries,selectedDate);
   const doneCount = dateTasks.filter((t) => t.isCompleted).length;
   const progress = dateTasks.length === 0 ? 0 : Math.round((doneCount / dateTasks.length) * 100);
 
@@ -727,6 +730,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
               <span>Add</span>
             </button>
           </div>
+          <Pagination {...tasksPage.pagination} label="Study blocks"/>
           {dateTasks.length === 0 ? (
             <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-center">
               <BookOpen className="w-10 h-10 mx-auto text-slate-500 mb-2 opacity-60" />
@@ -753,7 +757,7 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
             </div>
           ) : (
             <div className="space-y-2.5">
-              {dateTasks.map((task) => (
+              {tasksPage.items.map((task) => (
                 <div
                   key={task.id}
                   className={`rounded-2xl border p-3 backdrop-blur-md flex items-center justify-between gap-3 ${
@@ -833,13 +837,14 @@ export const StudyPlanner: React.FC<StudyPlannerProps> = ({
           <p className="text-[11px] text-slate-400 leading-relaxed">
             The template. New repeats auto-appear on every future {selectedDay}.
           </p>
+          <Pagination {...repeatsPage.pagination} label="Repeating blocks"/>
           {dayEntries.length === 0 ? (
             <div className="p-5 rounded-2xl bg-white/5 border border-white/5 text-center text-xs text-slate-400">
               No repeating blocks for {selectedDay} yet.
             </div>
           ) : (
             <div className="space-y-2">
-              {dayEntries.map((entry) => (
+              {repeatsPage.items.map((entry) => (
                 <div
                   key={entry.id}
                   className={`p-3 rounded-2xl border ${entry.blockType === 'revision' ? 'border-teal-400/40 bg-teal-500/[0.07]' : 'border-white/10 bg-white/5'}`}

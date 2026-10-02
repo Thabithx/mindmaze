@@ -1,3 +1,4 @@
+import {readPagination,pageInfo,literalSearch,queryText,PaginationError} from '../services/pagination.js';
 import {Router, RequestHandler} from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
@@ -21,7 +22,18 @@ const fail=(res:any,error:any)=>res.status(error?.name==='CastError'?400:500).js
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
 // Register named routes before /:id. Public queries always exclude drafts.
-router.get('/admin/list',protect,adminOnly,async(_req,res)=>{try{res.json({courses:(await Course.find().sort({subject:1,topicOrder:1,lessonOrder:1})).map(c=>present(c,true))});}catch(e){fail(res,e);}});
+router.get('/admin/topics',protect,adminOnly,async(_req,res)=>{try{
+  const topics=await Course.aggregate([{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
+  res.json({topics});
+}catch(e){fail(res,e);}});
+router.get('/admin/list',protect,adminOnly,async(req,res)=>{try{
+  const requested=readPagination(req.query),filter:any={};
+  for(const key of ['subject','status'])if(queryText(req.query[key]))filter[key]=queryText(req.query[key]);
+  const search=literalSearch(req.query.q);if(search)filter.$or=['title','topic','subject'].map(key=>({[key]:search}));
+  const pagination=pageInfo(await Course.countDocuments(filter),requested);
+  const courses=await Course.find(filter).sort({subject:1,topicOrder:1,lessonOrder:1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
+  res.json({courses:courses.map(c=>present(c,true)),pagination});
+}catch(e){if(e instanceof PaginationError)res.status(400).json({message:e.message});else fail(res,e);}});
 router.get('/progress',protect,async(req:AuthRequest,res)=>{try{res.json({progress:await CourseProgress.find({user:req.user!._id}).lean()});}catch(e){fail(res,e);}});
 router.get('/',async(req,res)=>{try{
   const filter:any={...publishedFilter};

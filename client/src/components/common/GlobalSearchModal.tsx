@@ -1,3 +1,4 @@
+import {usePagedResource} from '../../hooks/usePagedResource';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -32,6 +33,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   tasks = [],
 }) => {
   const [query, setQuery] = useState('');
+  const papersPage=usePagedResource<PastPaper>('/past-papers','papers',{q:query},undefined,isOpen&&Boolean(query.trim()));
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,14 +63,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       ).slice(0, 5)
     : [];
 
-  const matchedPapers = q
-    ? pastPapers.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.subject.toLowerCase().includes(q) ||
-          String(p.year).includes(q)
-      ).slice(0, 4)
-    : [];
+  const matchedPapers = q ? papersPage.items.slice(0,4) : [];
 
   const matchedQuizzes = q
     ? quizQuestions.filter(
@@ -99,6 +94,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         className="w-full max-w-2xl rounded-3xl border border-white/20 bg-[#14162e] shadow-2xl overflow-hidden flex flex-col text-slate-100 max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        {papersPage.error&&<p role="alert" className="p-3 text-sm text-rose-300">Paper search unavailable. <button onClick={papersPage.reload}>Retry</button></p>}
         {/* Search Input Bar */}
         <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/10 bg-[#191b3b]">
           <Search className="w-5 h-5 text-cyan-400 shrink-0" />
@@ -189,7 +185,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     <div
                       key={paper.id}
                       onClick={() => {
-                        onNavigate('past-papers');
+                        onNavigate('pastpapers');
                         onClose();
                       }}
                       className="p-3 rounded-2xl bg-white/5 border border-white/10 hover:border-purple-400/50 hover:bg-white/10 transition cursor-pointer flex items-center justify-between group"
