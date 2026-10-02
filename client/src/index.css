@@ -369,10 +369,10 @@ html[data-theme="light"] ::-webkit-scrollbar-track { background:#e2e8f0; }
 .app-header { flex:0 0 4rem; }
 .app-content { overscroll-behavior-y:contain; scrollbar-gutter:stable; }
 .app-sidebar { overflow:hidden; }
-.support-contacts { color:#e2e8f0; }
+.support-contacts { color:#9ca3af; }
 .support-contacts a { color:inherit; font-weight:700; }
 .support-contacts a:focus-visible { outline:2px solid #22d3ee; outline-offset:3px; border-radius:3px; }
-html[data-theme="light"] .support-contacts { color:#172033; }
+html[data-theme="light"] .support-contacts { color:#6b7280; }
 
 /* Course surfaces have explicit palettes in both themes. */
 .learning-area { --lesson-panel:rgba(15,23,42,.85); --lesson-input:#0f172a; --lesson-border:#475569; }
