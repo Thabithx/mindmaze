@@ -7,6 +7,8 @@ import {
   Settings,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Flame,
   Sparkles,
   LogIn,
@@ -20,6 +22,9 @@ interface NavbarProps {
   currentScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
   onToggleMobileSidebar: () => void;
+  isSidebarCollapsed?: boolean;
+  isMobileSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
   onOpenAuthModal: (mode: 'signin' | 'signup') => void;
   onSignOut: () => void;
   onOpenProfileEdit: () => void;
@@ -31,6 +36,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentScreen,
   onNavigate,
   onToggleMobileSidebar,
+  isSidebarCollapsed = false,
+  isMobileSidebarOpen = false,
+  onToggleSidebar,
   onOpenAuthModal,
   onSignOut,
   onOpenProfileEdit,
@@ -42,6 +50,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="app-header relative z-30 flex h-16 shrink-0 w-full items-center justify-between border-b border-white/[0.08] bg-[#0D0F1E]/90 px-3 sm:px-6 backdrop-blur-2xl shadow-lg shadow-black/20 select-none">
       {/* Left: Brand Logo */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {onToggleSidebar&&<button type="button" onClick={onToggleSidebar} aria-label={isSidebarCollapsed?'Expand sidebar':'Collapse sidebar'} aria-expanded={!isSidebarCollapsed} aria-controls="main-sidebar" title={isSidebarCollapsed?'Expand sidebar':'Collapse sidebar'} className="hidden lg:inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 shadow-sm transition-all hover:border-indigo-400/60 hover:bg-indigo-500/20 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 cursor-pointer">
+          {isSidebarCollapsed?<PanelLeftOpen className="h-5 w-5" aria-hidden="true"/>:<PanelLeftClose className="h-5 w-5" aria-hidden="true"/>}
+        </button>}
+        <button type="button" onClick={onToggleMobileSidebar} aria-label={isMobileSidebarOpen?'Close navigation menu':'Open navigation menu'} aria-expanded={isMobileSidebarOpen} aria-controls="main-sidebar" className="inline-flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 shadow-sm transition-all hover:bg-indigo-500/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 cursor-pointer"><Menu className="h-5 w-5" aria-hidden="true"/></button>
         <div onClick={() => onNavigate('dashboard')} className="cursor-pointer min-w-0">
           <Logo size="sm" />
         </div>
@@ -157,14 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Mobile Navigation Hamburger Menu */}
-        <button
-          onClick={onToggleMobileSidebar}
-          className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white lg:hidden transition min-h-[40px] min-w-[40px] flex items-center justify-center shrink-0 border border-white/10 cursor-pointer"
-          aria-label="Toggle navigation menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+
       </div>
     </header>
   );

@@ -13,8 +13,6 @@ import {
   Settings,
   User,
   ShieldCheck,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
   LogIn,
   X,
@@ -27,7 +25,6 @@ interface SidebarProps {
   currentScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
   userRole?: string;
@@ -68,7 +65,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentScreen,
   onNavigate,
   isCollapsed,
-  onToggleCollapse,
   isOpenMobile = false,
   onCloseMobile,
   userRole = 'student',
@@ -93,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar */}
       <aside
+        id="main-sidebar"
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex min-h-0 shrink-0 flex-col border-r border-white/[0.06] bg-[#0D0F1E]/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:h-full lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0 w-80 max-w-[85vw]' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
@@ -245,13 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <a className="block py-1 font-bold hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
           </address>}
           {!isCollapsed && <p className="text-right text-[9px] leading-relaxed tracking-wide text-slate-400">DEVELOPED BY THABITH &amp; ASJADH AZHAR</p>}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex w-full items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
-            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
+
         </div>
       </aside>
     </>
