@@ -1,375 +1,66 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
-import { Upload, Plus, Trash2, FileText, Video, HelpCircle, Loader2, BookOpen } from 'lucide-react';
+import React,{useEffect,useRef,useState} from 'react';
+import {api} from '../../services/api';
+import {Lesson,subjects,control,button,panel} from './learning';
+import {LessonView} from './LessonView';
 
-interface QuizQuestionInput {
-  questionText: string;
-  options: string[];
-  correctOptionIndex: number;
-  explanation: string;
-}
-
-export const AdminCourseManager: React.FC = () => {
-  const [courses, setCourses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Form State
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [subject, setSubject] = useState('Physics');
-  const [stream, setStream] = useState('Physical Science');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-
-  // Quiz Builder State
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionInput[]>([]);
-  const [qText, setQText] = useState('');
-  const [opt0, setOpt0] = useState('');
-  const [opt1, setOpt1] = useState('');
-  const [opt2, setOpt2] = useState('');
-  const [opt3, setOpt3] = useState('');
-  const [correctIdx, setCorrectIdx] = useState(0);
-  const [explanation, setExplanation] = useState('');
-
-  useEffect(() => {
-    fetchCourses();
-    const handleUpdate = () => fetchCourses();
-    window.addEventListener('mindmaze_courses_updated', handleUpdate);
-    return () => window.removeEventListener('mindmaze_courses_updated', handleUpdate);
-  }, []);
-
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      const res = await api.getCourses();
-      // Only show real DB courses
-      setCourses(res.courses || []);
-    } catch (err: any) {
-      console.error('Error loading courses:', err);
-      setCourses([]);
-    } finally {
-      setLoading(false);
-    }
+type Question={questionText:string;options:string[];correctOptionIndex:number;explanation:string};
+const initial=()=>({title:'',description:'',subject:'Physics',stream:'Both',topic:'',topicOrder:1,lessonOrder:1,estimatedMinutes:15,medium:'English',syllabus:'current',status:'draft'});
+export const AdminCourseManager:React.FC=()=>{
+  const [lessons,setLessons]=useState<Lesson[]>([]),[papers,setPapers]=useState<any[]>([]),[loading,setLoading]=useState(true);
+  const [form,setForm]=useState(initial),[editing,setEditing]=useState<Lesson|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+  const [videos,setVideos]=useState<{title:string;url:string}[]>([]),[files,setFiles]=useState<File[]>([]),[resources,setResources]=useState<NonNullable<Lesson['resources']>>([]);
+  const [quiz,setQuiz]=useState<Question[]>([]),[related,setRelated]=useState<string[]>([]),[preview,setPreview]=useState<Lesson|null>(null),[fileKey,setFileKey]=useState(0);
+  const [search,setSearch]=useState(''),[filterSubject,setFilterSubject]=useState(''),[filterStatus,setFilterStatus]=useState('');
+  const mounted=useRef(true);
+  const load=async()=>{setLoading(true);try{const result=await api.getAdminCourses();if(mounted.current)setLessons(result.courses);}catch(e:any){if(mounted.current)setError(e.message);}finally{if(mounted.current)setLoading(false);}};
+  useEffect(()=>{mounted.current=true;load();api.getPastPapers().then(r=>{if(mounted.current)setPapers(r.papers);}).catch(()=>{});return()=>{mounted.current=false;};},[]);
+  const reset=()=>{setForm(initial());setEditing(null);setVideos([]);setFiles([]);setResources([]);setQuiz([]);setRelated([]);setFileKey(k=>k+1);setError('');};
+  const edit=(lesson:Lesson)=>{
+    setEditing(lesson);setForm({title:lesson.title,description:lesson.description,subject:lesson.subject,stream:lesson.stream,topic:lesson.topic,topicOrder:lesson.topicOrder,lessonOrder:lesson.lessonOrder,estimatedMinutes:lesson.estimatedMinutes,medium:lesson.medium,syllabus:lesson.syllabus,status:lesson.status});
+    setVideos((lesson.videos||[]).map(v=>({...v})));setResources(lesson.resources||[]);setFiles([]);setQuiz((lesson.quiz||[]).map(q=>({...q,options:[...q.options],correctOptionIndex:q.correctOptionIndex??0,explanation:q.explanation||''})));setRelated(lesson.relatedPaperIds||[]);setFileKey(k=>k+1);setError('');setMessage('');
+    document.getElementById('lesson-editor')?.scrollIntoView({behavior:'smooth'});
   };
-
-  const handleAddQuestionToQuiz = () => {
-    if (!qText.trim() || !opt0.trim() || !opt1.trim()) {
-      alert('Please fill out the question text and at least 2 options.');
-      return;
-    }
-    const options = [opt0, opt1, opt2, opt3].filter((o) => o.trim().length > 0);
-    setQuizQuestions((prev) => [
-      ...prev,
-      { questionText: qText, options, correctOptionIndex: correctIdx, explanation },
-    ]);
-    setQText(''); setOpt0(''); setOpt1(''); setOpt2(''); setOpt3('');
-    setCorrectIdx(0); setExplanation('');
+  const save=async(e:React.FormEvent)=>{
+    e.preventDefault();if(busy)return;setBusy(true);setError('');setMessage('');
+    try{
+      const body=new FormData();Object.entries(form).forEach(([key,value])=>body.append(key,String(value)));
+      body.append('videosJson',JSON.stringify(videos));body.append('quizJson',JSON.stringify(quiz));body.append('relatedPaperIds',JSON.stringify(related));body.append('keepResourceIds',JSON.stringify(resources.map(r=>r.id)));
+      if(editing)body.append('revision',String(editing.revision));files.forEach(f=>body.append('pdfFiles',f));
+      const result=editing?await api.updateCourse(editing._id,body):await api.createCourse(body);
+      setLessons(prev=>[result.course,...prev.filter(l=>l._id!==result.course._id)].sort((a,b)=>a.subject.localeCompare(b.subject)||a.topicOrder-b.topicOrder||a.lessonOrder-b.lessonOrder));
+      reset();setMessage(result.course.status==='draft'?'Draft saved. It is hidden from students.':'Lesson published. Students can find it under its subject and topic.');window.dispatchEvent(new Event('mindmaze_courses_updated'));
+    }catch(e:any){setError(e.message);}finally{setBusy(false);}
   };
-
-  const handleRemoveQuizQuestion = (index: number) => {
-    setQuizQuestions((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleSubmitCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      setMessage({ type: 'error', text: 'Title and description are required.' });
-      return;
-    }
-    try {
-      setSubmitting(true);
-      setMessage(null);
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('subject', subject);
-      formData.append('stream', stream);
-      if (videoUrl) formData.append('videoUrl', videoUrl);
-      if (pdfFile) formData.append('pdfFile', pdfFile);
-      if (quizQuestions.length > 0) {
-        formData.append('quizJson', JSON.stringify(quizQuestions));
-      }
-      await api.createCourse(formData);
-      setMessage({ type: 'success', text: 'Course created and saved to database successfully!' });
-      setTitle(''); setDescription(''); setVideoUrl(''); setPdfFile(null); setQuizQuestions([]);
-      window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
-      fetchCourses();
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to create course.' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteCourse = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this course?')) return;
-    // Optimistically remove from UI
-    setCourses((prev) => prev.filter((c) => c._id !== id));
-    window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
-    try {
-      await api.deleteCourse(id);
-    } catch (err: any) {
-      alert('Failed to delete course: ' + err.message);
-      // Re-fetch to restore correct state
-      fetchCourses();
-    }
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Title */}
-      <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <BookOpen className="w-6 h-6 text-indigo-400" /> Admin Course Manager
-        </h2>
-        <p className="text-slate-400 text-xs mt-1">
-          Upload PDF study guides to Cloudinary, attach video links, and add course quizzes.
-        </p>
-      </div>
-
-      {message && (
-        <div
-          className={`p-4 rounded-xl text-sm font-medium border ${
-            message.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-          }`}
-        >
-          {message.text}
+  const remove=async(lesson:Lesson)=>{if(!window.confirm(`Delete “${lesson.title}” and its lesson progress?`))return;setBusy(true);setError('');try{await api.deleteCourse(lesson._id);setLessons(prev=>prev.filter(l=>l._id!==lesson._id));if(editing?._id===lesson._id)reset();setMessage('Lesson deleted.');window.dispatchEvent(new Event('mindmaze_courses_updated'));}catch(e:any){setError(e.message);}finally{setBusy(false);}};
+  const changeQuestion=(i:number,patch:Partial<Question>)=>setQuiz(prev=>prev.map((q,j)=>j===i?{...q,...patch}:q));
+  const visible=lessons.filter(l=>(!filterSubject||l.subject===filterSubject)&&(!filterStatus||l.status===filterStatus)&&[l.title,l.topic,l.subject].join(' ').toLowerCase().includes(search.trim().toLowerCase()));
+  return <section className="space-y-6">
+    <header className={panel}><h2 className="text-xl font-bold text-white">Manage courses & lessons</h2><p className="text-sm text-slate-400">Choose a subject and topic, add a lesson, then attach videos, notes and practice questions.</p></header>
+    {message&&<p role="status" className="text-emerald-300">{message}</p>}{error&&<p role="alert" className="text-rose-300">{error}</p>}
+    {preview&&<div className={panel}><button className={button} onClick={()=>setPreview(null)}>Close student preview</button><LessonView key={preview._id} lesson={preview} preview onProgress={()=>{}}/></div>}
+    <form id="lesson-editor" onSubmit={save} className={panel}>
+      <h3 className="text-lg font-bold text-white">{editing?'Edit lesson':'Create a lesson'}</h3>
+      <fieldset disabled={busy} className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="text-sm text-slate-300">Subject<select className={control+' mt-1'} value={form.subject} onChange={e=>setForm(f=>({...f,subject:e.target.value,topic:''}))}>{subjects.map(s=><option key={s}>{s}</option>)}</select></label>
+          <label className="text-sm text-slate-300">Topic<input required list="lesson-topics" className={control+' mt-1'} value={form.topic} placeholder="Choose or enter a new topic" onChange={e=>{const value=e.target.value,match=lessons.find(l=>l.subject===form.subject&&l.topic===value);setForm(f=>({...f,topic:value,...(match?{topicOrder:match.topicOrder}:{})}));}}/><datalist id="lesson-topics">{[...new Set(lessons.filter(l=>l.subject===form.subject).map(l=>l.topic))].map(t=><option key={t} value={t}/>)}</datalist></label>
+          <label className="text-sm text-slate-300">Target stream<select className={control+' mt-1'} value={form.stream} onChange={e=>setForm(f=>({...f,stream:e.target.value}))}>{['Both','Maths','Bio','Physical Science','Biological Science','Non-stream'].map(s=><option key={s} value={s}>{s==='Both'?'Maths and Bio':s}</option>)}</select></label>
+          <label className="text-sm text-slate-300">Topic order<input type="number" min="0" max="1000" required className={control+' mt-1'} value={form.topicOrder} onChange={e=>setForm(f=>({...f,topicOrder:Number(e.target.value)}))}/></label>
+          <label className="text-sm text-slate-300">Lesson order<input type="number" min="0" max="1000" required className={control+' mt-1'} value={form.lessonOrder} onChange={e=>setForm(f=>({...f,lessonOrder:Number(e.target.value)}))}/></label>
+          <label className="text-sm text-slate-300">Study time (minutes)<input type="number" min="1" max="600" required className={control+' mt-1'} value={form.estimatedMinutes} onChange={e=>setForm(f=>({...f,estimatedMinutes:Number(e.target.value)}))}/></label>
+          <label className="text-sm text-slate-300">Language<select className={control+' mt-1'} value={form.medium} onChange={e=>setForm(f=>({...f,medium:e.target.value}))}>{['English','Sinhala','Tamil'].map(s=><option key={s}>{s}</option>)}</select></label>
+          <label className="text-sm text-slate-300">Syllabus<select className={control+' mt-1'} value={form.syllabus} onChange={e=>setForm(f=>({...f,syllabus:e.target.value}))}><option value="current">Current syllabus</option><option value="old">Old syllabus</option></select></label>
+          <label className="text-sm text-slate-300">Visibility<select className={control+' mt-1'} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}><option value="draft">Draft — hidden from students</option><option value="published">Published</option></select></label>
         </div>
-      )}
-
-      {/* Course Creation Form */}
-      <form onSubmit={handleSubmitCourse} className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-6">
-        <h3 className="font-bold text-white text-base border-b border-slate-800 pb-3">Create New Course</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Course Title *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Physics Mechanics Masterclass 2026"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Subject</label>
-              <select
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-              >
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="Combined Maths">Combined Maths</option>
-                <option value="Biology">Biology</option>
-                <option value="ICT">ICT</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Stream</label>
-              <select
-                value={stream}
-                onChange={(e) => setStream(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none"
-              >
-                <option value="Physical Science">Physical Science</option>
-                <option value="Biological Science">Biological Science</option>
-                <option value="Maths">Maths</option>
-                <option value="Bio">Bio</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Description *</label>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Overview of syllabus coverage, recommended study hours, and key concepts..."
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
-            required
-          />
-        </div>
-
-        {/* Media Upload Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {/* PDF File Picker */}
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-            <label className="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-rose-400" /> Upload PDF Material (Cloudinary)
-            </label>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-              className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
-            />
-            {pdfFile && <p className="text-[11px] text-emerald-400">Selected: {pdfFile.name}</p>}
-          </div>
-
-          {/* Video URL */}
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-            <label className="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Video className="w-4 h-4 text-cyan-400" /> Video Lesson URL (Optional)
-            </label>
-            <input
-              type="url"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Quiz Builder Sub-Section */}
-        <div className="p-5 rounded-2xl bg-slate-800/40 border border-slate-700/80 space-y-4">
-          <h4 className="font-bold text-white text-sm flex items-center gap-2">
-            <HelpCircle className="w-4 h-4 text-amber-400" /> Attach Quiz Questions ({quizQuestions.length} added)
-          </h4>
-
-          {quizQuestions.length > 0 && (
-            <div className="space-y-2">
-              {quizQuestions.map((q, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-slate-800 rounded-xl text-xs text-slate-200">
-                  <div>
-                    <span className="font-bold text-indigo-400">Q{idx + 1}: </span> {q.questionText} ({q.options.length} options)
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveQuizQuestion(idx)}
-                    className="text-rose-400 hover:text-rose-300 p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-3 pt-2">
-            <input
-              type="text"
-              value={qText}
-              onChange={(e) => setQText(e.target.value)}
-              placeholder="Question text..."
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={opt0}
-                onChange={(e) => setOpt0(e.target.value)}
-                placeholder="Option 1"
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
-              />
-              <input
-                type="text"
-                value={opt1}
-                onChange={(e) => setOpt1(e.target.value)}
-                placeholder="Option 2"
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
-              />
-              <input
-                type="text"
-                value={opt2}
-                onChange={(e) => setOpt2(e.target.value)}
-                placeholder="Option 3 (optional)"
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
-              />
-              <input
-                type="text"
-                value={opt3}
-                onChange={(e) => setOpt3(e.target.value)}
-                placeholder="Option 4 (optional)"
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-slate-300">Correct Option:</label>
-              <select
-                value={correctIdx}
-                onChange={(e) => setCorrectIdx(Number(e.target.value))}
-                className="bg-slate-800 text-xs text-white px-3 py-1 rounded-lg border border-slate-700"
-              >
-                <option value={0}>Option 1</option>
-                <option value={1}>Option 2</option>
-                <option value={2}>Option 3</option>
-                <option value={3}>Option 4</option>
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={handleAddQuestionToQuiz}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Question to Quiz
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" /> Uploading to Cloudinary & Publishing...
-            </>
-          ) : (
-            <>
-              <Upload className="w-5 h-5" /> Publish Course
-            </>
-          )}
-        </button>
-      </form>
-
-      {/* Existing Courses List */}
-      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-        <h3 className="font-bold text-white text-base">Courses in Database ({courses.length})</h3>
-
-        {loading ? (
-          <div className="py-8 text-center text-slate-400">Loading courses...</div>
-        ) : courses.length === 0 ? (
-          <div className="py-8 text-center text-slate-500">
-            <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No courses in the database yet.</p>
-            <p className="text-xs mt-1">Create one using the form above.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {courses.map((c) => (
-              <div key={c._id} className="flex items-center justify-between p-4 bg-slate-800/80 rounded-xl border border-slate-700">
-                <div>
-                  <h4 className="font-semibold text-white text-sm">{c.title}</h4>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Subject: {c.subject} | Stream: {c.stream} | {c.pdfUrl ? 'PDF Uploaded' : 'No PDF'} | {c.videoUrl ? 'Video' : 'No Video'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDeleteCourse(c._id)}
-                  className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                  title="Delete Course"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        <label className="block text-sm text-slate-300">Lesson title<input required className={control+' mt-1'} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/></label>
+        <label className="block text-sm text-slate-300">What students will learn<textarea required rows={3} className={control+' mt-1'} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></label>
+        <section className="space-y-3"><h4 className="font-bold text-white">Video lessons</h4>{videos.map((v,i)=><div key={i} className="grid sm:grid-cols-[1fr_2fr_auto] gap-2"><input aria-label={`Video ${i+1} title`} required placeholder="Video title" className={control} value={v.title} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,title:e.target.value}:x))}/><input aria-label={`Video ${i+1} URL`} required type="url" placeholder="https://www.youtube.com/watch?v=…" className={control} value={v.url} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,url:e.target.value}:x))}/><button type="button" className="text-rose-300 text-sm" onClick={()=>setVideos(prev=>prev.filter((_,j)=>j!==i))}>Remove video</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={videos.length>=20} onClick={()=>setVideos(prev=>[...prev,{title:'',url:''}])}>+ Add video</button></section>
+        <section className="space-y-3"><h4 className="font-bold text-white">PDF notes</h4>{resources.map(r=><div key={r.id} className="flex gap-3 justify-between text-sm text-slate-300"><span>{r.title}</span><button type="button" className="text-rose-300" onClick={()=>setResources(prev=>prev.filter(x=>x.id!==r.id))}>Remove PDF</button></div>)}<label className="block text-sm text-slate-300">Add PDFs (up to 8 per save, 25 MiB each)<input key={fileKey} type="file" multiple accept="application/pdf,.pdf" className="block mt-2 w-full" onChange={e=>{const selected=Array.from(e.target.files||[]);if(selected.length>8||selected.some(f=>f.size>25*1024*1024)){setError('Choose up to 8 PDFs, each no larger than 25 MiB.');e.target.value='';setFiles([]);return;}setFiles(selected);setError('');}}/></label><p className="text-xs text-slate-400">Your storage account may have a lower file-size limit. Existing PDFs stay attached unless removed.</p></section>
+        <section className="space-y-4"><h4 className="font-bold text-white">Practice quiz ({quiz.length} questions)</h4>{quiz.map((q,i)=><div key={i} className="rounded-xl bg-slate-800 p-4 space-y-3"><label className="block text-sm text-slate-300">Question {i+1}<textarea required className={control+' mt-1'} value={q.questionText} onChange={e=>changeQuestion(i,{questionText:e.target.value})}/></label><div className="grid sm:grid-cols-2 gap-2">{q.options.map((o,j)=><label key={j} className="text-xs text-slate-400">Answer {j+1}<input required className={control+' mt-1'} value={o} onChange={e=>changeQuestion(i,{options:q.options.map((x,k)=>k===j?e.target.value:x)})}/></label>)}</div><div className="flex flex-wrap gap-3"><button type="button" disabled={q.options.length>=6} className="text-cyan-300 text-sm" onClick={()=>changeQuestion(i,{options:[...q.options,'']})}>+ Add answer</button><button type="button" disabled={q.options.length<=2} className="text-slate-300 text-sm" onClick={()=>changeQuestion(i,{options:q.options.slice(0,-1),correctOptionIndex:Math.min(q.correctOptionIndex,q.options.length-2)})}>Remove last answer</button></div><label className="block text-sm text-slate-300">Correct answer<select className={control+' mt-1'} value={q.correctOptionIndex} onChange={e=>changeQuestion(i,{correctOptionIndex:Number(e.target.value)})}>{q.options.map((_,j)=><option key={j} value={j}>Answer {j+1}</option>)}</select></label><label className="block text-sm text-slate-300">Explanation<textarea className={control+' mt-1'} value={q.explanation} onChange={e=>changeQuestion(i,{explanation:e.target.value})}/></label><button type="button" className="text-rose-300 text-sm" onClick={()=>setQuiz(prev=>prev.filter((_,j)=>j!==i))}>Remove question</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={quiz.length>=100} onClick={()=>setQuiz(prev=>[...prev,{questionText:'',options:['',''],correctOptionIndex:0,explanation:''}])}>+ Add quiz question</button></section>
+        <fieldset className="space-y-2"><legend className="font-bold text-white mb-2">Related past papers</legend><div className="max-h-44 overflow-y-auto space-y-2">{papers.filter(p=>p.subject===form.subject||related.includes(p.id)).map(p=><label key={p.id} className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={related.includes(p.id)} onChange={e=>setRelated(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/>{p.title}</label>)}{!papers.some(p=>p.subject===form.subject)&&<p className="text-sm text-slate-400">No published papers available for this subject.</p>}</div></fieldset>
+        <div className="flex flex-wrap gap-3"><button type="submit" className={button}>{busy?'Saving lesson…':form.status==='draft'?'Save draft':editing?'Save and publish changes':'Publish lesson'}</button>{editing&&<button type="button" className="text-slate-300" onClick={reset}>Cancel editing</button>}</div>
+      </fieldset>
+    </form>
+    <section className={panel}><h3 className="font-bold text-white text-lg">All lessons ({lessons.length})</h3><div className="grid sm:grid-cols-3 gap-3"><input aria-label="Search lessons" type="search" className={control} placeholder="Search title or topic" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filter lessons by subject" className={control} value={filterSubject} onChange={e=>setFilterSubject(e.target.value)}><option value="">All subjects</option>{subjects.map(s=><option key={s}>{s}</option>)}</select><select aria-label="Filter lessons by visibility" className={control} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">All statuses</option><option value="draft">Draft</option><option value="published">Published</option></select></div>{loading?<p className="text-slate-400">Loading lessons…</p>:visible.length?visible.map(l=><article key={l._id} className="rounded-xl bg-slate-800 p-4 flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs text-cyan-300">{l.subject} / {l.topic} · Lesson {l.lessonOrder} · {l.status}</p><h4 className="font-bold text-white mt-1">{l.title}</h4></div><div className="flex gap-4 text-sm"><button disabled={busy} type="button" className="text-cyan-300" onClick={()=>edit(l)}>Edit</button><button disabled={busy} type="button" className="text-slate-300" onClick={()=>{setPreview(l);document.getElementById('lesson-editor')?.parentElement?.scrollIntoView({behavior:'smooth'});}}>Preview</button><button disabled={busy} type="button" className="text-rose-300" onClick={()=>remove(l)}>Delete</button></div></article>):<p className="text-slate-400">No matching lessons. Create a lesson above.</p>}<button type="button" onClick={load} className="text-sm text-cyan-300">Refresh lessons</button></section>
+  </section>;
 };

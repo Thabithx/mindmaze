@@ -113,6 +113,12 @@ export const api = {
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
+  courseResourceUrl: (path: string) => API_BASE + path,
+  getAdminCourses: () => apiFetch('/courses/admin/list'),
+  updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
+  getCourseProgress: () => apiFetch('/courses/progress'),
+  saveCourseProgress: (id: string, body: {completed?:boolean}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
+  submitCourseQuiz: (id: string, answers: number[], revision: number) => apiFetch('/courses/'+id+'/quiz',{method:'POST',body:JSON.stringify({answers,revision})}),
   getCourses: (stream?: string, subject?: string) => {
     const query = new URLSearchParams();
     if (stream) query.append('stream', stream);
