@@ -94,6 +94,8 @@ export const api = {
   getPaperQuiz: (id: string) => apiFetch('/past-papers/' + id + '/quiz'),
   getPaperQuizForEdit: (id: string) => apiFetch('/past-papers/' + id + '/quiz/edit'),
   savePaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz', {method:'PUT',body:JSON.stringify(body)}),
+  startPaperQuiz:(id:string,attemptToken?:string)=>apiFetch('/past-papers/'+id+'/quiz/attempt',{method:'POST',body:JSON.stringify({attemptToken})}),
+  savePaperQuizAnswers:(id:string,attemptToken:string,answers:number[][])=>apiFetch('/past-papers/'+id+'/quiz/attempt/answers',{method:'PUT',body:JSON.stringify({attemptToken,answers})}),
   submitPaperQuiz: (id: string, body: any) => apiFetch('/past-papers/' + id + '/quiz/submit', {method:'POST',body:JSON.stringify(body)}),
   getPastPapers: (params:Record<string,string>={}) => apiFetch('/past-papers?'+new URLSearchParams(params)).then(res=>({...res,papers:res.papers.map(api.presentPaper)})),
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),

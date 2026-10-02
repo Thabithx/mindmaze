@@ -1,0 +1,20 @@
+{
+  "durationMinutes": 120,
+  "questions": [
+    {
+      "text": "Sample: choose an officially accepted option.",
+      "options": [
+        "First option",
+        "Second option",
+        "Third option",
+        "Fourth option"
+      ],
+      "correctAnswers": [
+        2,
+        4
+      ],
+      "explanation": "Sample review explanation: either option 2 or option 4 earns the mark.",
+      "reviewNote": ""
+    }
+  ]
+}

@@ -6,7 +6,7 @@ const PastPaperSchema=new Schema({
   provider:{type:String,enum:['local','cloudinary'],required:true},fileKey:{type:String,required:true},remoteUrl:{type:String,default:''},
   markingSchemeId:{type:String,default:''},
   quizVersion:{type:String,default:''},
-  quizQuestions:{type:[new Schema({text:{type:String,required:true},imageId:{type:String,default:''},imageAlt:{type:String,default:''},options:{type:[String],required:true},correctIndex:{type:Number,required:true},explanation:{type:String,default:''}},{_id:false})],default:[]},
+  quizQuestions:{type:[new Schema({text:{type:String,required:true},imageId:{type:String,default:''},imageAlt:{type:String,default:''},options:{type:[String],required:true},correctIndex:{type:Number},correctIndices:{type:[Number],default:undefined},explanation:{type:String,default:''}},{_id:false})],default:[]},
   createdBy:{type:Schema.Types.ObjectId,ref:'User',required:true},
 },{timestamps:true});
 PastPaperSchema.index({createdAt:-1,_id:-1});
