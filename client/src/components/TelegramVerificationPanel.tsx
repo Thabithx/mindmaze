@@ -14,7 +14,7 @@ export function TelegramVerificationPanel({user,required=false,onVerified,onSign
  {!expanded&&<button type="button" onClick={()=>setExpanded(true)} className="rounded-lg bg-indigo-600 px-4 py-2 text-white">Verify with Telegram</button>}
  {expanded&&status?.configured&&<>
  <p className="text-sm text-slate-300">1. Create your link. 2. Open the bot and press Start, then Share my phone number. 3. Enter the bot's code below. Only your own Telegram contact is accepted.</p>
- <label className="block text-sm">Telegram phone number<input aria-label="Telegram phone number" type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+94741135855" className="block w-full rounded-lg border border-white/20 bg-slate-950 p-2"/></label>
+ <label className="block text-sm">Telegram phone number<input aria-label="Telegram phone number" type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+947XXXXXXXX" className="block w-full rounded-lg border border-white/20 bg-slate-950 p-2"/></label>
  {phone!==status.phone&&<label className="block text-sm">Current password to change your number<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} className="block w-full rounded-lg border border-white/20 bg-slate-950 p-2"/></label>}
  <button type="button" disabled={busy||!phone.trim()} onClick={start} className="rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-40">{busy?'Please wait…':'Create verification link'}</button>
  {url&&<a href={url} target="_blank" rel="noopener noreferrer" className="block underline text-cyan-300">Open Telegram bot</a>}
