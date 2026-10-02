@@ -6,7 +6,7 @@ import {savePdf, removePdf, downloadPdf} from '../services/pdfStorage.js';
 import Course from '../models/Course.js';
 import CourseProgress from '../models/CourseProgress.js';
 import PastPaper from '../models/PastPaper.js';
-import {protect, adminOnly, AuthRequest} from '../middleware/authMiddleware.js';
+import {protect, contentManagerOnly, AuthRequest} from '../middleware/authMiddleware.js';
 import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLearning.js';
 
 const router=Router();
@@ -22,11 +22,11 @@ const fail=(res:any,error:any)=>res.status(error?.name==='CastError'?400:500).js
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
 // Register named routes before /:id. Public queries always exclude drafts.
-router.get('/admin/topics',protect,adminOnly,async(_req,res)=>{try{
+router.get('/admin/topics',protect,contentManagerOnly,async(_req,res)=>{try{
   const topics=await Course.aggregate([{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
   res.json({topics});
 }catch(e){fail(res,e);}});
-router.get('/admin/list',protect,adminOnly,async(req,res)=>{try{
+router.get('/admin/list',protect,contentManagerOnly,async(req,res)=>{try{
   const requested=readPagination(req.query),filter:any={};
   for(const key of ['subject','status'])if(queryText(req.query[key]))filter[key]=queryText(req.query[key]);
   const search=literalSearch(req.query.q);if(search)filter.$or=['title','topic','subject'].map(key=>({[key]:search}));
@@ -108,9 +108,9 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     res.status(tooLarge?413:500).json({message:tooLarge?'Your PDF exceeds the storage account’s file-size limit. Compress it or increase your storage limit.':'Could not save the lesson. Check PDF storage and try again.'});
   }
 };
-router.post('/',protect,adminOnly,parseUpload,saveLesson(false));
-router.put('/:id',protect,adminOnly,parseUpload,saveLesson(true));
-router.delete('/:id',protect,adminOnly,async(req,res)=>{try{
+router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));
+router.put('/:id',protect,contentManagerOnly,parseUpload,saveLesson(true));
+router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
   const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Lesson not found.'});return;}
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
   await CourseProgress.deleteMany({course:c._id});res.json({message:'Lesson removed.'});

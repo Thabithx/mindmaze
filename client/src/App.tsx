@@ -61,7 +61,7 @@ import { ShieldAlert, Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyR
 
 export function App() {
   const batches=useBatches();
-  const [currentScreen, setCurrentScreen] = useScreenNavigation(getStoredUser()?.role === 'admin' ? 'admin' : 'dashboard');
+  const [currentScreen, setCurrentScreen] = useScreenNavigation(['admin','content_manager'].includes(getStoredUser()?.role) ? 'admin' : 'dashboard');
   useEffect(() => { document.querySelector('.app-content')?.scrollTo({top: 0}); }, [currentScreen]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
@@ -398,7 +398,7 @@ export function App() {
       setStoredUser(res.user);
       setAuthModalMode(null);
       if(res.user?.telegramVerificationRequired&&!(res.user?.accountVerified||res.user?.telegramVerified))return;
-      if (res.user?.role === 'admin') {
+      if (['admin','content_manager'].includes(res.user?.role)) {
         setCurrentScreen('admin');
       }
 
@@ -470,7 +470,7 @@ export function App() {
       setStoredUser(res.user);
       setAuthModalMode(null);
       if(res.user?.telegramVerificationRequired&&!(res.user?.accountVerified||res.user?.telegramVerified))return;
-      if (res.user?.role === 'admin') {
+      if (['admin','content_manager'].includes(res.user?.role)) {
         setCurrentScreen('admin');
       }
 
@@ -1565,7 +1565,7 @@ export function App() {
 
           {/* Admin Panel */}
           {currentScreen === 'admin' && (
-            user?.role === 'admin' ? (
+            ['admin','content_manager'].includes(user?.role) ? (
               <div className="space-y-8">
                 <AdminPanel
                   userRole={user?.role || 'admin'}
@@ -1587,7 +1587,7 @@ export function App() {
                 </div>
                 <h2 className="text-xl font-black text-white">Access Restricted</h2>
                 <p className="text-xs text-slate-400">
-                  The Admin Control Panel is reserved for registered administrators. Please sign in with admin credentials to access this portal.
+                  This workspace is available to administrators and content managers. Please sign in with an authorized account.
                 </p>
                 <button
                   onClick={() => setCurrentScreen('dashboard')}

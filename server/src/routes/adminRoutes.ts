@@ -60,7 +60,7 @@ router.put('/users/:id/manual-verification', protect, adminOnly, async (req:Auth
 router.put('/users/:id/role', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { role } = req.body;
-    if (!['student', 'admin'].includes(role)) {
+    if (!['student', 'admin', 'content_manager'].includes(role)) {
       res.status(400).json({ message: 'Invalid role' });
       return;
     }

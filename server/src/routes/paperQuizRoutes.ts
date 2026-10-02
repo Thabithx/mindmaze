@@ -3,21 +3,21 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import PastPaper from '../models/PastPaper.js';
-import { protect, adminOnly } from '../middleware/authMiddleware.js';
+import { protect, contentManagerOnly } from '../middleware/authMiddleware.js';
 
 const router = Router();
 router.param('id', (_req, res, next, id) => {
   if (!mongoose.isValidObjectId(id)) { res.status(404).json({message:'Paper not found.'}); return; }
   next();
 });
-router.get('/:id/quiz/edit', protect, adminOnly, async (req, res) => {
+router.get('/:id/quiz/edit', protect, contentManagerOnly, async (req, res) => {
   try {
     const paper = await PastPaper.findById(req.params.id);
     if (!paper) { res.status(404).json({message:'Paper not found.'}); return; }
     res.json({questions:paper.quizQuestions || [], version:paper.quizVersion});
   } catch { res.status(500).json({message:'Could not load questions.'}); }
 });
-router.put('/:id/quiz', protect, adminOnly, async (req, res) => {
+router.put('/:id/quiz', protect, contentManagerOnly, async (req, res) => {
   try {
     const paper = await PastPaper.findById(req.params.id);
     if (!paper || paper.type !== 'MCQ') { res.status(400).json({message:'Only MCQ papers support online practice.'}); return; }

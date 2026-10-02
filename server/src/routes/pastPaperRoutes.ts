@@ -9,7 +9,7 @@ import {mkdir,writeFile,unlink} from 'node:fs/promises';
 import path from 'node:path';
 import PastPaper from '../models/PastPaper.js';
 import cloudinary from '../config/cloudinary.js';
-import {protect,adminOnly,AuthRequest} from '../middleware/authMiddleware.js';
+import {protect,contentManagerOnly,AuthRequest} from '../middleware/authMiddleware.js';
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024}}).single('pdfFile');
 const directory=()=>path.resolve(process.env.UPLOAD_DIR||'uploads');
@@ -25,7 +25,7 @@ router.get('/',async(req,res)=>{try{
   const papers=await PastPaper.aggregate([{$match:filter},{$sort:{createdAt:-1,_id:-1}},{$skip:(pagination.page-1)*pagination.pageSize},{$limit:pagination.pageSize},{$project:{title:1,subject:1,stream:1,streams:1,year:1,syllabus:1,type:1,medium:1,isModelPaper:1,topicTags:1,size:1,markingSchemeId:1,questionCount:{$size:{$ifNull:['$quizQuestions',[]]}}}}]);
   res.json({papers:papers.map(present),pagination});
 }catch(e){res.status(e instanceof PaginationError?400:500).json({message:e instanceof PaginationError?e.message:'Could not load published papers.'});}});
-const savePaper = (updating:boolean) => [protect,adminOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({message:e.code==='LIMIT_FILE_SIZE'?'The PDF exceeds the application limit of 25 MiB. Compress it before uploading.':e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
+const savePaper = (updating:boolean) => [protect,contentManagerOnly,(req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{upload(req,res,e=>{if(e)res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({message:e.code==='LIMIT_FILE_SIZE'?'The PDF exceeds the application limit of 25 MiB. Compress it before uploading.':e.message});else next();});},async(req:AuthRequest,res:import('express').Response)=>{
   let stored:any;
   try{
     const existing = updating ? await PastPaper.findById(req.params.id) : null;
@@ -75,5 +75,5 @@ router.get('/:id/download',async(req,res)=>{
     await deliverRemotePdf(p.remoteUrl,p.fileName,res);
   }catch{if(!res.headersSent)res.status(500).json({message:'Could not download this paper.'});}
 });
-router.delete('/:id',protect,adminOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();for(const asset of await PaperAsset.find({paper:p._id}))await removeAsset(asset).catch(()=>{});res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});
+router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();for(const asset of await PaperAsset.find({paper:p._id}))await removeAsset(asset).catch(()=>{});res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});
 export default router;

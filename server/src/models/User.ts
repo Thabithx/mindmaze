@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type StreamType = 'Physical Science' | 'Biological Science' | 'Maths' | 'Bio';
-export type UserRole = 'student' | 'admin';
+export type UserRole = 'student' | 'admin' | 'content_manager';
 
 export interface IPushSubscription {
   endpoint: string;
@@ -71,7 +71,7 @@ const UserSchema = new Schema<IUser>(
     manualVerification: { type: new Schema({phone:String,approvedAt:Date,approvedBy:String,approvedByName:String,method:{type:String,enum:['call','whatsapp']}},{_id:false}), default:undefined },
     manualVerificationHistory: { type: [new Schema({phone:String,approvedAt:Date,approvedBy:String,approvedByName:String,method:{type:String,enum:['call','whatsapp']}},{_id:false})], default:[] },
     passwordHash: { type: String, required: true },
-    role: { type: String, enum: ['student', 'admin'], default: 'student' },
+    role: { type: String, enum: ['student', 'admin', 'content_manager'], default: 'student' },
     stream: {
       type: String,
       enum: ['Physical Science', 'Biological Science', 'Maths', 'Bio'],

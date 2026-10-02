@@ -50,3 +50,9 @@ export const adminOnly = (req: AuthRequest, res: Response, next: NextFunction): 
     res.status(403).json({ message: 'Access denied: Admin role required' });
   }
 };
+
+// Content privileges never grant access to user administration.
+export const contentManagerOnly = (req:AuthRequest,res:Response,next:NextFunction):void => {
+ if(req.user && ['admin','content_manager'].includes(req.user.role)) next();
+ else res.status(403).json({message:'Access denied: Content Manager or Admin role required'});
+};

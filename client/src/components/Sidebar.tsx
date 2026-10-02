@@ -163,16 +163,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ))}
 
           {/* Admin */}
-          {userRole === 'admin' && (
+          {['admin','content_manager'].includes(userRole) && (
             <div>
               {!isCollapsed && (
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
-                  Admin
+                  {userRole==='admin'?'Admin':'Content'}
                 </p>
               )}
               <button
                 onClick={() => handleSelect('admin')}
-                title={isCollapsed ? 'Admin Control' : undefined}
+                title={isCollapsed ? (userRole==='admin'?'Admin Control':'Content Manager') : undefined}
                 className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                   currentScreen === 'admin'
                     ? 'bg-white/10 text-white'
@@ -183,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-rose-400" />
                 )}
                 <ShieldCheck className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'admin' ? 'text-rose-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                {!isCollapsed && <span className="text-[13px]">Admin Control</span>}
+                {!isCollapsed && <span className="text-[13px]">{userRole==='admin'?'Admin Control':'Content Manager'}</span>}
               </button>
             </div>
           )}

@@ -46,7 +46,7 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  userRole = 'admin',
+  userRole = 'student',
   onNavigateHome = () => {},
   pastPapers = [],
   onAddPastPaper,
@@ -55,7 +55,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddQuizQuestion,
   onDeleteQuizQuestion,
 }) => {
-  const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers' | 'quiz'>('directory');
+  const isAdmin=userRole==='admin';
+  const canManageContent=isAdmin||userRole==='content_manager';
+  const [roleUpdating,setRoleUpdating]=useState<string|null>(null);
+  const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers' | 'quiz'>(isAdmin?'directory':'pastpapers');
   const [users, setUsers] = useState<any[]>([]);
   const [verificationTarget,setVerificationTarget]=useState<any>(null);
   const [verificationMethod,setVerificationMethod]=useState<'call'|'whatsapp'>('call');
@@ -135,7 +138,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     {key:'type', label:'Paper type', values:['MCQ','Structured','Essay']},
     {key:'syllabus', label:'Syllabus', values:['current','old']},
   ] as const;
-  const papersPage=usePagedResource<PastPaper>('/past-papers','papers',{q:paperSearch,...paperFilters},'mindmaze_papers_updated',userRole==='admin'&&activeTab==='pastpapers');
+  const papersPage=usePagedResource<PastPaper>('/past-papers','papers',{q:paperSearch,...paperFilters},'mindmaze_papers_updated',canManageContent&&activeTab==='pastpapers');
   const filteredAdminPapers=papersPage.items;
   const hasPaperFilters = Boolean(paperSearch || Object.values(paperFilters).some(Boolean));
 
@@ -188,11 +191,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [quizSuccess, setQuizSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAdminData();
-    fetchExamDate();
-  }, []);
+    if(isAdmin){fetchAdminData();fetchExamDate();}
+    else {setUsers([]);setStats(null);setError(null);setLoading(false);setActiveTab('pastpapers');}
+  }, [isAdmin]);
 
   const fetchAdminData = async () => {
+    if(!isAdmin)return;
     setLoading(true);
     setError(null);
     try {
@@ -219,18 +223,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleToggleRole = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'student' : 'admin';
+  const handleToggleRole = async (userId: string, newRole: string) => {
+    if(!isAdmin||roleUpdating)return;
     if (!window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
 
     try {
+      setRoleUpdating(userId);
       await api.updateUserRole(userId, newRole);
       setUsers((prev) =>
         prev.map((u) => (u._id === userId ? { ...u, role: newRole } : u))
       );
     } catch (err: any) {
       alert(err.message || 'Failed to update user role');
-    }
+    } finally {setRoleUpdating(null);}
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
@@ -400,6 +405,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const filteredUsers = users;
+  if(!canManageContent)return <p role="alert">Access restricted.</p>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -411,15 +417,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              Admin Command Center
+              {isAdmin?'Admin Command Center':'Content Manager'}
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Manage students, add past papers, send email broadcasts & inspect analytics
+              {isAdmin?'Manage students, add past papers, send email broadcasts & inspect analytics':'Manage PDF lessons, quizzes, past papers and marking schemes'}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {isAdmin&&<div className="flex flex-wrap items-center gap-2">
           <button
             onClick={fetchAdminData}
             disabled={loading}
@@ -436,12 +442,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Control Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
-        <button
+        {isAdmin&&<button
           onClick={() => setActiveTab('directory')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
             activeTab === 'directory'
@@ -451,7 +457,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <Users className="w-4 h-4" />
           <span>Student Directory & Email Broadcast</span>
-        </button>
+        </button>}
 
         <button
           onClick={() => setActiveTab('pastpapers')}
@@ -493,7 +499,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* Tab 1: Student Directory & Broadcast */}
-      {activeTab === 'directory' && (
+      {isAdmin && activeTab === 'directory' && (
         <>
           {/* Stats Cards */}
           {stats && (
@@ -786,7 +792,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300'
                             }`}
                           >
-                            {u.role || 'student'}
+                            {u.role==='content_manager'?'Content Manager':u.role || 'student'}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-bold text-amber-300 whitespace-nowrap">
@@ -806,22 +812,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             {!(u.accountVerified||u.telegramVerified)&&u.isActive!==false&&<button type="button" className="px-3 py-1.5 rounded-xl border border-emerald-400/40 text-emerald-300 text-xs" onClick={()=>{setVerificationTarget(u);setVerificationMethod('call');setVerificationError('');}}>Verify manually</button>}
-                            <button
-                              onClick={() => handleToggleRole(u._id, u.role)}
-                              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer min-w-[96px]"
-                            >
-                              {u.role === 'admin' ? (
-                                <>
-                                  <UserX className="w-3.5 h-3.5 text-purple-400" />
-                                  <span>Demote</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span>Make Admin</span>
-                                </>
-                              )}
-                            </button>
+                            <select aria-label={'Role for '+u.name} value={u.role||'student'} disabled={roleUpdating!==null} onChange={e=>handleToggleRole(u._id,e.target.value)} className="rounded-xl bg-slate-900 border border-white/20 px-3 py-2 text-xs text-white disabled:opacity-50"><option value="student">Student</option><option value="content_manager">Content Manager</option><option value="admin">Admin</option></select>
 
                             <button
                               onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
