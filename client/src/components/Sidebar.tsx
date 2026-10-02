@@ -13,6 +13,8 @@ import {
   Settings,
   User,
   ShieldCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
   LogIn,
   X,
@@ -25,6 +27,7 @@ interface SidebarProps {
   currentScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
   isCollapsed: boolean;
+  onToggleCollapse: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
   userRole?: string;
@@ -65,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentScreen,
   onNavigate,
   isCollapsed,
+  onToggleCollapse,
   isOpenMobile = false,
   onCloseMobile,
   userRole = 'student',
@@ -109,6 +113,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         )}
+
+        <div className="hidden lg:flex shrink-0 items-center px-3 pt-3 pb-1">
+        <button type="button" onClick={onToggleCollapse} aria-label={isCollapsed?'Expand sidebar':'Collapse sidebar'} aria-expanded={!isCollapsed} aria-controls="main-sidebar" title={isCollapsed?'Expand sidebar':'Collapse sidebar'} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 shadow-sm transition-all hover:border-indigo-400/60 hover:bg-indigo-500/20 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 cursor-pointer">
+          {isCollapsed?<PanelLeftOpen className="h-5 w-5" aria-hidden="true"/>:<PanelLeftClose className="h-5 w-5" aria-hidden="true"/>}
+        </button>
+        </div>
 
         {/* Navigation */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 lg:px-3 lg:py-4 pb-28 lg:pb-4 space-y-6 lg:space-y-5 scrollbar-thin">

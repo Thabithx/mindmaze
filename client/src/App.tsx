@@ -766,9 +766,7 @@ export function App() {
         currentScreen={currentScreen}
         onNavigate={setCurrentScreen}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(open => !open)}
-        isSidebarCollapsed={isSidebarCollapsed}
         isMobileSidebarOpen={isMobileSidebarOpen}
-        onToggleSidebar={() => setIsSidebarCollapsed(collapsed => !collapsed)}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAuthModal={(mode) => setAuthModalMode(mode)}
         onSignOut={handleSignOut}
@@ -781,6 +779,7 @@ export function App() {
           currentScreen={currentScreen}
           onNavigate={setCurrentScreen}
           isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(collapsed => !collapsed)}
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           userRole={user?.role || 'student'}
