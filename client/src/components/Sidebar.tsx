@@ -245,13 +245,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="p-3 border-t border-white/[0.06] shrink-0">
-          {!isCollapsed&&<address className="support-contacts not-italic text-xs font-bold leading-relaxed mb-3 text-left">
+          {!isCollapsed&&<address className="support-contacts not-italic text-xs font-bold leading-relaxed text-left">
             <p className="text-[11px] font-extrabold mb-2">FOR SUPPORT CONTACT MINDMAZE TEAM</p>
             <a className="block py-1 font-bold underline underline-offset-4 break-all" href="mailto:Mindmazeorg@gmail.com">Mindmazeorg@gmail.com</a>
-            <a className="block py-1 font-bold hover:underline" href="tel:+94741135855">Asjadh Azhar - 0741135855</a>
-            <a className="block py-1 font-bold hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
+            <a className="block py-1 text-[11px] font-bold hover:underline" href="tel:+94741135855">Asjadh Azhar - 0741135855</a>
+            <a className="block py-1 text-[11px] font-bold hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
           </address>}
-          {!isCollapsed && <p className="text-right text-[9px] leading-relaxed tracking-wide text-slate-400">DEVELOPED BY THABITH &amp; ASJADH AZHAR</p>}
 
         </div>
       </aside>
