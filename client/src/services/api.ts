@@ -158,6 +158,7 @@ export const api = {
   deleteTask: (taskId: string) => apiFetch(`/tasks/${taskId}`, { method: 'DELETE' }),
 
   // Admin
+  manuallyVerifyUser:(id:string,body:{phone:string;method:'call'|'whatsapp'})=>apiFetch('/admin/users/'+encodeURIComponent(id)+'/manual-verification',{method:'PUT',body:JSON.stringify(body)}),
   getAdminUsers: () => apiFetch('/admin/users'),
   updateUserRole: (id: string, role: string) => apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   updateUserStatus: (id: string, isActive: boolean) => apiFetch(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),

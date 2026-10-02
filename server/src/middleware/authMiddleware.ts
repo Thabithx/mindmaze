@@ -34,7 +34,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     }
     const route=req.originalUrl.split('?')[0];
     const verificationRoute=['/api/telegram/status','/api/telegram/start','/api/telegram/confirm'].includes(route);
-    if(telegramEnabled()&&user.telegramVerificationRequired&&!telegramState(user).telegramVerified&&!verificationRoute&&!(route==='/api/auth/profile'&&req.method==='GET')){res.status(403).json({message:'Verify your Telegram phone number to continue.',code:'TELEGRAM_VERIFICATION_REQUIRED'});return;}
+    if(telegramEnabled()&&user.telegramVerificationRequired&&!telegramState(user).accountVerified&&!verificationRoute&&!(route==='/api/auth/profile'&&req.method==='GET')){res.status(403).json({message:'Verify your phone with Telegram or contact support for manual verification.',code:'TELEGRAM_VERIFICATION_REQUIRED'});return;}
     req.user = user;
     next();
   } catch (error) {

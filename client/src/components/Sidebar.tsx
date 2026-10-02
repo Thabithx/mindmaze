@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/[0.06] bg-[#0D0F1E]/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex min-h-0 shrink-0 flex-col border-r border-white/[0.06] bg-[#0D0F1E]/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static lg:h-full lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0 w-80 max-w-[85vw]' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
       >
@@ -114,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-4 py-5 lg:px-3 lg:py-4 pb-28 lg:pb-4 space-y-6 lg:space-y-5 scrollbar-thin">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 lg:px-3 lg:py-4 pb-28 lg:pb-4 space-y-6 lg:space-y-5 scrollbar-thin">
           {navGroups.map((group) => (
             <div key={group.label}>
               {!isCollapsed && (
@@ -238,11 +238,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="p-3 border-t border-white/[0.06] shrink-0">
-          {!isCollapsed&&<address className="not-italic text-[10px] leading-relaxed text-slate-400 mb-3 text-right">
-            <p className="font-bold">FOR SUPPORT CONTACT MINDMAZE TEAM</p>
-            <a className="block hover:underline break-all" href="mailto:Mindmazeorg@gmail.com">Mindmazeorg@gmail.com</a>
-            <a className="block hover:underline" href="tel:+94741135855">Asjadh Azhar - 0741135855</a>
-            <a className="block hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
+          {!isCollapsed&&<address className="support-contacts not-italic text-xs font-bold leading-relaxed mb-3 text-left">
+            <p className="text-[11px] font-extrabold mb-2">FOR SUPPORT CONTACT MINDMAZE TEAM</p>
+            <a className="block py-1 font-bold underline underline-offset-4 break-all" href="mailto:Mindmazeorg@gmail.com">Mindmazeorg@gmail.com</a>
+            <a className="block py-1 font-bold hover:underline" href="tel:+94741135855">Asjadh Azhar - 0741135855</a>
+            <a className="block py-1 font-bold hover:underline" href="tel:+94772065719">Athif Ahamed - 0772065719</a>
           </address>}
           {!isCollapsed && <p className="text-right text-[9px] leading-relaxed tracking-wide text-slate-400">DEVELOPED BY THABITH &amp; ASJADH AZHAR</p>}
           <button

@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-white/[0.08] bg-[#0D0F1E]/90 px-3 sm:px-6 backdrop-blur-2xl shadow-lg shadow-black/20 select-none">
+    <header className="app-header relative z-30 flex h-16 shrink-0 w-full items-center justify-between border-b border-white/[0.08] bg-[#0D0F1E]/90 px-3 sm:px-6 backdrop-blur-2xl shadow-lg shadow-black/20 select-none">
       {/* Left: Brand Logo */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div onClick={() => onNavigate('dashboard')} className="cursor-pointer min-w-0">

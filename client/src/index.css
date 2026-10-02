@@ -361,3 +361,33 @@ html[data-theme="light"] [class*="bg-gradient-"].text-white { color:#fff; }
 html[data-theme="light"] :is(input,textarea,select) { color:#172033; }
 html[data-theme="light"] ::placeholder { color:#64748b; }
 html[data-theme="light"] ::-webkit-scrollbar-track { background:#e2e8f0; }
+
+
+/* Keep app chrome stationary; only the content and menu list scroll. */
+.app-shell { height:100vh; height:100dvh; min-height:0; overflow:hidden; }
+.app-body { min-width:0; min-height:0; }
+.app-header { flex:0 0 4rem; }
+.app-content { overscroll-behavior-y:contain; scrollbar-gutter:stable; }
+.app-sidebar { overflow:hidden; }
+.support-contacts { color:#e2e8f0; }
+.support-contacts a { color:inherit; font-weight:700; }
+.support-contacts a:focus-visible { outline:2px solid #22d3ee; outline-offset:3px; border-radius:3px; }
+html[data-theme="light"] .support-contacts { color:#172033; }
+
+/* Course surfaces have explicit palettes in both themes. */
+.learning-area { --lesson-panel:rgba(15,23,42,.85); --lesson-input:#0f172a; --lesson-border:#475569; }
+.learning-area .learning-panel { background:var(--lesson-panel); border-color:var(--lesson-border); }
+.learning-area .learning-control { background:var(--lesson-input); border-color:var(--lesson-border); }
+.learning-area .learning-control:focus { border-color:#22d3ee; outline:2px solid #22d3ee; outline-offset:2px; }
+.learning-area .learning-button { color:#fff; background:#4f46e5; }
+.learning-area .learning-button:hover:not(:disabled) { background:#4338ca; }
+html[data-theme="light"] .learning-area { --lesson-panel:#fff; --lesson-input:#f8fafc; --lesson-border:#cbd5e1; color:#172033; }
+html[data-theme="light"] .learning-area .learning-panel { background:var(--lesson-panel); border-color:var(--lesson-border); }
+html[data-theme="light"] .learning-area .learning-control { background:var(--lesson-input); border-color:var(--lesson-border); color:#172033; }
+html[data-theme="light"] .learning-area .learning-control:focus { border-color:#0e7490; outline-color:#0e7490; }
+html[data-theme="light"] .learning-area .bg-slate-800 { background:#eef2f7; }
+html[data-theme="light"] .learning-area .bg-indigo-600\/25 { background:#e0e7ff; color:#312e81; }
+html[data-theme="light"] .learning-area .learning-button { color:#fff; }
+html[data-theme="light"] .learning-area .border-slate-700 { border-color:#cbd5e1; }
+html[data-theme="light"] .learning-area progress { accent-color:#0e7490; }
+html[data-theme="light"] .community-banner { background:linear-gradient(90deg,#ecfdf5,#f0fdfa,#f8fafc); color:#172033; }

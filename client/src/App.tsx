@@ -62,6 +62,7 @@ import { ShieldAlert, Loader2, LogIn, UserPlus, X, Sparkles, BookOpen, Zap, KeyR
 export function App() {
   const batches=useBatches();
   const [currentScreen, setCurrentScreen] = useScreenNavigation(getStoredUser()?.role === 'admin' ? 'admin' : 'dashboard');
+  useEffect(() => { document.querySelector('.app-content')?.scrollTo({top: 0}); }, [currentScreen]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
@@ -401,7 +402,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
-      if(res.user?.telegramVerificationRequired&&!res.user?.telegramVerified)return;
+      if(res.user?.telegramVerificationRequired&&!(res.user?.accountVerified||res.user?.telegramVerified))return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -473,7 +474,7 @@ export function App() {
       setUser(res.user);
       setStoredUser(res.user);
       setAuthModalMode(null);
-      if(res.user?.telegramVerificationRequired&&!res.user?.telegramVerified)return;
+      if(res.user?.telegramVerificationRequired&&!(res.user?.accountVerified||res.user?.telegramVerified))return;
       if (res.user?.role === 'admin') {
         setCurrentScreen('admin');
       }
@@ -744,10 +745,9 @@ export function App() {
 
 
   const onTelegramVerified=(updated:any)=>{setUser(updated);setStoredUser(updated);window.location.reload();};
-  if(user?.telegramVerificationRequired&&!user?.telegramVerified)return <main className="min-h-screen bg-slate-950 p-4 sm:p-12"><TelegramVerificationPanel user={user} required onVerified={onTelegramVerified} onSignOut={handleSignOut}/></main>;
+  if(user?.telegramVerificationRequired&&!(user?.accountVerified||user?.telegramVerified))return <main className="min-h-screen bg-slate-950 p-4 sm:p-12"><TelegramVerificationPanel user={user} required onVerified={onTelegramVerified} onSignOut={handleSignOut}/></main>;
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
-      {user&&!user.telegramVerified&&<div className="p-3"><TelegramVerificationPanel user={user} onVerified={onTelegramVerified} onSignOut={handleSignOut}/></div>}
+    <div className="app-shell bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Background Animated Maze Grid */}
       <MazeBackground />
 
@@ -777,7 +777,7 @@ export function App() {
         onOpenProfileEdit={() => setIsProfileEditOpen(true)}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="app-body flex-1 flex min-h-0 overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar
           currentScreen={currentScreen}
@@ -793,7 +793,8 @@ export function App() {
         />
 
         {/* Main Content Body */}
-        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 pb-28 sm:pb-8 md:pb-8 max-w-7xl mx-auto w-full space-y-6">
+        <main className="app-content min-h-0 min-w-0 flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 pb-28 sm:pb-8 md:pb-8 max-w-7xl mx-auto w-full space-y-6">
+          {user&&!(user.accountVerified||user.telegramVerified)&&<TelegramVerificationPanel user={user} onVerified={onTelegramVerified} onSignOut={handleSignOut}/>}
           {/* Home / Dashboard Screen */}
           {currentScreen === 'dashboard' && (
             <div className="space-y-6">

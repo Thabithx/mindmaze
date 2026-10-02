@@ -67,7 +67,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
     }
 
     if(telegramEnabled()&&!telegramConfigured()){res.status(503).json({message:'Signup verification is temporarily unavailable. Please contact support.'});return;}
-    if(telegramEnabled()&&!normalizePhone(userPhone)){res.status(400).json({message:'Enter a valid Telegram phone number.'});return;}
+    if(telegramEnabled()&&!normalizePhone(userPhone)){res.status(400).json({message:'Enter a valid phone number.'});return;}
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
@@ -343,7 +343,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
           return;
         }
       }
-      if(normalizePhone(cleanPhone)!==getVerificationPhone(user)){user.telegramVerifiedAt=undefined;user.telegramVerifiedPhone=undefined;user.telegramUserId=undefined;}
+      if(normalizePhone(cleanPhone)!==getVerificationPhone(user)){user.manualVerification=undefined;user.telegramVerifiedAt=undefined;user.telegramVerifiedPhone=undefined;user.telegramUserId=undefined;}
       user.mobileNumber = cleanPhone;
       user.whatsappNumber = cleanPhone;
       user.phoneNumber = cleanPhone;

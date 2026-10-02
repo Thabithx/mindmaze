@@ -54,6 +54,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers' | 'quiz'>('directory');
   const [users, setUsers] = useState<any[]>([]);
+  const [verificationTarget,setVerificationTarget]=useState<any>(null);
+  const [verificationMethod,setVerificationMethod]=useState<'call'|'whatsapp'>('call');
+  const [verificationBusy,setVerificationBusy]=useState(false);
+  const [verificationError,setVerificationError]=useState('');
+  const submitVerification=async(e:React.FormEvent)=>{
+    e.preventDefault();if(verificationBusy||!verificationTarget)return;
+    setVerificationBusy(true);setVerificationError('');
+    try {const r=await api.manuallyVerifyUser(verificationTarget._id,{phone:verificationTarget.whatsappNumber||verificationTarget.mobileNumber||verificationTarget.phoneNumber||verificationTarget.phone,method:verificationMethod});setUsers(prev=>prev.map(u=>u._id===r.user._id?r.user:u));setVerificationTarget(null);}
+    catch(e:any){setVerificationError(e.message||'Could not verify account.');}finally{setVerificationBusy(false);}
+  };
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -727,7 +737,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {/* Directory Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+              {verificationTarget&&<div className="fixed inset-0 z-[100] bg-black/75 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="manual-verification-title">
+ <form onSubmit={submitVerification} className="w-full max-w-lg rounded-2xl border border-white/20 bg-slate-900 p-6 space-y-4 text-left whitespace-normal">
+ <h2 id="manual-verification-title" className="text-xl font-bold text-white">Verify account manually</h2>
+ <p className="text-slate-300">Confirm that you contacted {verificationTarget.name} and checked ownership of their registered number.</p>
+ <p className="text-sm text-white break-all">{verificationTarget.email}<br/>{verificationTarget.whatsappNumber||verificationTarget.mobileNumber||verificationTarget.phoneNumber||verificationTarget.phone||'No registered number'}</p>
+ <label className="block text-sm">Verification method<select autoFocus disabled={verificationBusy} value={verificationMethod} onChange={e=>setVerificationMethod(e.target.value as 'call'|'whatsapp')} className="block mt-2 p-2 rounded bg-slate-950 w-full"><option value="call">Phone call</option><option value="whatsapp">WhatsApp</option></select></label>
+ <label className="flex gap-2 text-sm"><input type="checkbox" required disabled={verificationBusy}/>I confirmed that this student owns the registered phone number.</label>
+ {verificationError&&<p role="alert" className="text-rose-300 text-sm">{verificationError}</p>}
+ <div className="flex justify-end gap-3"><button type="button" disabled={verificationBusy} onClick={()=>setVerificationTarget(null)}>Cancel</button><button type="submit" disabled={verificationBusy||!(verificationTarget.whatsappNumber||verificationTarget.mobileNumber||verificationTarget.phoneNumber||verificationTarget.phone)} className="rounded-lg bg-emerald-600 px-4 py-2 disabled:opacity-40">{verificationBusy?'Verifying…':'Confirm verification'}</button></div>
+ </form></div>}
+ <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead>
                   <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4">Student</th>
@@ -757,7 +777,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
                           {u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || "—"}
                         </td>
-                        <td className="py-3.5 px-4"><span className={u.telegramVerified?'text-emerald-300':'text-amber-300'}>{u.telegramVerified?'Verified (Telegram)':u.telegramVerificationRequired?'Verification required':'Not verified (optional)'}</span></td>
+                        <td className="py-3.5 px-4"><span className={u.accountVerified||u.telegramVerified?'text-emerald-300':'text-amber-300'}>{u.manuallyVerified?'Verified by admin':u.telegramVerified?'Verified (Telegram)':u.telegramVerificationRequired?'Verification required':'Not verified (optional)'}</span>{u.manuallyVerified&&u.manualVerification&&<div className="text-xs text-slate-400 mt-1">{u.manualVerification.approvedByName} · {new Date(u.manualVerification.approvedAt).toLocaleString()} · {u.manualVerification.method==='call'?'Phone call':'WhatsApp'}</div>}</td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 font-medium">
                             {u.stream} ({u.physicalScienceElective || 'Chemistry'})
@@ -790,6 +810,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
+                            {!(u.accountVerified||u.telegramVerified)&&u.isActive!==false&&<button type="button" className="px-3 py-1.5 rounded-xl border border-emerald-400/40 text-emerald-300 text-xs" onClick={()=>{setVerificationTarget(u);setVerificationMethod('call');setVerificationError('');}}>Verify manually</button>}
                             <button
                               onClick={() => handleToggleRole(u._id, u.role)}
                               className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer min-w-[96px]"

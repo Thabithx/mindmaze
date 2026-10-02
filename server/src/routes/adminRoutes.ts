@@ -1,4 +1,4 @@
-import {telegramState} from '../services/telegramVerification.js';
+import {telegramState,userPhone,normalizePhone} from '../services/telegramVerification.js';
 import { getBatchConfig, validBatches } from '../services/batchConfig.js';
 import { Router, Response } from 'express';
 import User from '../models/User.js';
@@ -33,6 +33,25 @@ router.get('/users', protect, adminOnly, async (req: AuthRequest, res: Response)
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching users list' });
   }
+});
+
+router.put('/users/:id/manual-verification', protect, adminOnly, async (req:AuthRequest,res:Response):Promise<void>=>{
+ try {
+  const {phone,method}=req.body;
+  if(typeof phone!=='string'||!normalizePhone(phone)||!['call','whatsapp'].includes(method)){res.status(400).json({message:'Confirm the registered phone number and choose call or WhatsApp.'});return;}
+  if(!/^[a-fA-F0-9]{24}$/.test(String(req.params.id))){res.status(400).json({message:'Invalid user ID.'});return;}
+  const user=await User.findById(req.params.id);
+  if(!user){res.status(404).json({message:'User not found.'});return;}
+  if(!user.isActive){res.status(409).json({message:'Reactivate this account before verifying it.'});return;}
+  const registeredPhone=userPhone(user);
+  if(normalizePhone(phone)!==registeredPhone){res.status(409).json({message:'The registered phone number changed. Refresh the users list and confirm it again.'});return;}
+  if(telegramState(user).accountVerified){res.status(409).json({message:'This account is already verified.'});return;}
+  const approval={phone:registeredPhone,method,approvedAt:new Date(),approvedBy:String(req.user!._id),approvedByName:req.user!.name};
+  // Reserve phones through the existing unique index for both verification methods.
+  const updated=await User.findOneAndUpdate({_id:user._id,isActive:true,updatedAt:user.updatedAt},{$set:{manualVerification:approval,telegramVerifiedPhone:registeredPhone},$push:{manualVerificationHistory:approval}},{new:true,runValidators:true}).select('-passwordHash -resetPasswordToken -resetPasswordExpires');
+  if(!updated){res.status(409).json({message:'Account changed. Refresh and try again.'});return;}
+  res.json({message:'Account verified by admin.',user:{...updated.toObject(),...telegramState(updated)}});
+ }catch(e:any){res.status(e.code===11000?409:500).json({message:e.code===11000?'This phone is already verified on another account.':'Could not verify the account. Please retry.'});}
 });
 
 router.put('/users/:id/role', protect, adminOnly, async (req: AuthRequest, res: Response): Promise<void> => {

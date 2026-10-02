@@ -14,7 +14,7 @@ router.post('/start',protect,async(req:AuthRequest,res)=>{try{
  if(telegramState(user).telegramVerified&&phone===userPhone(user)){res.status(400).json({message:'This phone number is already verified.'});return;}
  const owned=await User.exists({_id:{$ne:user._id},telegramVerifiedPhone:phone});if(owned){res.status(409).json({message:'This phone is already verified on another account.'});return;}
  if(phone!==userPhone(user)){if(typeof req.body.currentPassword!=='string'||!await bcrypt.compare(req.body.currentPassword,user.passwordHash)){res.status(400).json({message:'Enter your current password to change the phone number.'});return;}
- user.mobileNumber=phone;user.whatsappNumber=phone;user.phoneNumber=phone;user.phone=phone;user.telegramVerifiedAt=undefined;user.telegramVerifiedPhone=undefined;user.telegramUserId=undefined;await user.save();}
+ user.mobileNumber=phone;user.whatsappNumber=phone;user.phoneNumber=phone;user.phone=phone;user.manualVerification=undefined;user.telegramVerifiedAt=undefined;user.telegramVerifiedPhone=undefined;user.telegramUserId=undefined;await user.save();}
  await Session.updateOne({user:user._id},{$setOnInsert:{user:user._id}},{upsert:true});
  const token=crypto.randomBytes(24).toString('hex');
  const session=await Session.findOneAndUpdate({user:user._id,$or:[{requestedAt:{$exists:false}},{requestedAt:{$lte:new Date(Date.now()-60000)}}]},{$set:{tokenHash:digest(token),phone,expiresAt:new Date(Date.now()+600000),requestedAt:new Date(),attempts:0},$unset:{chatId:1,codeHash:1,lastContactUpdate:1,codeSentAt:1}},{new:true});

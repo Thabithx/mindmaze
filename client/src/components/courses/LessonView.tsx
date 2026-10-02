@@ -16,7 +16,7 @@ export function LessonView({lesson,progress,onProgress,onNext,preview=false}:{le
       else{const res=await api.submitCourseQuiz(lesson._id,answers,lesson.revision);setResult(res);onProgress(res.progress);}
     }catch(e:any){setError(e.message);}finally{setBusy(false);}
   };
-  return <div className="space-y-5">
+  return <div className="learning-area space-y-5">
     <header className={panel}>
       <p className="text-xs font-semibold text-cyan-300">{lesson.subject} / {lesson.topic} · {lesson.medium} · {lesson.estimatedMinutes} min</p>
       <h2 className="text-2xl font-bold text-white">{lesson.title}</h2>

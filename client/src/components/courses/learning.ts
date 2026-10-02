@@ -9,9 +9,9 @@ export interface Lesson {
 }
 export interface Progress {course:string;completed:boolean;lastOpenedAt:string;quizScore:number|null;quizTotal:number;needsRevision:boolean}
 export const subjects=['Physics','Chemistry','Biology','Combined Maths','ICT'];
-export const control='w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400';
-export const button='rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50';
-export const panel='rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5 space-y-4';
+export const control='learning-control w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400';
+export const button='learning-button rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50';
+export const panel='learning-panel rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5 space-y-4';
 export function youtubeEmbed(link:string) {
   try {
     const u=new URL(link);let id='';

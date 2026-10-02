@@ -43,7 +43,7 @@ export const CourseCatalogScreen:React.FC=()=>{
   const nextLesson=active?lessons.filter(l=>l.subject===active.subject&&l.topic===active.topic).find((l,i,items)=>i>0&&items[i-1]._id===active._id):null;
   const stats=(items:Lesson[])=>({done:items.filter(l=>progress[l._id]?.completed).length,total:items.length,minutes:items.reduce((n,l)=>n+l.estimatedMinutes,0)});
   const progressBar=(items:Lesson[])=>{const s=stats(items);return <div className="space-y-2"><p className="text-xs text-slate-400">{s.done} / {s.total} lessons completed · {s.minutes} min</p><progress aria-label="Lesson completion" value={s.done} max={s.total||1} className="w-full h-1.5 accent-cyan-400"/></div>;};
-  return <div className="space-y-6 pb-10">
+  return <div className="learning-area space-y-6 pb-10">
     <header className={panel}><p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Courses & Media</p><h1 className="text-2xl sm:text-3xl font-bold text-white">What will you learn today?</h1><p className="text-sm text-slate-400">Choose a subject, explore a topic, and learn at your own pace.</p></header>
     {error&&<div role="alert" className="text-rose-300">{error} <button className="underline" onClick={load}>Retry catalogue</button></div>}
     {progressError&&<div role="alert" className="text-amber-300 text-sm">{progressError} <button className="underline" onClick={load}>Retry progress</button></div>}

@@ -34,7 +34,7 @@ export const AdminCourseManager:React.FC=()=>{
   const remove=async(lesson:Lesson)=>{if(!window.confirm(`Delete “${lesson.title}” and its lesson progress?`))return;setBusy(true);setError('');try{await api.deleteCourse(lesson._id);setLessons(prev=>prev.filter(l=>l._id!==lesson._id));if(editing?._id===lesson._id)reset();setMessage('Lesson deleted.');window.dispatchEvent(new Event('mindmaze_courses_updated'));}catch(e:any){setError(e.message);}finally{setBusy(false);}};
   const changeQuestion=(i:number,patch:Partial<Question>)=>setQuiz(prev=>prev.map((q,j)=>j===i?{...q,...patch}:q));
   const visible=lessons.filter(l=>(!filterSubject||l.subject===filterSubject)&&(!filterStatus||l.status===filterStatus)&&[l.title,l.topic,l.subject].join(' ').toLowerCase().includes(search.trim().toLowerCase()));
-  return <section className="space-y-6">
+  return <section className="learning-area space-y-6">
     <header className={panel}><h2 className="text-xl font-bold text-white">Manage courses & lessons</h2><p className="text-sm text-slate-400">Choose a subject and topic, add a lesson, then attach videos, notes and practice questions.</p></header>
     {message&&<p role="status" className="text-emerald-300">{message}</p>}{error&&<p role="alert" className="text-rose-300">{error}</p>}
     {preview&&<div className={panel}><button className={button} onClick={()=>setPreview(null)}>Close student preview</button><LessonView key={preview._id} lesson={preview} preview onProgress={()=>{}}/></div>}

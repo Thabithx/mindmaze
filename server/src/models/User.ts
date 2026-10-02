@@ -19,6 +19,8 @@ export interface IUser extends Document {
   telegramVerifiedAt?: Date;
   telegramVerifiedPhone?: string;
   telegramUserId?: string;
+  manualVerification?: { phone: string; approvedAt: Date; approvedBy: string; approvedByName: string; method: 'call' | 'whatsapp' };
+  manualVerificationHistory: { phone: string; approvedAt: Date; approvedBy: string; approvedByName: string; method: 'call' | 'whatsapp' }[];
   role: UserRole;
   stream: StreamType;
   physicalScienceElective: 'Chemistry' | 'ICT';
@@ -66,6 +68,8 @@ const UserSchema = new Schema<IUser>(
     telegramVerifiedAt:{type:Date,default:undefined},
     telegramVerifiedPhone:{type:String,unique:true,sparse:true,default:undefined},
     telegramUserId:{type:String,unique:true,sparse:true,default:undefined},
+    manualVerification: { type: new Schema({phone:String,approvedAt:Date,approvedBy:String,approvedByName:String,method:{type:String,enum:['call','whatsapp']}},{_id:false}), default:undefined },
+    manualVerificationHistory: { type: [new Schema({phone:String,approvedAt:Date,approvedBy:String,approvedByName:String,method:{type:String,enum:['call','whatsapp']}},{_id:false})], default:[] },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     stream: {

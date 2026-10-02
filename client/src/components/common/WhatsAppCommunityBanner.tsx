@@ -20,7 +20,7 @@ export const WhatsAppCommunityBanner: React.FC = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="relative z-40 bg-gradient-to-r from-emerald-950/90 via-[#0D1F1A]/95 to-[#0F1023] border-b border-emerald-500/25 px-4 py-2.5 sm:py-2 text-white backdrop-blur-xl shadow-lg">
+    <div className="community-banner shrink-0 relative z-40 bg-gradient-to-r from-emerald-950/90 via-[#0D1F1A]/95 to-[#0F1023] border-b border-emerald-500/25 px-4 py-2.5 sm:py-2 text-white backdrop-blur-xl shadow-lg">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
         <div className="flex items-center gap-2.5 text-center sm:text-left">
           <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 flex items-center justify-center shrink-0">
