@@ -4,7 +4,7 @@ import { useScreenNavigation } from './hooks/useScreenNavigation';
 import { normalizeBatch, useBatches, setBatches } from './lib/batches';
 import { mistakeIdentity, uniqueMistakes } from './lib/mistakeIdentity';
 import { useState, useEffect, useCallback } from 'react';
-import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper, Question } from './types';
+import { ScreenId, StreamType, UserSettings, SyllabusTopic, TimetableEntry, DailyTask, MistakeItem, UserProfile, PastPaper } from './types';
 import { api, getAuthToken, setAuthToken, removeAuthToken, getStoredUser, setStoredUser, removeStoredUser } from './services/api';
 import {
   getStoredTimetable,
@@ -19,8 +19,6 @@ import {
   saveStoredMistakes,
   getStoredPastPapers,
   saveStoredPastPapers,
-  getStoredQuizQuestions,
-  saveStoredQuizQuestions,
   getDayOfWeekFromDate,
   calculateMinutesBetween,
   DEFAULT_SETTINGS,
@@ -47,6 +45,7 @@ import { TopicTracker } from './components/topics/TopicTracker';
 import { CourseCatalogScreen } from './components/courses/CourseCatalogScreen';
 import { AdminCourseManager } from './components/courses/AdminCourseManager';
 import { MistakeNotebookScreen } from './components/screens/MistakeNotebookScreen';
+import { PracticeQuizScreen } from './components/screens/PracticeQuizScreen';
 import { PastPaperLibraryScreen } from './components/screens/PastPaperLibraryScreen';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { ProgressAnalytics } from './components/progress/ProgressAnalytics';
@@ -94,7 +93,6 @@ export function App() {
   const [tasks, setTasks] = useState<DailyTask[]>(() => getStoredDailyTasks() || []);
   const [mistakes, setMistakes] = useState<MistakeItem[]>(() => getStoredMistakes());
   const [pastPapers, setPastPapers] = useState<PastPaper[]>([]);
-  const [quizQuestions, setQuizQuestions] = useState<Question[]>(() => getStoredQuizQuestions());
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
   // Block lifecycle trackers
@@ -118,16 +116,30 @@ export function App() {
     window.dispatchEvent(new Event('mindmaze_papers_updated'));
   };
 
-  const handleAddQuizQuestion = (newQ: Question) => {
-    const updated = [newQ, ...quizQuestions];
-    setQuizQuestions(updated);
-    saveStoredQuizQuestions(updated);
-  };
+  // The old built-in question bank was removed; clear its cached copy.
+  useEffect(() => { try { localStorage.removeItem('mm_stored_quiz_questions'); } catch {} }, []);
 
-  const handleDeleteQuizQuestion = (qId: string) => {
-    const updated = quizQuestions.filter((q) => q.id !== qId);
-    setQuizQuestions(updated);
-    saveStoredQuizQuestions(updated);
+  // Wrong Practice Quiz answers land here: stored locally, then synced to the account.
+  // Re-answering the same question wrong replaces its notebook entry (same question identity).
+  const handleSaveMistake = (m: MistakeItem) => {
+    const next = uniqueMistakes([m, ...getStoredMistakes()]);
+    setMistakes(next);
+    saveStoredMistakes(next);
+    if (!getAuthToken()) return;
+    api.saveMistake({
+      subject: m.subject, topic: m.topic, questionText: m.questionText,
+      yourAnswer: m.yourAnswer, correctAnswer: m.correctAnswer, explanation: m.explanation,
+      options: m.options, reviewImages: m.reviewImages, questionImage: m.questionImage, source: m.source,
+      reviewStatus: 'Needs Review', isMastered: false,
+    }).then((res: any) => {
+      const serverId = res?.mistake?._id;
+      if (!serverId) return;
+      // Adopt the server id so Mastered / Delete reach the saved record.
+      const key = mistakeIdentity(m);
+      const synced = getStoredMistakes().map((x) => (mistakeIdentity(x) === key ? { ...x, id: serverId } : x));
+      setMistakes(synced);
+      saveStoredMistakes(synced);
+    }).catch(() => {});
   };
 
   useEffect(() => {
@@ -311,6 +323,10 @@ export function App() {
               yourAnswer: m.yourAnswer || '',
               correctAnswer: m.correctAnswer || '',
               explanation: m.explanation || '',
+              options: Array.isArray(m.options) ? m.options : [],
+              reviewImages: Array.isArray(m.reviewImages) ? m.reviewImages : [],
+              questionImage: m.questionImage || '',
+              source: m.source || '',
               reviewStatus: m.reviewStatus || 'Needs Review',
               isMastered: Boolean(m.isMastered),
               dateAdded: m.dateAdded || m.createdAt || new Date().toISOString(),
@@ -425,6 +441,7 @@ export function App() {
             yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
             correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
             explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
+            options: m.options, reviewImages: m.reviewImages, questionImage: m.questionImage, source: m.source,
             reviewStatus: m.reviewStatus || 'Needs Review',
             isMastered: Boolean(m.isMastered),
             dateAdded: m.dateAdded || new Date().toISOString(),
@@ -497,6 +514,7 @@ export function App() {
             yourAnswer: m.yourAnswer || m.userSelectedOptionId || '',
             correctAnswer: m.correctAnswer || (m.question?.options?.find((o: any) => o.isCorrect)?.text) || '',
             explanation: typeof m.explanation === 'string' ? m.explanation : (m.question?.explanation?.conceptNote || m.question?.explanation || ''),
+            options: m.options, reviewImages: m.reviewImages, questionImage: m.questionImage, source: m.source,
             reviewStatus: m.reviewStatus || 'Needs Review',
             isMastered: Boolean(m.isMastered),
             dateAdded: m.dateAdded || new Date().toISOString(),
@@ -756,7 +774,6 @@ export function App() {
         onNavigate={setCurrentScreen}
         syllabusTopics={syllabusTopics}
         pastPapers={pastPapers}
-        quizQuestions={quizQuestions}
         tasks={tasks}
       />
 
@@ -1419,12 +1436,7 @@ export function App() {
 
           {/* Practice Quiz */}
           {currentScreen === 'quiz' && (
-            <div className="mx-auto max-w-xl rounded-3xl border border-amber-400/30 bg-slate-900 p-8 text-center space-y-4">
-              <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-bold text-amber-300">Beta</span>
-              <h2 className="text-2xl font-bold text-white">Practice Quiz</h2>
-              <p className="text-slate-300">General practice is temporarily unavailable while we improve it. Visit Past Papers for available MCQ practice.</p>
-              <button onClick={() => setCurrentScreen('pastpapers')} className="rounded-xl bg-indigo-600 px-5 py-3 text-white">Open Past Papers</button>
-            </div>
+            <PracticeQuizScreen userProfile={userProfile} onNavigate={setCurrentScreen} onSaveMistake={handleSaveMistake} />
           )}
 
           {/* Mistake Notebook */}
@@ -1575,9 +1587,6 @@ export function App() {
                   pastPapers={pastPapers}
                   onAddPastPaper={handleAddPastPaper}
                   onDeletePastPaper={handleDeletePastPaper}
-                  quizQuestions={quizQuestions}
-                  onAddQuizQuestion={handleAddQuizQuestion}
-                  onDeleteQuizQuestion={handleDeleteQuizQuestion}
                 />
                 <AdminCourseManager />
               </div>
