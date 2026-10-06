@@ -103,6 +103,9 @@ export const api = {
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   updatePastPaper: (id: string, body: FormData) => apiFetch('/past-papers/' + id, {method: 'PUT', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
+  // Student activity (single designated admin only; the server enforces this)
+  getActivityAccess: () => apiFetch('/admin/activity-access'),
+  getUserActivity: (id: string) => apiFetch('/admin/users/' + encodeURIComponent(id) + '/activity'),
   // Practice Quiz (Daily Spark / Weekly Century)
   getPracticeOverview: () => apiFetch('/practice/overview'),
   getPracticeSet: (id: string) => apiFetch('/practice/sets/' + encodeURIComponent(id)),
