@@ -264,3 +264,36 @@ export interface TryExample {
   [key: string]: any;
 }
 
+
+// ===== Practice Quiz (Daily Spark / Weekly Century) =====
+export type PracticeCategory = 'daily' | 'weekly';
+
+export interface PracticeSetSummary {
+  id: string;
+  category: PracticeCategory;
+  subject: string;
+  title: string;
+  topic: string;
+  publishDate: string; // YYYY-MM-DD
+  isPublished: boolean;
+  scheduled?: boolean;
+  questionCount: number;
+}
+
+export interface PracticeStudentQuestion {
+  text: string;
+  imageId: string;
+  imageAlt: string;
+  options: string[];
+}
+
+export interface PracticeReviewImage { path: string; alt: string }
+
+export interface PracticeReview {
+  correct: boolean;
+  selectedIndex: number;
+  correctIndices: number[];
+  correctAnswers: string[];
+  explanation: string;
+  reviewImages: PracticeReviewImage[];
+}

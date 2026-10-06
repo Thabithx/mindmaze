@@ -4,6 +4,10 @@ import Mistake from '../models/Mistake.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
+// Review photos from Practice Quiz are stored as relative API paths, never arbitrary URLs.
+const REVIEW_IMAGE_PATH = /^\/practice\/sets\/[a-f\d]{24}\/images\/[a-f\d]{24}$/i;
+const cleanReviewImages = (v: any) => Array.isArray(v) ? v.filter((r: any) => r && typeof r.path === 'string' && REVIEW_IMAGE_PATH.test(r.path)).slice(0, 6).map((r: any) => ({ path: r.path, alt: typeof r.alt === 'string' ? r.alt.slice(0, 1000) : '' })) : [];
+const cleanOptions = (v: any) => Array.isArray(v) ? v.filter((o: any) => typeof o === 'string').slice(0, 5).map((o: string) => o.slice(0, 5000)) : [];
 const keyOf = (m: any) => createHash('sha256').update(JSON.stringify([m.subject, m.topic, m.questionText, m.correctAnswer || ''].map(v => String(v).trim().replace(/\s+/g, ' ')))).digest('hex');
 async function duplicateIds(user: any, item: any) {
   const records = await Mistake.find({user});
@@ -42,6 +46,11 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
       explanation,
       reviewStatus: req.body.reviewStatus || 'Needs Review',
       isMastered: Boolean(req.body.isMastered),
+      // Only overwrite the rich review data when the client actually sends it (login sync does not).
+      ...(req.body.options !== undefined ? { options: cleanOptions(req.body.options) } : {}),
+      ...(req.body.reviewImages !== undefined ? { reviewImages: cleanReviewImages(req.body.reviewImages) } : {}),
+      ...(typeof req.body.questionImage === 'string' ? { questionImage: REVIEW_IMAGE_PATH.test(req.body.questionImage) ? req.body.questionImage : '' } : {}),
+      ...(typeof req.body.source === 'string' ? { source: req.body.source.slice(0, 200) } : {}),
     };
     await Mistake.init();
     const questionKey = keyOf(values);
