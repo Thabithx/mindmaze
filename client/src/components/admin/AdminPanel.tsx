@@ -6,6 +6,7 @@ import { MarkingSchemeUpload } from './MarkingSchemeUpload';
 import { setBatches } from '../../lib/batches';
 import { PaperQuizEditor } from './PaperQuizEditor';
 import { PracticePublisher } from './PracticePublisher';
+import { UserActivityModal } from './UserActivityModal';
 import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
@@ -113,6 +114,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const [searchTerm, setSearchTerm] = useState('');
+  // Only the one designated admin gets clickable names; the server re-checks on every request.
+  const [canViewActivity, setCanViewActivity] = useState(false);
+  const [activityUserId, setActivityUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (userRole !== 'admin') { setCanViewActivity(false); return; }
+    let cancelled = false;
+    api.getActivityAccess().then((r: any) => { if (!cancelled) setCanViewActivity(!!r?.allowed); }).catch(() => { if (!cancelled) setCanViewActivity(false); });
+    return () => { cancelled = true; };
+  }, [userRole]);
   const [streamFilter, setStreamFilter] = useState('all');
   const usersPage=usePagedResource<any>('/admin/users','users',{q:searchTerm,stream:streamFilter},undefined,userRole==='admin'&&activeTab==='directory');
   useEffect(()=>setUsers(usersPage.items),[usersPage.items]);
@@ -694,7 +704,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     filteredUsers.map((u, i) => (
                       <tr key={u._id} className="hover:bg-white/5 transition">
                         <td className="py-3.5 px-4 font-semibold text-white">
-                          <div><span className="mr-2 text-slate-400">{(usersPage.pagination.page-1)*usersPage.pagination.pageSize+i+1}.</span>{u.name}</div>
+                          <div><span className="mr-2 text-slate-400">{(usersPage.pagination.page-1)*usersPage.pagination.pageSize+i+1}.</span>{canViewActivity ? <button type="button" onClick={() => setActivityUserId(u._id)} className="font-semibold text-cyan-300 hover:text-cyan-200 underline decoration-dotted underline-offset-4 cursor-pointer text-left" title="View activity">{u.name}</button> : u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
                         </td>
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
@@ -1050,6 +1060,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Tab 3: Practice Quiz Publisher (Weekly Century / Daily Spark) */}
       {activeTab === 'quiz' && <PracticePublisher />}
+      {canViewActivity && activityUserId && <UserActivityModal userId={activityUserId} onClose={() => setActivityUserId(null)} />}
     </div>
   );
 };
