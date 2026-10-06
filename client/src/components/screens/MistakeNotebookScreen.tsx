@@ -2,6 +2,7 @@ import {Pagination} from '../common/Pagination';
 import {usePagination} from '../../hooks/usePagination';
 import React, { useState } from 'react';
 import { MistakeItem, ScreenId } from '../../types';
+import { practiceImageUrl } from '../../services/api';
 import {
   BookmarkCheck,
   Search,
@@ -200,9 +201,13 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
             const yourAns = item.yourAnswer || (item.userSelectedOptionId ? `Option ${item.userSelectedOptionId}` : 'Not selected');
             const correctAns = item.correctAnswer || item.question?.explanation?.correctOptionText || (item.question?.explanation?.correctOptionId ? `Option ${item.question.explanation.correctOptionId}` : '');
             const conceptNote = typeof item.explanation === 'string' ? item.explanation : (item.question?.explanation?.conceptNote || 'Review this question topic carefully.');
+            const options: string[] = Array.isArray(item.options) ? item.options : [];
+            const reviewImages: { path: string; alt?: string }[] = Array.isArray(item.reviewImages) ? item.reviewImages : [];
+            const questionImage: string = typeof item.questionImage === 'string' ? item.questionImage : '';
+            const hasWrittenReview = typeof item.explanation === 'string' ? item.explanation.trim().length > 0 : true;
             const stepByStepList: string[] = Array.isArray(item.question?.explanation?.stepByStep)
               ? item.question.explanation.stepByStep
-              : (conceptNote ? [conceptNote] : []);
+              : [];
 
             return (
               <div
@@ -236,6 +241,7 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                     </h4>
 
                     <div className="text-[11px] text-slate-400 flex items-center gap-3">
+                      {item.source && <><span className="text-slate-300">{item.source}</span><span>•</span></>}
                       <span>Saved: {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : item.savedAt || 'Recently'}</span>
                       <span>•</span>
                       <span className="text-rose-400 font-medium">
@@ -278,6 +284,30 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                 {/* Expanded Mini-Lesson Card */}
                 {isExpanded && (
                   <div className="border-t border-white/10 p-6 bg-black/30 rounded-b-3xl space-y-5 animate-in fade-in duration-200">
+                    {/* The question itself, with its diagram and options */}
+                    {(options.length > 0 || questionImage) && (
+                      <div className="space-y-2.5">
+                        <p className="text-sm text-white font-medium leading-relaxed whitespace-pre-wrap">{qText}</p>
+                        {questionImage && <img src={practiceImageUrl(questionImage)} alt="Question diagram" className="max-h-80 max-w-full object-contain rounded-xl bg-white" loading="lazy" />}
+                        {options.length > 0 && (
+                          <div className="space-y-1.5">
+                            {options.map((opt, n) => {
+                              const isCorrectOpt = !!correctAns && correctAns.split(' / ').includes(opt);
+                              const isYours = opt === item.yourAnswer;
+                              return (
+                                <div key={n} className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs ${isCorrectOpt ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-100' : isYours ? 'border-rose-500/50 bg-rose-500/15 text-rose-100' : 'border-white/5 bg-white/5 text-slate-300'}`}>
+                                  <span className="font-bold">{String.fromCharCode(65 + n)}.</span>
+                                  <span className="flex-1 whitespace-pre-wrap">{opt}</span>
+                                  {isCorrectOpt && <span className="font-bold text-emerald-300">Correct</span>}
+                                  {isYours && !isCorrectOpt && <span className="font-bold text-rose-300">Your answer</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Correct Answer Highlight */}
                     {correctAns && (
                       <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-xs">
@@ -295,11 +325,18 @@ export const MistakeNotebookScreen: React.FC<MistakeNotebookScreenProps> = ({
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
                         <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Core Concept Blueprint:</span>
+                        <span>{item.source ? 'Review:' : 'Core Concept Blueprint:'}</span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3.5 rounded-xl border border-white/5">
-                        {conceptNote}
+                      <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3.5 rounded-xl border border-white/5 whitespace-pre-wrap">
+                        {hasWrittenReview && conceptNote ? conceptNote : 'No written review was added for this question.'}
                       </p>
+                      {reviewImages.length > 0 && (
+                        <div className="grid gap-3 pt-1.5">
+                          {reviewImages.map((img) => (
+                            <img key={img.path} src={practiceImageUrl(img.path)} alt={img.alt || 'Review diagram'} className="max-w-full rounded-xl bg-white object-contain" loading="lazy" />
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Step-by-Step Method */}

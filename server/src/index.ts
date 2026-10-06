@@ -1,6 +1,7 @@
 import telegramRoutes from './routes/telegramRoutes.js';
 import paperAssetRoutes from './routes/paperAssetRoutes.js';
 import paperQuizRoutes from './routes/paperQuizRoutes.js';
+import practiceRoutes from './routes/practiceRoutes.js';
 import pastPaperRoutes from './routes/pastPaperRoutes.js';
 import express from 'express';
 import cors from 'cors';
@@ -54,6 +55,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/practice', practiceRoutes);
 app.use('/api/past-papers', paperAssetRoutes);
 app.use('/api/past-papers', paperQuizRoutes);
 app.use('/api/past-papers', pastPaperRoutes);

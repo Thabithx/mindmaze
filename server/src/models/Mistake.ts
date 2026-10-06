@@ -9,6 +9,10 @@ export interface IMistake extends Document {
   yourAnswer: string;
   correctAnswer: string;
   explanation: string;
+  options: string[];
+  reviewImages: { path: string; alt: string }[];
+  source: string;
+  questionImage: string;
   reviewStatus: 'Needs Review' | 'Reviewed' | 'Mastered';
   isMastered: boolean;
   dateAdded: Date;
@@ -24,6 +28,10 @@ const MistakeSchema = new Schema<IMistake>(
     yourAnswer: { type: String, default: '' },
     correctAnswer: { type: String, default: '' },
     explanation: { type: String, default: '' },
+    options: { type: [String], default: [] },
+    reviewImages: { type: [new Schema({ path: { type: String, required: true }, alt: { type: String, default: '' } }, { _id: false })], default: [] },
+    source: { type: String, default: '' },
+    questionImage: { type: String, default: '' },
     reviewStatus: {
       type: String,
       enum: ['Needs Review', 'Reviewed', 'Mastered'],

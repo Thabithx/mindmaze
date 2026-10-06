@@ -1,7 +1,6 @@
 import { uniqueMistakes } from './mistakeIdentity';
-import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem, PastPaper, Question } from '../types';
+import { DailyTask, SyllabusTopic, TimetableEntry, UserSettings, StreamType, MistakeItem, PastPaper } from '../types';
 import { INITIAL_SYLLABUS_TOPICS } from '../data/alSyllabusData';
-import { PHYSICS_QUESTIONS } from '../data/physicsQuestions';
 
 const TIMETABLE_STORAGE_KEY = 'mindmaze_timetable_v2';
 const DAILY_TASKS_STORAGE_KEY = 'mindmaze_daily_tasks_v2';
@@ -393,34 +392,5 @@ export function saveStoredPastPapers(papers: PastPaper[]): void {
     localStorage.setItem(PAST_PAPERS_STORAGE_KEY, JSON.stringify(papers));
   } catch (e) {
     console.error('Failed to save past papers to localStorage', e);
-  }
-}
-
-// ================= QUIZ QUESTIONS STORAGE =================
-const QUIZ_QUESTIONS_STORAGE_KEY = 'mm_stored_quiz_questions';
-
-export function getStoredQuizQuestions(): Question[] {
-  try {
-    const raw = localStorage.getItem(QUIZ_QUESTIONS_STORAGE_KEY);
-    if (!raw) {
-      saveStoredQuizQuestions(PHYSICS_QUESTIONS);
-      return PHYSICS_QUESTIONS;
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      saveStoredQuizQuestions(PHYSICS_QUESTIONS);
-      return PHYSICS_QUESTIONS;
-    }
-    return parsed;
-  } catch (e) {
-    return PHYSICS_QUESTIONS;
-  }
-}
-
-export function saveStoredQuizQuestions(questions: Question[]): void {
-  try {
-    localStorage.setItem(QUIZ_QUESTIONS_STORAGE_KEY, JSON.stringify(questions));
-  } catch (e) {
-    console.error('Failed to save quiz questions to localStorage', e);
   }
 }

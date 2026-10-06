@@ -81,6 +81,8 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   }
 };
 
+// Practice images are stored as API-relative paths ("/practice/sets/<id>/images/<id>").
+export const practiceImageUrl=(path:string)=>/^https?:\/\//.test(path)?path:API_BASE+path;
 export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-papers/'+encodeURIComponent(paperId)+'/question-images/'+encodeURIComponent(imageId);
 
 // API Methods
@@ -101,6 +103,16 @@ export const api = {
   createPastPaper: (body: FormData) => apiFetch('/past-papers', {method: 'POST', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   updatePastPaper: (id: string, body: FormData) => apiFetch('/past-papers/' + id, {method: 'PUT', body}).then(res => ({paper: {...res.paper, markingSchemeUrl:res.paper.markingSchemePath?API_BASE+res.paper.markingSchemePath:undefined,pdfUrl: API_BASE + res.paper.pdfPath}})),
   deletePastPaper: (id: string) => apiFetch('/past-papers/' + id, {method: 'DELETE'}),
+  // Practice Quiz (Daily Spark / Weekly Century)
+  getPracticeOverview: () => apiFetch('/practice/overview'),
+  getPracticeSet: (id: string) => apiFetch('/practice/sets/' + encodeURIComponent(id)),
+  checkPracticeAnswer: (id: string, questionIndex: number, selectedIndex: number) => apiFetch('/practice/sets/' + encodeURIComponent(id) + '/check', {method:'POST',body:JSON.stringify({questionIndex,selectedIndex})}),
+  getPracticeSetForEdit: (id: string) => apiFetch('/practice/admin/sets/' + encodeURIComponent(id)),
+  createPracticeSet: (body: any) => apiFetch('/practice/admin/sets', {method:'POST',body:JSON.stringify(body)}),
+  updatePracticeSet: (id: string, body: any) => apiFetch('/practice/admin/sets/' + encodeURIComponent(id), {method:'PUT',body:JSON.stringify(body)}),
+  setPracticeSetPublished: (id: string, isPublished: boolean) => apiFetch('/practice/admin/sets/' + encodeURIComponent(id) + '/publish', {method:'PATCH',body:JSON.stringify({isPublished})}),
+  deletePracticeSet: (id: string) => apiFetch('/practice/admin/sets/' + encodeURIComponent(id), {method:'DELETE'}),
+  uploadPracticeImage: (id: string, file: File) => {const body=new FormData();body.append('imageFile',file);return apiFetch('/practice/admin/sets/' + encodeURIComponent(id) + '/images',{method:'POST',body});},
   // Auth
   register: (body: any) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body: any) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
