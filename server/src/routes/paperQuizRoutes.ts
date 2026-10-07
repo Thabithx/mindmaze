@@ -6,7 +6,8 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import PastPaper from '../models/PastPaper.js';
-import { protect, contentManagerOnly } from '../middleware/authMiddleware.js';
+import { protect, contentManagerOnly, optionalAuth } from '../middleware/authMiddleware.js';
+import PaperResult from '../models/PaperResult.js';
 
 const router = Router();
 router.param('id', (_req, res, next, id) => {
@@ -51,7 +52,7 @@ router.get('/:id/quiz', async (req, res) => {
 const tokenHash=(token:unknown)=>typeof token==='string'&&/^[a-f0-9]{64}$/.test(token)?createHash('sha256').update(token).digest('hex'):'';
 const presentAttempt=(a:any)=>({title:a.title,version:a.version,questions:a.questions.map(publicQuestion),answers:a.answers,deadline:a.deadline,serverNow:new Date(),result:a.result||null});
 // Starting an attempt snapshots the paper so later edits do not invalidate a timed sitting.
-router.post('/:id/quiz/attempt',async(req,res)=>{
+router.post('/:id/quiz/attempt',optionalAuth,async(req:any,res)=>{
  try{
   if(req.body.attemptToken){
    const attempt=await PaperAttempt.findOne({paper:req.params.id,tokenHash:tokenHash(req.body.attemptToken)});
@@ -61,7 +62,7 @@ router.post('/:id/quiz/attempt',async(req,res)=>{
   const paper=await PastPaper.findById(req.params.id);
   if(!paper||paper.type!=='MCQ'||!paper.quizQuestions.length){res.status(404).json({message:'This practice paper is unavailable.'});return;}
   const token=randomBytes(32).toString('hex'),now=Date.now();
-  const attempt=await PaperAttempt.create({paper:paper._id,tokenHash:tokenHash(token),title:paper.title,version:paper.quizVersion,
+  const attempt=await PaperAttempt.create({paper:paper._id,user:req.optionalUserId&&mongoose.isValidObjectId(req.optionalUserId)?req.optionalUserId:undefined,tokenHash:tokenHash(token),title:paper.title,version:paper.quizVersion,
    questions:paper.quizQuestions.map(q=>({...q.toObject(),correctIndices:correctAnswers(q)})),answers:paper.quizQuestions.map(()=>[]),
    deadline:new Date(now+PAPER_DURATION_MS),cleanupAt:new Date(now+7*24*60*60*1000)});
   res.status(201).json({...presentAttempt(attempt),attemptToken:token});
@@ -91,7 +92,12 @@ router.post('/:id/quiz/submit',async(req,res)=>{
    const answers=timedOut?attempt.answers:req.body.answers;
    const result={...gradePaper(attempt.questions,answers),timedOut};
    const saved=await PaperAttempt.findOneAndUpdate({...filter,revision:attempt.revision,result:{$exists:false}},{$set:{answers,result},$inc:{revision:1}},{new:true});
-   if(saved){res.json(result);return;}
+   if(saved){
+    res.json(result);
+    // Lasting per-student record (idempotent: one row per attempt). Never affects the response.
+    if(saved.user)PaperResult.updateOne({attempt:saved._id},{$setOnInsert:{user:saved.user,paper:saved.paper,title:saved.title,score:result.score,total:result.total,percentage:result.percentage,timedOut:result.timedOut,submittedAt:new Date()}},{upsert:true}).catch(()=>{});
+    return;
+   }
   }
   res.status(409).json({message:'Answers are still saving. Please retry submission.'});
  }catch{res.status(500).json({message:'Could not mark this paper. Your attempt is saved; please retry.'});}
