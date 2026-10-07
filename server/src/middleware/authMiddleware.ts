@@ -56,3 +56,16 @@ export const contentManagerOnly = (req:AuthRequest,res:Response,next:NextFunctio
  if(req.user && ['admin','content_manager'].includes(req.user.role)) next();
  else res.status(403).json({message:'Access denied: Content Manager or Admin role required'});
 };
+
+// Never blocks: if a valid login token is present, exposes the user id so anonymous-friendly routes
+// (like timed papers) can attach the attempt to the logged-in student.
+export const optionalAuth = (req: any, _res: any, next: any): void => {
+  const header = req.headers?.authorization;
+  if (typeof header === 'string' && header.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET) as { id?: string };
+      if (decoded?.id) req.optionalUserId = decoded.id;
+    } catch { /* anonymous */ }
+  }
+  next();
+};

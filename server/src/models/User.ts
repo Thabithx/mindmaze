@@ -37,6 +37,10 @@ export interface IUser extends Document {
   timetableRevision: number;
   totalStudyMinutes: number;
   studyMinutesByDate: Map<string, number>;
+  lastSeenAt?: Date;
+  sessionCount?: number;
+  totalActiveMinutes?: number;
+  activeMinutesByDate?: Map<string, number>;
   xp: number;
   streakDays: number;
   bestStreak: number;
@@ -91,6 +95,11 @@ const UserSchema = new Schema<IUser>(
     studyMinutesByDate: { type: Map, of: Number, default: {} },
     timetableRevision: { type: Number, default: 0 },
     totalStudyMinutes: { type: Number, default: 0 },
+    // Time in the system (measured server-side from activity pings; separate from the study timer)
+    lastSeenAt: { type: Date },
+    sessionCount: { type: Number, default: 0 },
+    totalActiveMinutes: { type: Number, default: 0 },
+    activeMinutesByDate: { type: Map, of: Number, default: {} },
     xp: { type: Number, default: 0 },
     streakDays: { type: Number, default: 0 },
     bestStreak: { type: Number, default: 0 },

@@ -1,3 +1,4 @@
+import { pingCredit } from '../services/activityTracking.js';
 import {telegramEnabled,telegramConfigured,telegramState,normalizePhone,userPhone as getVerificationPhone} from '../services/telegramVerification.js';
 import { getBatchConfig } from '../services/batchConfig.js';
 import { normalizeBatch } from '../services/batches.js';
@@ -543,6 +544,23 @@ router.post('/reset-password', async (req: AuthRequest, res: Response): Promise<
     console.error('Reset Password Error:', error);
     res.status(500).json({ message: 'Error resetting password', error: error.message });
   }
+});
+
+// Time-in-system tracking. The client pings every few minutes while the tab is visible and the student is
+// interacting. Time is measured HERE from the gap between pings, never trusted from the client.
+router.post('/activity-ping', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const nowMs = Date.now();
+    const credit = pingCredit(req.user!.lastSeenAt ? new Date(req.user!.lastSeenAt).getTime() : 0, nowMs);
+    if (credit.ignore) { res.json({ ok: true }); return; }
+    const add = credit.minutes, newVisit = credit.newVisit;
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(new Date(nowMs));
+    await User.updateOne(
+      { _id: req.user!._id },
+      { $set: { lastSeenAt: new Date(nowMs) }, $inc: { totalActiveMinutes: add, ['activeMinutesByDate.' + date]: add, ...(newVisit ? { sessionCount: 1 } : {}) } }
+    );
+    res.json({ ok: true });
+  } catch { res.status(500).json({ message: 'Could not record activity.' }); }
 });
 
 // Atomic Study Minutes increment (permanently saved to MongoDB)

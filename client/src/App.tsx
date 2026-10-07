@@ -46,6 +46,7 @@ import { CourseCatalogScreen } from './components/courses/CourseCatalogScreen';
 import { AdminCourseManager } from './components/courses/AdminCourseManager';
 import { MistakeNotebookScreen } from './components/screens/MistakeNotebookScreen';
 import { PracticeQuizScreen } from './components/screens/PracticeQuizScreen';
+import { useActivityPing } from './hooks/useActivityPing';
 import { PastPaperLibraryScreen } from './components/screens/PastPaperLibraryScreen';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { ProgressAnalytics } from './components/progress/ProgressAnalytics';
@@ -67,6 +68,7 @@ export function App() {
 
   // User State & Auth
   const [user, setUser] = useState<any>(() => getStoredUser());
+  useActivityPing(!!user);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-password' | null>(() => getStoredUser() ? null : 'signup');
 

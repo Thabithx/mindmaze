@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import path from 'node:path';
 import PracticeSet, { PRACTICE_CATEGORIES } from '../models/PracticeSet.js';
 import PaperAsset from '../models/PaperAsset.js';
+import PracticeProgress from '../models/PracticeProgress.js';
 import { protect, contentManagerOnly, AuthRequest } from '../middleware/authMiddleware.js';
 import { saveAsset, removeAsset, assetDirectory } from '../services/paperAssets.js';
 import { readPagination, pageInfo, literalSearch, queryText, PaginationError } from '../services/pagination.js';
@@ -75,7 +76,7 @@ router.get('/sets/:id', protect, async (req, res) => {
 });
 
 // Answers are checked on the server one question at a time, so the key is only revealed after a submission.
-router.post('/sets/:id/check', protect, async (req, res) => {
+router.post('/sets/:id/check', protect, async (req: AuthRequest, res) => {
   try {
     const { questionIndex, selectedIndex } = req.body || {};
     const set = await PracticeSet.findOne({ _id: req.params.id, ...visibleFilter() });
@@ -84,7 +85,20 @@ router.post('/sets/:id/check', protect, async (req, res) => {
     if (!q || !Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= q.options.length) {
       res.status(400).json({ message: 'Choose one of the listed answers.' }); return;
     }
-    res.json(reviewFor(String(set._id), q, selectedIndex));
+    const review = reviewFor(String(set._id), q, selectedIndex);
+    res.json(review);
+    // Count the answer for the student's activity report (counters only; never delays or breaks the answer).
+    const now = new Date();
+    PracticeProgress.updateOne(
+      { user: req.user!._id, set: set._id },
+      {
+        $setOnInsert: { category: set.category, subject: set.subject, firstAnsweredAt: now },
+        $set: { lastAnsweredAt: now },
+        $inc: { answered: 1, correct: review.correct ? 1 : 0 },
+        $addToSet: review.correct ? { questionsSeen: questionIndex, questionsCorrect: questionIndex } : { questionsSeen: questionIndex },
+      },
+      { upsert: true }
+    ).catch(() => {});
   } catch { res.status(500).json({ message: 'Could not check your answer. Please retry.' }); }
 });
 
@@ -214,6 +228,7 @@ router.delete('/admin/sets/:id', protect, contentManagerOnly, async (req, res) =
   try {
     const set = await PracticeSet.findByIdAndDelete(req.params.id);
     if (!set) { res.status(404).json({ message: 'Practice set not found.' }); return; }
+    await PracticeProgress.deleteMany({ set: set._id }).catch(() => {});
     const assets = await PaperAsset.find({ paper: set._id, kind: 'image' });
     for (const a of assets) await removeAsset(a).catch(() => {});
     res.json({ message: 'Practice set deleted.' });

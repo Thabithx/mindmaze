@@ -10,6 +10,9 @@ import Task from '../models/Task.js';
 import Mistake from '../models/Mistake.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import CourseProgress from '../models/CourseProgress.js';
+import PaperResult from '../models/PaperResult.js';
+import PracticeProgress from '../models/PracticeProgress.js';
+import PracticeSet from '../models/PracticeSet.js';
 import { canViewUserActivity } from '../services/activityAccess.js';
 import { colomboToday } from '../services/practice.js';
 import SiteConfig from '../models/SiteConfig.js';
@@ -59,7 +62,7 @@ router.get('/users/:id/activity', protect, adminOnly, activityViewerOnly, async 
   try {
     if (!mongoose.isValidObjectId(req.params.id)) { res.status(404).json({ message: 'User not found.' }); return; }
     const uid = new mongoose.Types.ObjectId(req.params.id);
-    const [user, mistakeRows, syllabusRows, courseRows, taskRows, timetableSlots] = await Promise.all([
+    const [user, mistakeRows, syllabusRows, courseRows, taskRows, timetableSlots, paperStats, paperRecent, practiceTotals, practiceByCategory, practiceRecent] = await Promise.all([
       User.findById(uid).select('-passwordHash -resetPasswordToken -resetPasswordExpires -pushSubscriptions -manualVerificationHistory').lean(),
       Mistake.aggregate([{ $match: { user: uid } }, { $group: { _id: '$subject', total: { $sum: 1 }, mastered: { $sum: { $cond: ['$isMastered', 1, 0] } } } }, { $sort: { total: -1 } }]),
       SyllabusProgress.aggregate([{ $match: { user: uid } }, { $group: { _id: { subject: '$subject', status: '$status' }, n: { $sum: 1 } } }]),
@@ -71,6 +74,11 @@ router.get('/users/:id/activity', protect, adminOnly, activityViewerOnly, async 
         lastOpenedAt: { $max: '$lastOpenedAt' } } }]),
       Task.aggregate([{ $match: { user: uid } }, { $group: { _id: null, total: { $sum: 1 }, completed: { $sum: { $cond: ['$isCompleted', 1, 0] } } } }]),
       Timetable.countDocuments({ user: uid }),
+      PaperResult.aggregate([{ $match: { user: uid } }, { $group: { _id: null, completed: { $sum: 1 }, avg: { $avg: '$percentage' }, best: { $max: '$percentage' } } }]),
+      PaperResult.find({ user: uid }).sort({ submittedAt: -1 }).limit(10).select('title score total percentage timedOut submittedAt').lean(),
+      PracticeProgress.aggregate([{ $match: { user: uid } }, { $group: { _id: null, sets: { $sum: 1 }, attempts: { $sum: '$answered' }, correct: { $sum: '$correct' }, distinctAnswered: { $sum: { $size: '$questionsSeen' } }, distinctCorrect: { $sum: { $size: '$questionsCorrect' } } } }]),
+      PracticeProgress.aggregate([{ $match: { user: uid } }, { $group: { _id: '$category', sets: { $sum: 1 }, attempts: { $sum: '$answered' }, correct: { $sum: '$correct' } } }]),
+      PracticeProgress.find({ user: uid }).sort({ lastAnsweredAt: -1 }).limit(10).select('set category subject answered correct questionsSeen lastAnsweredAt').lean(),
     ]);
     if (!user) { res.status(404).json({ message: 'User not found.' }); return; }
 
@@ -93,6 +101,24 @@ router.get('/users/:id/activity', protect, adminOnly, activityViewerOnly, async 
     }
     const syllabusBySubject = Object.values(subjects).sort((a, b) => a.subject.localeCompare(b.subject));
     const c = courseRows[0] || {}, t = taskRows[0] || {};
+
+    // Time in the system (measured from activity pings).
+    const activeByDate = asPlain((user as any).activeMinutesByDate);
+    const activeDaily = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(base - (29 - i) * 86400000).toISOString().slice(0, 10);
+      return { date, minutes: Math.round((Math.max(0, Number(activeByDate[date]) || 0)) * 10) / 10 };
+    });
+    const activeDates = Object.keys(activeByDate).filter(d => Number(activeByDate[d]) > 0).sort();
+    const lastSeen: Date | undefined = (user as any).lastSeenAt;
+
+    // Practice Quiz: join recent rows with their set details.
+    const recentSetIds = practiceRecent.map((r: any) => r.set);
+    const setInfo = recentSetIds.length ? await PracticeSet.aggregate([
+      { $match: { _id: { $in: recentSetIds } } },
+      { $project: { title: 1, category: 1, subject: 1, publishDate: 1, total: { $size: '$questions' } } },
+    ]) : [];
+    const setById = new Map(setInfo.map((x: any) => [String(x._id), x]));
+    const pt = practiceTotals[0] || {}, ps = paperStats[0] || {};
 
     res.json({
       profile: {
@@ -121,6 +147,41 @@ router.get('/users/:id/activity', protect, adminOnly, activityViewerOnly, async 
       courses: { opened: c.opened || 0, completed: c.completed || 0, needsRevision: c.needsRevision || 0, quizAttempts: c.quizAttempts || 0, avgQuizPercent: c.avgQuizPercent == null ? null : Math.round(c.avgQuizPercent), lastOpenedAt: c.lastOpenedAt || null },
       tasks: { total: t.total || 0, completed: t.completed || 0 },
       timetableSlots,
+      usage: {
+        totalMinutes: Math.round((((user as any).totalActiveMinutes) || 0) * 10) / 10,
+        last7Minutes: Math.round(activeDaily.slice(-7).reduce((n, d) => n + d.minutes, 0) * 10) / 10,
+        last30Minutes: Math.round(activeDaily.reduce((n, d) => n + d.minutes, 0) * 10) / 10,
+        activeDays: activeDates.length,
+        sessions: (user as any).sessionCount || 0,
+        lastSeenAt: lastSeen || null,
+        online: !!lastSeen && Date.now() - new Date(lastSeen).getTime() < 6 * 60 * 1000,
+        trackingSince: activeDates[0] || null,
+        daily: activeDaily,
+      },
+      papers: {
+        completed: ps.completed || 0,
+        avgPercent: ps.avg == null ? null : Math.round(ps.avg),
+        bestPercent: ps.best == null ? null : ps.best,
+        recent: paperRecent,
+      },
+      practice: {
+        sets: pt.sets || 0,
+        attempts: pt.attempts || 0,
+        correct: pt.correct || 0,
+        accuracy: pt.attempts ? Math.round((pt.correct / pt.attempts) * 100) : null,
+        distinctAnswered: pt.distinctAnswered || 0,
+        distinctCorrect: pt.distinctCorrect || 0,
+        byCategory: practiceByCategory.map((r: any) => ({ category: r._id, sets: r.sets, attempts: r.attempts, correct: r.correct })),
+        recent: practiceRecent.map((r: any) => {
+          const info: any = setById.get(String(r.set));
+          const answered = r.questionsSeen?.length || 0;
+          return {
+            title: info?.title || '(deleted set)', category: r.category, subject: r.subject, publishDate: info?.publishDate || null,
+            total: info?.total ?? null, answered, attempts: r.answered, correct: r.correct,
+            complete: !!info && answered >= info.total, lastAnsweredAt: r.lastAnsweredAt,
+          };
+        }),
+      },
     });
   } catch { res.status(500).json({ message: 'Could not load student activity.' }); }
 });
