@@ -58,6 +58,10 @@ export async function downloadPdf(course: any, res: Response, watermark?: Waterm
       res.send(finalBuffer);
       return;
     } catch (err: any) {
+      if (course.pdfUrl && (course.pdfUrl.startsWith('http://') || course.pdfUrl.startsWith('https://'))) {
+        await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark);
+        return;
+      }
       if (!res.headersSent) {
         res.status(404).json({ message: 'PDF file is missing. Please ask the administrator to upload it again.' });
       }

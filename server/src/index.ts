@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import telegramRoutes from './routes/telegramRoutes.js';
 import paperAssetRoutes from './routes/paperAssetRoutes.js';
 import paperQuizRoutes from './routes/paperQuizRoutes.js';

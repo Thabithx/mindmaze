@@ -11,7 +11,7 @@ import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLe
 import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:8}}).fields([{name:'pdfFiles',maxCount:8},{name:'pdfFile',maxCount:1}]);
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:25}}).fields([{name:'pdfFiles',maxCount:25},{name:'pdfFile',maxCount:5}]);
 const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,price:c.price??0,isFree:c.isFree??(c.price===0),bankDetails:c.bankDetails||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
@@ -77,7 +77,7 @@ const present=(c:any,admin=false)=>{
         formatted.pdfUrl = b.pdfUrl || '';
         formatted.pdfFileName = b.pdfFileName || 'Document';
         formatted.size = b.size || 0;
-        formatted.path = b.pdfUrl ? b.pdfUrl : (b._id ? `/courses/${c._id}/resources/${b._id}/download` : '');
+        formatted.path = `/courses/${c._id}/blocks/${b._id}/download`;
       } else if (b.type === 'quiz') {
         formatted.quizQuestions = (b.quizQuestions || []).map((q: any) => ({
           questionText: q.questionText,
@@ -118,6 +118,27 @@ router.get('/',async(req,res)=>{try{
 
 router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(c,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
 router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(resource,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/blocks/:blockId/download',async(req,res)=>{
+  try{
+    const c=await Course.findOne({_id:req.params.id,...publishedFilter});
+    if(!c){res.status(404).json({message:'Lesson not found.'});return;}
+    const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId);
+    if(!block || block.type !== 'document'){
+      res.status(404).json({message:'Document not found.'});
+      return;
+    }
+    const watermark=await extractDownloadWatermark(req);
+    let target: any = block;
+    if (block.pdfUrl && block.pdfUrl.includes('/resources/')) {
+      const match = block.pdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
+      if (match && match[1]) {
+        const linked = c.resources?.find((r: any) => String(r._id) === match[1]);
+        if (linked) target = linked;
+      }
+    }
+    await downloadPdf(target,res,watermark);
+  }catch(e){if(!res.headersSent)fail(res,e);}
+});
 router.get('/:id',async(req,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
   const papers=await PastPaper.find({_id:{$in:c.relatedPaperIds||[]}}).select('title year subject type').lean();
@@ -126,8 +147,9 @@ router.get('/:id',async(req,res)=>{try{
 
 router.put('/:id/progress',protect,async(req:AuthRequest,res)=>{try{
   if(!await Course.exists({_id:req.params.id,...publishedFilter})){res.status(404).json({message:'Lesson not found.'});return;}
-  if(req.body.completed!==undefined&&typeof req.body.completed!=='boolean'){res.status(400).json({message:'Invalid completion status.'});return;}
-  const update:any={lastOpenedAt:new Date()};if(typeof req.body.completed==='boolean')update.completed=req.body.completed;
+  const update:any={lastOpenedAt:new Date()};
+  if(typeof req.body.completed==='boolean')update.completed=req.body.completed;
+  if(Array.isArray(req.body.completedBlocks))update.completedBlocks=req.body.completedBlocks;
   const progress=await CourseProgress.findOneAndUpdate({user:req.user!._id,course:req.params.id},{$set:update},{upsert:true,new:true,setDefaultsOnInsert:true});
   res.json({progress});
 }catch(e){fail(res,e);}});
@@ -168,6 +190,7 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
           b.pdfUrl = s.pdfUrl;
           b.pdfPublicId = s.pdfPublicId;
           b.pdfFileName = s.pdfFileName || b.title || 'Document';
+          b.pdfProvider = s.pdfProvider || 'raw';
           b.size = s.size;
         }
       }
@@ -189,9 +212,13 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     }
     res.status(updating?200:201).json({course:present(course,true)});
   }catch(e:any){
+    console.error('[saveLesson error]:', e);
     await Promise.all(saved.map(r=>removePdf(r).catch(()=>{})));
     const tooLarge=e?.http_code===413||/file size too large/i.test(e?.message||'');
-    res.status(tooLarge?413:500).json({message:tooLarge?'Your PDF exceeds the storage account’s file-size limit. Compress it or increase your storage limit.':'Could not save the lesson. Check PDF storage and try again.'});
+    const msg = tooLarge
+      ? 'Your PDF exceeds the storage account’s file-size limit. Compress it or increase your storage limit.'
+      : (e?.message || 'Could not save the lesson. Check PDF storage and try again.');
+    res.status(tooLarge?413:500).json({message:msg});
   }
 };
 router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));

@@ -252,7 +252,9 @@ export const AdminCourseManager: React.FC = () => {
 
     try {
       const body = new FormData();
-      Object.entries(form).forEach(([key, value]) => body.append(key, String(value)));
+      const topicVal = form.topic.trim() || form.title.trim() || 'General';
+      const payload = { ...form, topic: topicVal };
+      Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)));
 
       // Collect and sync all quiz questions across quiz blocks
       const allQuizQuestions = curriculumBlocks
@@ -275,7 +277,11 @@ export const AdminCourseManager: React.FC = () => {
       files.forEach((f) => body.append('pdfFiles', f));
 
       // Clean curriculum blocks for JSON transmission
-      const cleanBlocks = curriculumBlocks.map(({ pendingFile, ...b }) => b);
+      const cleanBlocks = curriculumBlocks.map(({ pendingFile, ...b }) => ({
+        ...b,
+        hasNewUpload: Boolean(pendingFile),
+        size: typeof b.size === 'number' ? b.size : (pendingFile ? pendingFile.size : 0),
+      }));
       body.append('curriculumBlocksJson', JSON.stringify(cleanBlocks));
 
       body.append('relatedPaperIds', JSON.stringify(related));
@@ -645,14 +651,13 @@ export const AdminCourseManager: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Topic Name <span className="text-rose-400">*</span>
+                    Topic / Category (Optional)
                   </label>
                   <input
-                    required
                     list="lesson-topics"
                     className={control}
                     value={form.topic}
-                    placeholder="e.g. Circular Motion, Organic Chemistry"
+                    placeholder="e.g. Mechanics (or leave empty)"
                     onChange={(e) => {
                       const value = e.target.value;
                       const match = topicChoices.find((l) => l.subject === form.subject && l.topic === value);
@@ -688,10 +693,39 @@ export const AdminCourseManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 2: Lesson Title */}
+              {/* Subject related courses preview helper */}
+              {(() => {
+                const subjectCourses = lessons.filter((l) => l.subject === form.subject);
+                if (subjectCourses.length === 0) return null;
+                return (
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs">
+                    <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span className="text-cyan-300">
+                        Existing {form.subject} Courses ({subjectCourses.length}):
+                      </span>
+                      <span className="text-[10px] text-slate-400">Click to edit</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                      {subjectCourses.map((c) => (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => edit(c)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                        >
+                          <span>{c.title}</span>
+                          <span className="text-[9px] text-slate-400">({c.topic || 'General'})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Row 2: Course / Lesson Title */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Lesson Title <span className="text-rose-400">*</span>
+                  Course / Lesson Title <span className="text-rose-400">*</span>
                 </label>
                 <input
                   required
@@ -1380,7 +1414,7 @@ export const AdminCourseManager: React.FC = () => {
                                             block.title && block.title !== 'Lecture Notes (PDF)'
                                               ? block.title
                                               : file.name.replace(/\.[^/.]+$/, ''),
-                                          size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+                                          size: file.size,
                                         });
                                       }
                                     }}
@@ -1388,13 +1422,18 @@ export const AdminCourseManager: React.FC = () => {
                                   {block.pendingFile && (
                                     <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-semibold bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                      <span className="truncate">Ready to upload: {block.pendingFile.name} ({block.size})</span>
+                                      <span className="truncate">Ready to upload: {block.pendingFile.name} ({(block.pendingFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
                                     </div>
                                   )}
                                   {!block.pendingFile && block.pdfFileName && (
                                     <div className="flex items-center gap-2 text-[11px] text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
                                       <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                      <span className="truncate">Saved PDF: {block.pdfFileName}</span>
+                                      <span className="truncate">
+                                        Saved PDF: {block.pdfFileName}
+                                        {typeof block.size === 'number' && block.size > 0
+                                          ? ` (${(block.size / (1024 * 1024)).toFixed(2)} MB)`
+                                          : ''}
+                                      </span>
                                     </div>
                                   )}
                                 </div>

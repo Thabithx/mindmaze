@@ -146,6 +146,8 @@ export const api = {
 
   // Courses
   courseResourceUrl: (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
     const token = getAuthToken();
     const base = API_BASE + path;
     if (!token) return base;
@@ -155,7 +157,7 @@ export const api = {
   getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
   getCourseProgress: () => apiFetch('/courses/progress'),
-  saveCourseProgress: (id: string, body: {completed?:boolean}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
+  saveCourseProgress: (id: string, body: {completed?:boolean; completedBlocks?: string[]}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
   submitCourseQuiz: (id: string, answers: number[], revision: number) => apiFetch('/courses/'+id+'/quiz',{method:'POST',body:JSON.stringify({answers,revision})}),
   getCourses: (stream?: string, subject?: string) => {
     const query = new URLSearchParams();

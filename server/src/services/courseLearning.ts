@@ -21,7 +21,41 @@ export function validateLesson(body: any) {
   };
   let quiz = parse('quizJson', []), videos = parse('videosJson', []), relatedPaperIds = parse('relatedPaperIds', []), curriculumBlocks = parse('curriculumBlocksJson', []);
   if (!Array.isArray(curriculumBlocks) || curriculumBlocks.length > 50) throw Error('Maximum 50 curriculum items allowed per lesson.');
-  if (Array.isArray(curriculumBlocks) && curriculumBlocks.length > 0) {
+  if (Array.isArray(curriculumBlocks)) {
+    curriculumBlocks = curriculumBlocks.map((b: any, idx: number) => {
+      let numericSize = 0;
+      if (typeof b.size === 'number') numericSize = b.size;
+      else if (typeof b.size === 'string' && parseFloat(b.size)) {
+        numericSize = b.size.toLowerCase().includes('mb')
+          ? Math.round(parseFloat(b.size) * 1024 * 1024)
+          : b.size.toLowerCase().includes('kb')
+          ? Math.round(parseFloat(b.size) * 1024)
+          : Math.round(parseFloat(b.size));
+      }
+      const sanitized: any = {
+        type: b.type,
+        title: typeof b.title === 'string' ? b.title.trim() : '',
+        description: typeof b.description === 'string' ? b.description.trim() : '',
+        url: typeof b.url === 'string' ? b.url.trim() : '',
+        liveLink: typeof b.liveLink === 'string' ? b.liveLink.trim() : '',
+        scheduledTime: typeof b.scheduledTime === 'string' ? b.scheduledTime.trim() : '',
+        meetingPlatform: typeof b.meetingPlatform === 'string' ? b.meetingPlatform.trim() : 'Zoom / Google Meet',
+        isCompleted: Boolean(b.isCompleted),
+        recordingUrl: typeof b.recordingUrl === 'string' ? b.recordingUrl.trim() : '',
+        pdfProvider: typeof b.pdfProvider === 'string' && b.pdfProvider ? b.pdfProvider : 'cloudinary',
+        pdfUrl: typeof b.pdfUrl === 'string' ? b.pdfUrl.trim() : '',
+        pdfPublicId: typeof b.pdfPublicId === 'string' ? b.pdfPublicId.trim() : '',
+        pdfFileName: typeof b.pdfFileName === 'string' ? b.pdfFileName.trim() : '',
+        size: numericSize,
+        order: Number(b.order) >= 0 ? Number(b.order) : idx,
+      };
+      if (b.hasNewUpload) sanitized.hasNewUpload = true;
+      if (b._id) sanitized._id = b._id;
+      if (b.type === 'quiz' && Array.isArray(b.quizQuestions)) {
+        sanitized.quizQuestions = b.quizQuestions;
+      }
+      return sanitized;
+    });
     const fromBlocksQuiz = curriculumBlocks.filter((b: any) => b.type === 'quiz').flatMap((b: any) => b.quizQuestions || []);
     if (fromBlocksQuiz.length > 0) quiz = fromBlocksQuiz;
     const fromBlocksVideos = curriculumBlocks.filter((b: any) => b.type === 'video').map((b: any) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));

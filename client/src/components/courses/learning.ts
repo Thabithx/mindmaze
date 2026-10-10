@@ -99,6 +99,7 @@ export interface CourseEnrollmentRecord {
 export interface Progress {
   course: string;
   completed: boolean;
+  completedBlocks?: string[];
   lastOpenedAt: string;
   quizScore: number | null;
   quizTotal: number;

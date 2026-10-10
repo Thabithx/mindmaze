@@ -52,29 +52,12 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [watermarkPos, setWatermarkPos] = useState({ top: '8%', right: '5%' });
+  const [isMouseIdle, setIsMouseIdle] = useState(false);
 
   const controlsTimeoutRef = useRef<any>(null);
   const timeUpdateIntervalRef = useRef<any>(null);
 
   const youtubeId = extractYouTubeId(url);
-
-  // Periodically move watermark to deter screen recording & cropping
-  useEffect(() => {
-    const positions = [
-      { top: '10%', right: '6%' },
-      { top: '12%', left: '6%' },
-      { bottom: '18%', right: '6%' },
-      { bottom: '18%', left: '6%' },
-      { top: '45%', right: '10%' },
-    ];
-    let posIndex = 0;
-    const interval = setInterval(() => {
-      posIndex = (posIndex + 1) % positions.length;
-      setWatermarkPos(positions[posIndex] as any);
-    }, 25000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Format seconds to mm:ss or hh:mm:ss
   const formatTime = (seconds: number) => {
@@ -90,17 +73,36 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
     return `${min < 10 ? '0' : ''}${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
-  // Activity timer for hiding controls
+  // Activity timer for hiding controls & cursor when mouse stops moving
   const handleUserActivity = () => {
+    setIsMouseIdle(false);
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    if (isPlaying) {
+    if (isPlaying || isFullscreen) {
       controlsTimeoutRef.current = setTimeout(() => {
+        setIsMouseIdle(true);
         setShowControls(false);
         setShowSpeedMenu(false);
-      }, 3500);
+      }, 2500);
     }
   };
+
+  // Synchronize idle timer when play state or fullscreen mode changes
+  useEffect(() => {
+    if (isPlaying || isFullscreen) {
+      handleUserActivity();
+    } else {
+      setIsMouseIdle(false);
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    }
+  }, [isPlaying, isFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -307,9 +309,22 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
     <div
       ref={containerRef}
       onMouseMove={handleUserActivity}
-      onMouseEnter={() => setShowControls(true)}
+      onMouseEnter={() => {
+        setIsMouseIdle(false);
+        setShowControls(true);
+        handleUserActivity();
+      }}
+      onMouseLeave={() => {
+        if (isPlaying) {
+          setIsMouseIdle(true);
+          setShowControls(false);
+          setShowSpeedMenu(false);
+        }
+      }}
       onContextMenu={(e) => e.preventDefault()}
-      className="clean-video-player relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-2xl select-none group"
+      className={`clean-video-player relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-2xl select-none group ${
+        isMouseIdle && (isPlaying || isFullscreen) ? 'cursor-none [&_*]:cursor-none' : 'cursor-default'
+      }`}
     >
       {/* 
         IFRAME CONTAINER WITH CROP MASK
@@ -356,26 +371,26 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
       </div>
 
       {/* 
-        DYNAMIC ANTI-PIRACY SECURITY WATERMARK OVERLAY
-        Floats dynamically across the screen with student name and verified index number
+        CLEAN TEXT-ONLY SECURITY WATERMARK OVERLAY
+        Minimalist broadcast-style watermark stuck in bottom-right corner (100% transparent, never shifts)
       */}
       <div
         style={{
-          ...watermarkPos,
-          backgroundColor: 'rgba(2, 6, 23, 0.88)',
-          borderColor: 'rgba(255, 255, 255, 0.22)',
-          color: '#ffffff',
+          background: 'transparent',
+          backgroundColor: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          textShadow: '0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.85)',
         }}
-        className="video-watermark pointer-events-none absolute z-20 px-3.5 py-1.5 rounded-xl backdrop-blur-md border text-[11px] font-mono font-bold tracking-wider transition-all duration-1000 shadow-xl"
+        className="pointer-events-none select-none absolute z-40 bottom-3.5 right-4 md:right-6 text-white/65 text-xs md:text-sm font-mono font-medium tracking-wider bg-transparent"
       >
-        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse" />
-        <span style={{ color: '#ffffff' }}>{studentName} • {indexNumber}</span>
+        {studentName} • {indexNumber}
       </div>
 
       {/* TOP HEADER OVERLAY (High Contrast Glass Pill) */}
       <div
-        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none transition-opacity duration-300 ${
-          showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
+        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none transition-all duration-300 ${
+          showControls && !isMouseIdle ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'
         }`}
       >
         <div
@@ -415,7 +430,7 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
           color: '#ffffff',
         }}
         className={`video-control-bar absolute bottom-3 left-3 right-3 z-30 p-3 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 ${
-          showControls || !isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+          showControls && !isMouseIdle ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-3 pointer-events-none'
         }`}
         onClick={(e) => e.stopPropagation()}
       >

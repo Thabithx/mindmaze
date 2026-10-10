@@ -533,9 +533,11 @@ html[data-theme="light"] .clean-video-player .video-time-badge,
 
 html[data-theme="light"] .clean-video-player .video-watermark,
 .clean-video-player .video-watermark {
-  background-color: rgba(2, 6, 23, 0.88) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-  color: #ffffff !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 html[data-theme="light"] .clean-video-player .video-header-pill,

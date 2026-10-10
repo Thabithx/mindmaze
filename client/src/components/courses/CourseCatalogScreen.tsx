@@ -39,7 +39,12 @@ export const CourseCatalogScreen: React.FC = () => {
     s => (s.name === 'Combined Mathematics' ? 'Combined Maths' : s.name)
   );
 
-  const updateProgress = (p: Progress) => setProgress(prev => ({ ...prev, [p.course]: p }));
+  const updateProgress = (p: Progress) => {
+    const cId = typeof p.course === 'object' && p.course !== null ? (p.course as any)._id : p.course;
+    if (cId) {
+      setProgress(prev => ({ ...prev, [cId]: p }));
+    }
+  };
 
   const load = async () => {
     const version = ++catalogRequest.current;
@@ -54,9 +59,16 @@ export const CourseCatalogScreen: React.FC = () => {
     if (version !== catalogRequest.current) return;
     if (results[0].status === 'fulfilled') setLessons(results[0].value.courses);
     else setError('Could not load lessons. Please retry.');
-    if (results[1].status === 'fulfilled')
-      setProgress(Object.fromEntries(results[1].value.progress.map((p: Progress) => [p.course, p])));
-    else setProgressError('Saved progress could not be loaded. Retry before continuing.');
+    if (results[1].status === 'fulfilled') {
+      const pMap: Record<string, Progress> = {};
+      for (const p of results[1].value.progress || []) {
+        const cId = typeof p.course === 'object' && p.course !== null ? (p.course as any)._id : p.course;
+        if (cId) pMap[cId] = p;
+      }
+      setProgress(pMap);
+    } else {
+      setProgressError('Saved progress could not be loaded. Retry before continuing.');
+    }
     if (results[2].status === 'fulfilled') {
       const eMap: Record<string, CourseEnrollmentRecord> = {};
       for (const e of results[2].value.enrollments || []) {
@@ -146,10 +158,9 @@ export const CourseCatalogScreen: React.FC = () => {
     .sort((a, b) => Date.parse(progress[b._id].lastOpenedAt) - Date.parse(progress[a._id].lastOpenedAt))[0];
 
   const reviseCount = lessons.filter(l => progress[l._id]?.needsRevision).length;
-  const topicNames = [...new Set(visible.map(l => l.topic))];
+  const topicNames = [...new Set(eligible.filter(l => !subject || l.subject === subject).map(l => l.topic).filter(Boolean))];
   const pagingKey = JSON.stringify([subject, topic, query, medium, syllabus, kind, revisionOnly, allSubjects]);
   const lessonsPage = usePagination(visible, pagingKey);
-  const topicsPage = usePagination(topicNames, pagingKey);
 
   const nextLesson = active
     ? lessons
@@ -165,12 +176,30 @@ export const CourseCatalogScreen: React.FC = () => {
 
   const progressBar = (items: Lesson[]) => {
     const s = stats(items);
+    const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
     return (
-      <div className="space-y-2">
-        <p className="text-xs text-slate-400">
-          {s.done} / {s.total} lessons completed · {s.minutes} min
-        </p>
-        <progress aria-label="Lesson completion" value={s.done} max={s.total || 1} className="w-full h-1.5 accent-cyan-400" />
+      <div className="space-y-1.5 mt-2.5 pt-2 border-t border-slate-700/50">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-300 font-medium">
+            {s.done} / {s.total} lessons completed
+          </span>
+          <span className={`font-black text-xs ${pct === 100 ? 'text-emerald-400' : pct > 0 ? 'text-cyan-400' : 'text-slate-400'}`}>
+            {pct}%
+          </span>
+        </div>
+        <div className="w-full h-2 rounded-full bg-slate-800 border border-slate-700/60 overflow-hidden">
+          <div
+            className={`h-full transition-all duration-500 rounded-full ${
+              pct === 100
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                : pct > 0
+                ? 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400'
+                : 'bg-transparent'
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="text-[11px] text-slate-400">{s.minutes} min total</p>
       </div>
     );
   };
@@ -250,6 +279,41 @@ export const CourseCatalogScreen: React.FC = () => {
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">What will you learn today?</h1>
             <p className="text-sm text-slate-400">Choose a subject, explore a topic, and learn at your own pace.</p>
+
+            {lessons.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">Your Learning Progress:</span>
+                  <span className="text-xs font-bold text-white">
+                    {lessons.filter(l => progress[l._id]?.completed).length} of {lessons.length} lessons completed
+                  </span>
+                </div>
+                <div className="w-full sm:w-64 space-y-1">
+                  {(() => {
+                    const done = lessons.filter(l => progress[l._id]?.completed).length;
+                    const pct = lessons.length > 0 ? Math.round((done / lessons.length) * 100) : 0;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400 font-medium">Overall Completion</span>
+                          <span className={`font-black ${pct === 100 ? 'text-emerald-400' : 'text-cyan-400'}`}>{pct}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-800 border border-slate-750 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              pct === 100
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                : 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </header>
 
           {error && (
@@ -263,14 +327,17 @@ export const CourseCatalogScreen: React.FC = () => {
             </div>
           )}
 
-          <nav aria-label="Learning navigation" className="flex flex-wrap gap-2 text-sm text-slate-400">
-            <button className="text-cyan-300 cursor-pointer" onClick={() => navigate()}>
+          <nav aria-label="Learning navigation" className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
+            <button className="text-cyan-300 hover:underline cursor-pointer" onClick={() => navigate()}>
               Subjects
             </button>
             {subject && (
               <>
                 <span>/</span>
-                <button className="text-cyan-300 cursor-pointer" onClick={() => navigate(subject)}>
+                <button
+                  className={`${active || topic ? 'text-cyan-300 hover:underline cursor-pointer' : 'text-white font-bold'}`}
+                  onClick={() => navigate(subject)}
+                >
                   {subject}
                 </button>
               </>
@@ -278,7 +345,10 @@ export const CourseCatalogScreen: React.FC = () => {
             {topic && (
               <>
                 <span>/</span>
-                <button className="text-cyan-300 cursor-pointer" onClick={() => navigate(subject, topic)}>
+                <button
+                  className={`${active ? 'text-cyan-300 hover:underline cursor-pointer' : 'text-white font-bold'}`}
+                  onClick={() => navigate(subject, topic)}
+                >
                   {topic}
                 </button>
               </>
@@ -286,7 +356,7 @@ export const CourseCatalogScreen: React.FC = () => {
             {active && (
               <>
                 <span>/</span>
-                <span>{active.title}</span>
+                <span className="text-white font-bold">{active.title}</span>
               </>
             )}
           </nav>
@@ -404,21 +474,59 @@ export const CourseCatalogScreen: React.FC = () => {
                 <>
                   {(subject || query || revisionOnly) && (
                     <Pagination
-                      {...(!topic && !query && !revisionOnly ? topicsPage.pagination : lessonsPage.pagination)}
+                      {...lessonsPage.pagination}
                       label="Courses"
                     />
                   )}
-                  <h2 className="text-xl font-bold text-white">
-                    {revisionOnly
-                      ? 'Needs revision'
-                      : query
-                      ? 'Search results'
-                      : topic
-                      ? 'Lessons'
-                      : subject
-                      ? 'Choose a topic'
-                      : 'Choose a subject'}
-                  </h2>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h2 className="text-xl font-bold text-white">
+                      {revisionOnly
+                        ? 'Needs revision'
+                        : query
+                        ? `Search results (${visible.length})`
+                        : subject
+                        ? `${subject} Courses & Lessons`
+                        : 'Choose a Subject'}
+                    </h2>
+
+                    {subject && (
+                      <span className="text-xs font-semibold text-slate-400">
+                        {visible.length} {visible.length === 1 ? 'course' : 'courses'} available
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Topic Filter Pills when a subject is active and has multiple topics */}
+                  {subject && topicNames.length > 1 && !query && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1 pb-1">
+                      <span className="text-xs font-semibold text-slate-400">Filter Topic:</span>
+                      <button
+                        onClick={() => setTopic('')}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                          !topic
+                            ? 'bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+                        }`}
+                      >
+                        All ({eligible.filter((l) => l.subject === subject).length})
+                      </button>
+                      {topicNames.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTopic(topic === t ? '' : t)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                            topic === t
+                              ? 'bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/20'
+                              : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+                          }`}
+                        >
+                          {t} ({eligible.filter((l) => l.subject === subject && l.topic === t).length})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {visible.length === 0 ? (
                     <div className={panel}>
                       <p className="text-slate-300 font-semibold">No lessons found here yet.</p>
@@ -461,26 +569,11 @@ export const CourseCatalogScreen: React.FC = () => {
                                     }[s]}
                                   </span>
                                   <h3 className="font-bold text-lg text-white">{s}</h3>
-                                  <p className="text-sm text-slate-400">{new Set(items.map(l => l.topic)).size} topics</p>
+                                  <p className="text-sm text-slate-400">{items.length} courses</p>
                                   {progressBar(items)}
                                 </button>
                               );
                             })
-                        : !topic && !query && !revisionOnly
-                        ? topicsPage.items.map((t, i) => {
-                            const items = visible.filter(l => l.topic === t);
-                            return (
-                              <button
-                                key={t}
-                                onClick={() => setTopic(t)}
-                                className={panel + ' text-left hover:border-cyan-400/60 cursor-pointer transition'}
-                              >
-                                <p className="text-xs text-cyan-300">Topic {topicsPage.offset + i + 1}</p>
-                                <h3 className="font-bold text-lg text-white">{t}</h3>
-                                {progressBar(items)}
-                              </button>
-                            );
-                          })
                         : lessonsPage.items.map(l => (
                             <button
                               key={l._id}
@@ -503,6 +596,31 @@ export const CourseCatalogScreen: React.FC = () => {
                                     {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
                                   </span>
 
+                                  {(() => {
+                                    const p = progress[l._id];
+                                    const completedCount = p?.completedBlocks?.length || 0;
+                                    const totalSections = l.curriculumBlocks && l.curriculumBlocks.length > 0
+                                      ? l.curriculumBlocks.length
+                                      : ((l.videoCount || 0) + (l.description ? 1 : 0) + (l.quizCount > 0 ? 1 : 0));
+
+                                    if (p?.completed) {
+                                      return (
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                          <span>Completed ✓</span>
+                                        </span>
+                                      );
+                                    }
+                                    if (completedCount > 0) {
+                                      return (
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
+                                          <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                                          <span>{completedCount}/{totalSections} Done</span>
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                   {enrollments[l._id]?.status === 'approved' && (
                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                       ✓ Enrolled
@@ -525,24 +643,40 @@ export const CourseCatalogScreen: React.FC = () => {
                               <p className="text-sm text-slate-400 line-clamp-2">{l.description}</p>
                               <p className="text-xs text-slate-400">
                                 {l.estimatedMinutes} min · {l.medium}
-                                {l.videoCount > 0 ? ` · ${l.videoCount} videos` : ''}
-                                {l.resourceCount > 0 ? ` · ${l.resourceCount} PDFs` : ''}
-                                {l.quizCount > 0 ? ` · ${l.quizCount} questions` : ''}
+                                {l.curriculumBlocks?.length
+                                  ? ` · ${l.curriculumBlocks.length} sections`
+                                  : `${l.videoCount > 0 ? ` · ${l.videoCount} videos` : ''}${l.resourceCount > 0 ? ` · ${l.resourceCount} PDFs` : ''}${l.quizCount > 0 ? ` · ${l.quizCount} questions` : ''}`}
                               </p>
 
                               <div className="flex items-center justify-between pt-1">
                                 <p
-                                  className={`text-sm font-semibold ${
-                                    progress[l._id]?.completed ? 'text-emerald-300' : 'text-indigo-300'
+                                  className={`text-sm font-semibold flex items-center gap-1.5 ${
+                                    progress[l._id]?.completed
+                                      ? 'text-emerald-300'
+                                      : (progress[l._id]?.completedBlocks?.length || 0) > 0
+                                      ? 'text-cyan-300'
+                                      : 'text-indigo-300'
                                   }`}
                                 >
-                                  {progress[l._id]?.completed
-                                    ? 'Completed ✓'
-                                    : progress[l._id]
-                                    ? 'In progress →'
-                                    : !l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved')
-                                    ? 'Enroll to unlock →'
-                                    : 'Start lesson →'}
+                                  {progress[l._id]?.completed ? (
+                                    <>
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                      <span>Completed & Watched ✓</span>
+                                    </>
+                                  ) : (progress[l._id]?.completedBlocks?.length || 0) > 0 ? (
+                                    <>
+                                      <span className="text-cyan-300 font-bold">
+                                        {progress[l._id]?.completedBlocks?.length}/{l.curriculumBlocks?.length || l.videoCount || 1} sections done
+                                      </span>
+                                      <span>· Continue →</span>
+                                    </>
+                                  ) : progress[l._id] ? (
+                                    'In progress →'
+                                  ) : !l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved') ? (
+                                    'Enroll to unlock →'
+                                  ) : (
+                                    'Start lesson →'
+                                  )}
                                 </p>
                                 {!l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved') && (
                                   <span className="text-xs font-bold text-amber-300 flex items-center gap-1">

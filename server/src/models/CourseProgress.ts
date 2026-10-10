@@ -4,6 +4,7 @@ const schema = new Schema({
   user: {type: Schema.Types.ObjectId, ref: 'User', required: true},
   course: {type: Schema.Types.ObjectId, ref: 'Course', required: true},
   completed: {type: Boolean, default: false},
+  completedBlocks: {type: [String], default: []},
   lastOpenedAt: {type: Date, default: Date.now},
   quizScore: {type: Number, default: null},
   quizTotal: {type: Number, default: 0},
