@@ -49,6 +49,38 @@ const present=(c:any,admin=false)=>{
     videos: rawVideos.map(v => formatSecureVideo(v.title, v.url, admin, v.description)),
 
     resources:[...(c.pdfUrl||c.pdfPublicId?[{id:'legacy',title:c.pdfFileName||'Study notes',path:`/courses/${c._id}/download`}]:[]),...(c.resources||[]).map((r:any)=>({id:String(r._id),title:r.pdfFileName,size:r.size,path:`/courses/${c._id}/resources/${r._id}/download`}))],
+    curriculumBlocks: (c.curriculumBlocks || []).map((b: any, idx: number) => {
+      const formatted: any = {
+        _id: b._id ? String(b._id) : undefined,
+        type: b.type,
+        title: b.title || '',
+        description: b.description || '',
+        order: b.order ?? idx,
+      };
+      if (b.type === 'video') {
+        const sec = formatSecureVideo(b.title || 'Video', b.url || '', admin, b.description);
+        formatted.url = admin ? b.url : undefined;
+        formatted.embedUrl = sec.embedUrl;
+        formatted.isYouTube = sec.isYouTube;
+        formatted.isProtected = true;
+      } else if (b.type === 'live_class') {
+        formatted.liveLink = b.liveLink || '';
+        formatted.scheduledTime = b.scheduledTime || '';
+        formatted.meetingPlatform = b.meetingPlatform || 'Zoom / Google Meet';
+        formatted.isCompleted = Boolean(b.isCompleted);
+        formatted.recordingUrl = b.recordingUrl || '';
+        if (b.recordingUrl) {
+          const sec = formatSecureVideo('Recording', b.recordingUrl, admin);
+          formatted.recordingEmbedUrl = sec.embedUrl;
+        }
+      } else if (b.type === 'document') {
+        formatted.pdfUrl = b.pdfUrl || '';
+        formatted.pdfFileName = b.pdfFileName || 'Document';
+        formatted.size = b.size || 0;
+        formatted.path = b.pdfUrl ? b.pdfUrl : (b._id ? `/courses/${c._id}/resources/${b._id}/download` : '');
+      }
+      return formatted;
+    }),
     quiz:(c.quiz||[]).map((q:any)=>({questionText:q.questionText,options:q.options,...(admin?{correctOptionIndex:q.correctOptionIndex,explanation:q.explanation}:{})})),
     relatedPaperIds:c.relatedPaperIds||[],
   };

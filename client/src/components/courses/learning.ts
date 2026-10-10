@@ -7,6 +7,32 @@ export interface LessonVideo {
   isProtected?: boolean;
 }
 
+export interface CurriculumBlock {
+  _id?: string;
+  type: 'video' | 'live_class' | 'document' | 'description';
+  title?: string;
+  description?: string;
+  // Video block
+  url?: string;
+  embedUrl?: string;
+  isYouTube?: boolean;
+  isProtected?: boolean;
+  // Live Class block
+  liveLink?: string;
+  scheduledTime?: string;
+  meetingPlatform?: string;
+  isCompleted?: boolean;
+  recordingUrl?: string;
+  recordingEmbedUrl?: string;
+  // Document block
+  pdfUrl?: string;
+  pdfFileName?: string;
+  size?: number;
+  path?: string;
+  // Ordering
+  order: number;
+}
+
 export interface Lesson {
   _id: string;
   title: string;
@@ -29,6 +55,7 @@ export interface Lesson {
   quizCount: number;
   videos?: LessonVideo[];
   resources?: { id: string; title: string; size?: number; path: string }[];
+  curriculumBlocks?: CurriculumBlock[];
   quiz?: { questionText: string; options: string[]; correctOptionIndex?: number; explanation?: string }[];
   relatedPaperIds?: string[];
   relatedPapers?: { _id: string; title: string; pdfPath: string }[];

@@ -7,6 +7,28 @@ export interface IQuizQuestion {
   explanation: string;
 }
 
+export interface ICurriculumBlock {
+  type: 'video' | 'live_class' | 'document' | 'description';
+  title?: string;
+  description?: string;
+  // Video block
+  url?: string;
+  // Live Class block
+  liveLink?: string;
+  scheduledTime?: string;
+  meetingPlatform?: string;
+  isCompleted?: boolean;
+  recordingUrl?: string;
+  // Document block
+  pdfProvider?: string;
+  pdfUrl?: string;
+  pdfPublicId?: string;
+  pdfFileName?: string;
+  size?: number;
+  // Order
+  order: number;
+}
+
 export interface ICourse extends Document {
   title: string;
   description: string;
@@ -25,6 +47,7 @@ export interface ICourse extends Document {
   bankDetails?: string;
   videos: {title: string; url: string; description?: string}[];
   resources: any[];
+  curriculumBlocks?: ICurriculumBlock[];
   relatedPaperIds: string[];
   pdfProvider?: string;
   pdfUrl?: string;
@@ -64,6 +87,25 @@ const CourseSchema = new Schema<ICourse>(
     bankDetails: { type: String, default: '' },
     videos: [{ title: String, url: String, description: { type: String, default: '' } }],
     resources: [{ pdfProvider: String, pdfUrl: String, pdfPublicId: String, pdfFileName: String, size: Number }],
+    curriculumBlocks: [
+      {
+        type: { type: String, enum: ['video', 'live_class', 'document', 'description'], required: true },
+        title: { type: String, default: '' },
+        description: { type: String, default: '' },
+        url: { type: String, default: '' },
+        liveLink: { type: String, default: '' },
+        scheduledTime: { type: String, default: '' },
+        meetingPlatform: { type: String, default: 'Zoom / Google Meet' },
+        isCompleted: { type: Boolean, default: false },
+        recordingUrl: { type: String, default: '' },
+        pdfProvider: { type: String, default: 'cloudinary' },
+        pdfUrl: { type: String, default: '' },
+        pdfPublicId: { type: String, default: '' },
+        pdfFileName: { type: String, default: '' },
+        size: { type: Number, default: 0 },
+        order: { type: Number, default: 0 },
+      },
+    ],
     relatedPaperIds: [{type: String}],
     pdfProvider: { type: String, enum: ['local', 'raw', 'image'] },
     pdfUrl: { type: String, default: '' },

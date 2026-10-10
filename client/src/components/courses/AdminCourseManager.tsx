@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pagination } from '../common/Pagination';
 import { usePagedResource } from '../../hooks/usePagedResource';
 import { api, apiFetch } from '../../services/api';
-import { Lesson, subjects, control, button, panel, extractYouTubeId, getYouTubeThumbnail } from './learning';
+import { Lesson, subjects, control, button, panel, extractYouTubeId, getYouTubeThumbnail, CurriculumBlock } from './learning';
 import { LessonView } from './LessonView';
 import {
   BookOpen,
@@ -24,6 +24,14 @@ import {
   Eye,
   RefreshCw,
   CreditCard,
+  Radio,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  Calendar,
+  Clock,
+  Link as LinkIcon,
+  CheckSquare,
 } from 'lucide-react';
 
 type Question = {
@@ -70,10 +78,11 @@ export const AdminCourseManager: React.FC = () => {
   const [error, setError] = useState('');
 
   // Active form section tab
-  const [activeTab, setActiveTab] = useState<'info' | 'videos' | 'pdfs' | 'quiz'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'videos' | 'pdfs' | 'quiz'>('info');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Content state
+  const [curriculumBlocks, setCurriculumBlocks] = useState<CurriculumBlock[]>([]);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [resources, setResources] = useState<NonNullable<Lesson['resources']>>([]);
@@ -128,6 +137,7 @@ export const AdminCourseManager: React.FC = () => {
   const reset = () => {
     setForm(initialForm());
     setEditing(null);
+    setCurriculumBlocks([]);
     setVideos([]);
     setFiles([]);
     setResources([]);
@@ -156,6 +166,12 @@ export const AdminCourseManager: React.FC = () => {
       isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
       bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
     });
+    setCurriculumBlocks(
+      (lesson.curriculumBlocks || []).map((b, i) => ({
+        ...b,
+        order: b.order ?? i,
+      }))
+    );
     setVideos(
       (lesson.videos || []).map((v) => ({
         title: v.title || '',
@@ -191,6 +207,7 @@ export const AdminCourseManager: React.FC = () => {
     try {
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => body.append(key, String(value)));
+      body.append('curriculumBlocksJson', JSON.stringify(curriculumBlocks));
       body.append('videosJson', JSON.stringify(videos));
       body.append('quizJson', JSON.stringify(quiz));
       body.append('relatedPaperIds', JSON.stringify(related));
@@ -233,6 +250,90 @@ export const AdminCourseManager: React.FC = () => {
 
   const addVideo = () => {
     setVideos((prev) => [...prev, { title: `Part ${prev.length + 1}`, url: '', description: '' }]);
+  };
+
+  const addCurriculumBlock = (type: CurriculumBlock['type']) => {
+    const newBlock: CurriculumBlock = {
+      type,
+      title:
+        type === 'live_class'
+          ? 'Live Class Discussion'
+          : type === 'video'
+          ? `Video Lecture ${curriculumBlocks.filter((b) => b.type === 'video').length + 1}`
+          : type === 'document'
+          ? 'Lecture Notes (PDF)'
+          : 'Module Guidance & Overview',
+      description: '',
+      order: curriculumBlocks.length,
+      ...(type === 'live_class'
+        ? {
+            meetingPlatform: 'Zoom',
+            liveLink: '',
+            scheduledTime: '',
+            isCompleted: false,
+            recordingUrl: '',
+          }
+        : {}),
+      ...(type === 'video' ? { url: '' } : {}),
+      ...(type === 'document' ? { pdfUrl: '', pdfFileName: '' } : {}),
+    };
+    setCurriculumBlocks((prev) => [...prev, newBlock]);
+  };
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    setCurriculumBlocks((prev) => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) return prev;
+      const temp = next[index];
+      next[index] = next[target];
+      next[target] = temp;
+      return next.map((b, i) => ({ ...b, order: i }));
+    });
+  };
+
+  const removeBlock = (index: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.filter((_, i) => i !== index).map((b, i) => ({ ...b, order: i }))
+    );
+  };
+
+  const updateBlock = (index: number, patch: Partial<CurriculumBlock>) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, ...patch } : b))
+    );
+  };
+
+  const importExistingIntoCurriculum = () => {
+    const blocks: CurriculumBlock[] = [];
+    if (form.description?.trim()) {
+      blocks.push({
+        type: 'description',
+        title: 'Lesson Introduction & Overview',
+        description: form.description.trim(),
+        order: blocks.length,
+      });
+    }
+    videos.forEach((v, idx) => {
+      blocks.push({
+        type: 'video',
+        title: v.title || `Video Part ${idx + 1}`,
+        url: v.url,
+        description: v.description || '',
+        order: blocks.length,
+      });
+    });
+    resources.forEach((r, idx) => {
+      blocks.push({
+        type: 'document',
+        title: r.title || `Study Notes ${idx + 1}`,
+        pdfUrl: r.path,
+        pdfFileName: r.title,
+        size: r.size,
+        order: blocks.length,
+      });
+    });
+    setCurriculumBlocks(blocks);
   };
 
   const changeQuestion = (i: number, patch: Partial<Question>) =>
@@ -326,11 +427,11 @@ export const AdminCourseManager: React.FC = () => {
           </div>
 
           {/* Clean Step / Section Tabs */}
-          <div className="flex items-center bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1">
+          <div className="flex items-center bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('info')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'info'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white'
@@ -342,15 +443,33 @@ export const AdminCourseManager: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setActiveTab('curriculum')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeTab === 'curriculum'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-300" />
+              <span>2. Curriculum Flow</span>
+              {curriculumBlocks.length > 0 && (
+                <span className="w-4 h-4 rounded-full bg-indigo-400/20 text-indigo-300 text-[10px] flex items-center justify-center font-bold">
+                  {curriculumBlocks.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('videos')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'videos'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Video className="w-3.5 h-3.5 text-cyan-300" />
-              <span>2. Videos</span>
+              <span>3. Videos</span>
               {videos.length > 0 && (
                 <span className="w-4 h-4 rounded-full bg-cyan-400/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">
                   {videos.length}
@@ -361,14 +480,14 @@ export const AdminCourseManager: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('pdfs')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'pdfs'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <FileText className="w-3.5 h-3.5 text-emerald-300" />
-              <span>3. PDF Notes</span>
+              <span>4. PDF Notes</span>
               {resources.length + files.length > 0 && (
                 <span className="w-4 h-4 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] flex items-center justify-center font-bold">
                   {resources.length + files.length}
@@ -379,14 +498,14 @@ export const AdminCourseManager: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('quiz')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'quiz'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5 text-amber-300" />
-              <span>4. Quiz & Papers</span>
+              <span>5. Quiz & Papers</span>
               {quiz.length > 0 && (
                 <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 text-[10px] flex items-center justify-center font-bold">
                   {quiz.length}
@@ -691,17 +810,522 @@ export const AdminCourseManager: React.FC = () => {
               <div className="flex justify-end pt-3">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('videos')}
+                  onClick={() => setActiveTab('curriculum')}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
                 >
-                  <span>Continue to Video Lessons</span>
+                  <span>Continue to Curriculum Flow</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: VIDEO LESSONS (WITH SEPARATE VIDEO DESCRIPTION) */}
+          {/* TAB 2: COURSERA-STYLE CURRICULUM FLOW (LIVE CLASSES, VIDEOS, DOCS, DESCRIPTIONS) */}
+          {activeTab === 'curriculum' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Header / Intro banner */}
+              <div className="rounded-xl bg-gradient-to-r from-indigo-950/60 to-purple-950/60 p-4 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-400" />
+                    <h4 className="font-bold text-white text-sm">
+                      Coursera-Style Curriculum Flow ({curriculumBlocks.length} Items)
+                    </h4>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      Sequential Timeline
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                    Sequence your course components downwards in any order students will follow:
+                    mix <strong>Live Classes</strong>, <strong>Video Lessons / Recordings</strong>, <strong>Document Notes</strong>, and <strong>Reading Guides</strong>.
+                  </p>
+                </div>
+
+                {curriculumBlocks.length === 0 && (videos.length > 0 || resources.length > 0 || form.description) && (
+                  <button
+                    type="button"
+                    onClick={importExistingIntoCurriculum}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>⚡ Import Existing Items to Timeline</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Add Toolbar */}
+              <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Add Step:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => addCurriculumBlock('live_class')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <Radio className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                  <span>+ Live Class (Zoom / Meet)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => addCurriculumBlock('video')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <Video className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>+ Video / YouTube Lesson</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => addCurriculumBlock('document')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>+ PDF Document / Notes</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => addCurriculumBlock('description')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>+ Guide / Description Section</span>
+                </button>
+              </div>
+
+              {/* Empty State */}
+              {curriculumBlocks.length === 0 ? (
+                <div className="text-center py-12 rounded-xl border border-dashed border-slate-700 bg-slate-900/40 space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto shadow-inner">
+                    <Layers className="w-7 h-7" />
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <p className="text-sm font-bold text-white">Curriculum Timeline is Empty</p>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Build a flexible sequence like Coursera & Simplilearn.
+                      Add Live Classes, YouTube lectures, PDF documents, and guidelines in any order downwards!
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('live_class')}
+                      className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-600/20"
+                    >
+                      <Radio className="w-3.5 h-3.5 animate-pulse" /> Add Live Class
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('video')}
+                      className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-cyan-600/20"
+                    >
+                      <Video className="w-3.5 h-3.5" /> Add Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('document')}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Add Document
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('description')}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> Add Description
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {curriculumBlocks.map((block, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === curriculumBlocks.length - 1;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-2xl border p-4.5 space-y-3.5 transition-all shadow-md ${
+                          block.type === 'live_class'
+                            ? 'bg-slate-900/90 border-rose-500/30 ring-1 ring-rose-500/10'
+                            : block.type === 'video'
+                            ? 'bg-slate-900/90 border-cyan-500/30'
+                            : block.type === 'document'
+                            ? 'bg-slate-900/90 border-emerald-500/30'
+                            : 'bg-slate-900/90 border-indigo-500/30'
+                        }`}
+                      >
+                        {/* Top Block Header: Sequence #, Type Pill, Reorder and Delete Buttons */}
+                        <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-white font-black text-xs flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+
+                            {block.type === 'live_class' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <Radio className="w-3 h-3 text-rose-400 animate-pulse" />
+                                Live Class / Online Session
+                              </span>
+                            )}
+                            {block.type === 'video' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                <Video className="w-3 h-3 text-cyan-400" />
+                                Video Lecture
+                              </span>
+                            )}
+                            {block.type === 'document' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <FileText className="w-3 h-3 text-emerald-400" />
+                                PDF Document / Handout
+                              </span>
+                            )}
+                            {block.type === 'description' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                <BookOpen className="w-3 h-3 text-indigo-400" />
+                                Reading Guide / Description
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Move Up / Down & Remove */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => moveBlock(idx, 'up')}
+                              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => moveBlock(idx, 'down')}
+                              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(idx)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer ml-1"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Form fields based on block type */}
+                        {block.type === 'live_class' && (
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Live Class Title <span className="text-rose-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Live Discussion & Revision Session"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Platform / Meeting App
+                                </label>
+                                <select
+                                  className={control}
+                                  value={block.meetingPlatform || 'Zoom'}
+                                  onChange={(e) => updateBlock(idx, { meetingPlatform: e.target.value })}
+                                >
+                                  <option value="Zoom">Zoom</option>
+                                  <option value="Google Meet">Google Meet</option>
+                                  <option value="Microsoft Teams">Microsoft Teams</option>
+                                  <option value="YouTube Live">YouTube Live</option>
+                                  <option value="Other">Other Platform</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Live Meeting URL (Link) <span className="text-rose-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  type="url"
+                                  className={control}
+                                  placeholder="https://zoom.us/j/... or https://meet.google.com/..."
+                                  value={block.liveLink || ''}
+                                  onChange={(e) => updateBlock(idx, { liveLink: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Scheduled Date & Time (Optional)
+                                </label>
+                                <input
+                                  className={control}
+                                  placeholder="e.g. Friday 7:30 PM (or YYYY-MM-DD HH:mm)"
+                                  value={block.scheduledTime || ''}
+                                  onChange={(e) => updateBlock(idx, { scheduledTime: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Completed toggle & Recording URL */}
+                            <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800 space-y-2.5">
+                              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(block.isCompleted)}
+                                  onChange={(e) => updateBlock(idx, { isCompleted: e.target.checked })}
+                                  className="rounded accent-emerald-500 w-4 h-4 cursor-pointer"
+                                />
+                                <span>Session has completed (Show recording to students)</span>
+                              </label>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1">
+                                  Recording YouTube URL (For students who missed the live session)
+                                </label>
+                                <input
+                                  className={control}
+                                  placeholder="https://www.youtube.com/watch?v=... (Protected playback)"
+                                  value={block.recordingUrl || ''}
+                                  onChange={(e) => updateBlock(idx, { recordingUrl: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Instructions / Notes for Students
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="e.g. Have your tutorial sheet ready. Mic must be muted upon entry."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'video' && (
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Video Title <span className="text-cyan-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Part 1: Core Principles"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  YouTube URL <span className="text-cyan-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="https://www.youtube.com/watch?v=..."
+                                  value={block.url || ''}
+                                  onChange={(e) => updateBlock(idx, { url: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Video Notes / Description (Optional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="Key formulas, timestamps, or summary points..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'document' && (
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Document Title <span className="text-emerald-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Lecture Notes & Worked Examples"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Select Attached PDF or Direct URL
+                                </label>
+                                {resources.length > 0 ? (
+                                  <select
+                                    className={control}
+                                    value={block.pdfUrl || ''}
+                                    onChange={(e) => {
+                                      const chosen = resources.find((r) => r.path === e.target.value);
+                                      updateBlock(idx, {
+                                        pdfUrl: e.target.value,
+                                        pdfFileName: chosen ? chosen.title : block.pdfFileName,
+                                        size: chosen ? chosen.size : block.size,
+                                      });
+                                    }}
+                                  >
+                                    <option value="">-- Choose from uploaded PDFs or enter below --</option>
+                                    {resources.map((r) => (
+                                      <option key={r.id} value={r.path}>
+                                        {r.title}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className={control}
+                                    placeholder="PDF URL or upload in PDF Notes tab"
+                                    value={block.pdfUrl || ''}
+                                    onChange={(e) => updateBlock(idx, { pdfUrl: e.target.value })}
+                                  />
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Document Notes / Instructions (Optional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="e.g. Please read pages 1-12 before attending the live session..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'description' && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Section Heading / Title <span className="text-indigo-400">*</span>
+                              </label>
+                              <input
+                                required
+                                className={control}
+                                placeholder="e.g. Module Overview & Essential Background"
+                                value={block.title || ''}
+                                onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Content / Study Guidance (Text) <span className="text-indigo-400">*</span>
+                              </label>
+                              <textarea
+                                required
+                                rows={4}
+                                className={control}
+                                placeholder="Write comprehensive guidelines, derivation steps, formula references, or instructions for students..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Quick Add at bottom */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('live_class')}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Radio className="w-3.5 h-3.5 animate-pulse" /> + Live Class
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('video')}
+                      className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Video className="w-3.5 h-3.5" /> + Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('document')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> + Document
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('description')}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> + Description
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between pt-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('info')}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                >
+                  ← Back to Overview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('videos')}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
+                >
+                  <span>Continue to Videos</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: VIDEO LESSONS (WITH SEPARATE VIDEO DESCRIPTION) */}
           {activeTab === 'videos' && (
             <div className="space-y-5 animate-in fade-in duration-200">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-3">
@@ -853,10 +1477,10 @@ export const AdminCourseManager: React.FC = () => {
               <div className="flex items-center justify-between pt-3">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('info')}
+                  onClick={() => setActiveTab('curriculum')}
                   className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
                 >
-                  ← Back to Overview
+                  ← Back to Curriculum Flow
                 </button>
                 <button
                   type="button"

@@ -1,8 +1,22 @@
 import React, { useState } from 'react';
 import { api, getAuthToken, getStoredUser } from '../../services/api';
-import { Lesson, Progress, button, panel, youtubeEmbed, extractYouTubeId } from './learning';
+import { Lesson, Progress, button, panel, youtubeEmbed, extractYouTubeId, CurriculumBlock } from './learning';
 import { CleanVideoPlayer } from './CleanVideoPlayer';
-import { Shield, Lock, Play, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Shield,
+  Lock,
+  Play,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Radio,
+  Calendar,
+  Clock,
+  ExternalLink,
+  BookOpen,
+  Layers,
+  Download,
+} from 'lucide-react';
 
 export function LessonView({
   lesson,
@@ -22,6 +36,15 @@ export function LessonView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState<number | null>(0); // Auto-load first video for seamless viewing
+  const [activeMedia, setActiveMedia] = useState<string | null>(() => {
+    if (lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0) {
+      const firstMediaIdx = lesson.curriculumBlocks.findIndex(
+        b => b.type === 'video' || (b.type === 'live_class' && (b.recordingEmbedUrl || b.recordingUrl))
+      );
+      return firstMediaIdx >= 0 ? `block-${firstMediaIdx}` : null;
+    }
+    return 'legacy-0';
+  });
   const [mistakesOnly, setMistakesOnly] = useState(false);
 
   const currentUser = getStoredUser();
@@ -108,101 +131,377 @@ export function LessonView({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-6 min-w-0">
-          {/* Video Lessons Section */}
-          {(lesson.videos || []).length > 0 && (
-            <div className="space-y-4">
-              {(lesson.videos || []).map((video, i) => {
-                const targetUrl = video.embedUrl || video.url || '';
-                const embed = youtubeEmbed(targetUrl);
-                const hasValidId = Boolean(extractYouTubeId(targetUrl));
+          {/* Coursera-style Sequential Curriculum Timeline OR Legacy View */}
+          {lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0 ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-lg font-bold text-white">Course Curriculum & Schedule</h3>
+                </div>
+                <span className="text-xs font-semibold text-slate-400">
+                  {lesson.curriculumBlocks.length} Learning Steps
+                </span>
+              </div>
 
-                return (
-                  <section
-                    key={i}
-                    className={`${panel} overflow-hidden`}
-                    onContextMenu={e => e.preventDefault()}
-                  >
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Play className="w-4 h-4 text-cyan-400" />
-                        <h3 className="text-white font-bold">{video.title}</h3>
+              <div className="space-y-6">
+                {lesson.curriculumBlocks.map((block, idx) => {
+                  const blockId = `block-${idx}`;
+                  const isPlaying = activeMedia === blockId;
+
+                  return (
+                    <div key={idx} className="space-y-2">
+                      {/* Step header / indicator */}
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400 pl-1">
+                        <span className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 text-slate-200 text-[11px] flex items-center justify-center font-black">
+                          {idx + 1}
+                        </span>
+                        <span className="uppercase tracking-wider">
+                          {block.type === 'live_class'
+                            ? 'Live Class Session'
+                            : block.type === 'video'
+                            ? 'Video Lesson'
+                            : block.type === 'document'
+                            ? 'Study Notes & Document'
+                            : 'Lesson Overview & Guide'}
+                        </span>
                       </div>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
-                        <Lock className="w-3 h-3 text-cyan-400" />
-                        Stream Only · Non-downloadable
-                      </span>
-                    </div>
 
-                    <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
-                      {embed || hasValidId ? (
-                        playing === i ? (
-                          <CleanVideoPlayer
-                            url={targetUrl}
-                            title={video.title}
-                            studentName={currentUser?.name || 'Mind Maze Student'}
-                            indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
-                          />
-                        ) : (
-                          <button
-                            className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
-                            onClick={() => setPlaying(i)}
-                          >
-                            <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
-                              <Play className="w-6 h-6 ml-0.5 fill-cyan-400" />
+                      {/* BLOCK: DESCRIPTION / GUIDE */}
+                      {block.type === 'description' && (
+                        <section className={panel}>
+                          <div className="flex items-center gap-2 text-indigo-400 font-bold text-base">
+                            <BookOpen className="w-4 h-4" />
+                            <h4 className="text-white font-bold">{block.title || 'Module Guide'}</h4>
+                          </div>
+                          <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                            {block.description}
+                          </div>
+                        </section>
+                      )}
+
+                      {/* BLOCK: LIVE CLASS */}
+                      {block.type === 'live_class' && (
+                        <section className={`${panel} border-rose-500/30 ring-1 ring-rose-500/10`}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              {block.isCompleted ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                  <CheckCircle2 className="w-3 h-3" /> Session Completed
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                                  <Radio className="w-3 h-3 animate-pulse" /> Live Class
+                                </span>
+                              )}
+
+                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                                {block.meetingPlatform || 'Live Classroom'}
+                              </span>
                             </div>
-                            <span className="text-sm font-medium text-white">Watch Video Lesson</span>
-                            <span className="text-xs text-slate-400">Stream protected video</span>
-                          </button>
-                        )
-                      ) : targetUrl ? (
-                        /* Direct protected HTML5 video fallback with downloads strictly disabled */
-                        <div className="relative w-full h-full">
-                          <video
-                            src={targetUrl}
-                            controls
-                            controlsList="nodownload noplaybackrate"
-                            disablePictureInPicture
-                            className="w-full h-full bg-black"
-                            onContextMenu={e => e.preventDefault()}
-                          />
-                          {currentUser && (
-                            <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
-                              {currentUser.name} • {currentUser.indexNumber || 'STD'}
+
+                            {block.scheduledTime && (
+                              <div className="flex items-center gap-1.5 text-xs text-rose-300 font-semibold bg-rose-950/40 px-3 py-1 rounded-lg border border-rose-800/40">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>{block.scheduledTime}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="text-xl font-bold text-white">{block.title}</h4>
+                            {block.description && (
+                              <p className="text-sm text-slate-300 mt-1 whitespace-pre-line leading-relaxed">
+                                {block.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* If upcoming & has link, show Join Button */}
+                          {!block.isCompleted && block.liveLink && (
+                            <div className="pt-2">
+                              <a
+                                href={block.liveLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:brightness-110 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition cursor-pointer"
+                              >
+                                <Radio className="w-4 h-4 animate-pulse" />
+                                <span>Join Live Classroom on {block.meetingPlatform || 'Online'}</span>
+                                <ExternalLink className="w-4 h-4 ml-1" />
+                              </a>
+                            </div>
+                          )}
+
+                          {/* If session has recording, show Clean Player */}
+                          {(block.recordingEmbedUrl || block.recordingUrl) && (
+                            <div className="mt-4 space-y-2 pt-3 border-t border-white/5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Play className="w-4 h-4 text-cyan-400" />
+                                  <h5 className="font-bold text-white text-sm">Class Recording (Rewatch)</h5>
+                                </div>
+                                <span className="text-[11px] text-slate-400">Stream protected</span>
+                              </div>
+
+                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
+                                {isPlaying ? (
+                                  <CleanVideoPlayer
+                                    url={block.recordingEmbedUrl || block.recordingUrl || ''}
+                                    title={`${block.title} (Live Recording)`}
+                                    studentName={currentUser?.name || 'Mind Maze Student'}
+                                    indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
+                                  />
+                                ) : (
+                                  <button
+                                    className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
+                                    onClick={() => setActiveMedia(blockId)}
+                                  >
+                                    <div className="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 shadow-lg shadow-rose-500/10">
+                                      <Play className="w-6 h-6 ml-0.5 fill-rose-400" />
+                                    </div>
+                                    <span className="text-sm font-medium text-white">Watch Session Recording</span>
+                                    <span className="text-xs text-slate-400">Recorded live class video</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </section>
+                      )}
+
+                      {/* BLOCK: VIDEO LESSON */}
+                      {block.type === 'video' && (
+                        <section className={`${panel} overflow-hidden`} onContextMenu={e => e.preventDefault()}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <Play className="w-4 h-4 text-cyan-400" />
+                              <h4 className="text-white font-bold">{block.title}</h4>
+                            </div>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
+                              <Lock className="w-3 h-3 text-cyan-400" />
+                              Stream Only · Non-downloadable
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const targetUrl = block.embedUrl || block.url || '';
+                            const embed = youtubeEmbed(targetUrl);
+                            const hasValidId = Boolean(extractYouTubeId(targetUrl));
+
+                            return (
+                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
+                                {embed || hasValidId ? (
+                                  isPlaying ? (
+                                    <CleanVideoPlayer
+                                      url={targetUrl}
+                                      title={block.title || 'Video Lecture'}
+                                      studentName={currentUser?.name || 'Mind Maze Student'}
+                                      indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
+                                    />
+                                  ) : (
+                                    <button
+                                      className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
+                                      onClick={() => setActiveMedia(blockId)}
+                                    >
+                                      <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
+                                        <Play className="w-6 h-6 ml-0.5 fill-cyan-400" />
+                                      </div>
+                                      <span className="text-sm font-medium text-white">Watch Video Lecture</span>
+                                      <span className="text-xs text-slate-400">Stream protected video</span>
+                                    </button>
+                                  )
+                                ) : targetUrl ? (
+                                  <div className="relative w-full h-full">
+                                    <video
+                                      src={targetUrl}
+                                      controls
+                                      controlsList="nodownload noplaybackrate"
+                                      disablePictureInPicture
+                                      className="w-full h-full bg-black"
+                                      onContextMenu={e => e.preventDefault()}
+                                    />
+                                    {currentUser && (
+                                      <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
+                                        {currentUser.name} • {currentUser.indexNumber || 'STD'}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">
+                                    Video link is being prepared by the teacher.
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {block.description && (
+                            <div className="mt-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
+                              <div className="font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Video Notes & Key Points</span>
+                              </div>
+                              <p className="whitespace-pre-line text-slate-300">{block.description}</p>
+                            </div>
+                          )}
+                        </section>
+                      )}
+
+                      {/* BLOCK: DOCUMENT / NOTES */}
+                      {block.type === 'document' && (
+                        <section className={`${panel} border-emerald-500/30`}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-white text-base">
+                                  {block.title || block.pdfFileName || 'Study Notes & Handout'}
+                                </h4>
+                                <p className="text-xs text-slate-400">
+                                  {block.size ? `${(block.size / (1024 * 1024)).toFixed(2)} MB · ` : ''}PDF Document
+                                </p>
+                              </div>
+                            </div>
+
+                            {signedIn ? (
+                              <a
+                                href={api.courseResourceUrl(block.path || block.pdfUrl || `/courses/${lesson._id}/download`)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 cursor-pointer"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download Watermarked Notes</span>
+                              </a>
+                            ) : (
+                              <span className="text-xs text-amber-300 font-semibold bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-800/40">
+                                Sign in to download notes
+                              </span>
+                            )}
+                          </div>
+
+                          {currentUser && currentUser.indexNumber && (
+                            <div className="rounded-xl bg-emerald-950/30 border border-emerald-800/30 p-2.5 text-xs text-emerald-300 flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <span>
+                                Anti-piracy protected: Your name & Index ({currentUser.indexNumber}) will be watermarked on every page.
+                              </span>
+                            </div>
+                          )}
+
+                          {block.description && (
+                            <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+                              {block.description}
+                            </p>
+                          )}
+                        </section>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Legacy Video Lessons Section */}
+              {(lesson.videos || []).length > 0 && (
+                <div className="space-y-4">
+                  {(lesson.videos || []).map((video, i) => {
+                    const targetUrl = video.embedUrl || video.url || '';
+                    const embed = youtubeEmbed(targetUrl);
+                    const hasValidId = Boolean(extractYouTubeId(targetUrl));
+
+                    return (
+                      <section
+                        key={i}
+                        className={`${panel} overflow-hidden`}
+                        onContextMenu={e => e.preventDefault()}
+                      >
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <Play className="w-4 h-4 text-cyan-400" />
+                            <h3 className="text-white font-bold">{video.title}</h3>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
+                            <Lock className="w-3 h-3 text-cyan-400" />
+                            Stream Only · Non-downloadable
+                          </span>
+                        </div>
+
+                        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
+                          {embed || hasValidId ? (
+                            playing === i ? (
+                              <CleanVideoPlayer
+                                url={targetUrl}
+                                title={video.title}
+                                studentName={currentUser?.name || 'Mind Maze Student'}
+                                indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
+                              />
+                            ) : (
+                              <button
+                                className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
+                                onClick={() => setPlaying(i)}
+                              >
+                                <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
+                                  <Play className="w-6 h-6 ml-0.5 fill-cyan-400" />
+                                </div>
+                                <span className="text-sm font-medium text-white">Watch Video Lesson</span>
+                                <span className="text-xs text-slate-400">Stream protected video</span>
+                              </button>
+                            )
+                          ) : targetUrl ? (
+                            <div className="relative w-full h-full">
+                              <video
+                                src={targetUrl}
+                                controls
+                                controlsList="nodownload noplaybackrate"
+                                disablePictureInPicture
+                                className="w-full h-full bg-black"
+                                onContextMenu={e => e.preventDefault()}
+                              />
+                              {currentUser && (
+                                <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
+                                  {currentUser.name} • {currentUser.indexNumber || 'STD'}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">
+                              Video link is being prepared by the teacher.
                             </div>
                           )}
                         </div>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">
-                          Video link is being prepared by the teacher.
-                        </div>
-                      )}
-                    </div>
-                    {video.description && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
-                        <div className="font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>Video Notes & Details</span>
-                        </div>
-                        <p className="whitespace-pre-line text-slate-300">{video.description}</p>
-                      </div>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
-          )}
+                        {video.description && (
+                          <div className="mt-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
+                            <div className="font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Video Notes & Details</span>
+                            </div>
+                            <p className="whitespace-pre-line text-slate-300">{video.description}</p>
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
 
-          {/* Dedicated Lesson Overview & Detailed Notes Section */}
-          {lesson.description && (
-            <section className={panel}>
-              <div className="flex items-center gap-2 text-cyan-400 font-bold text-base">
-                <FileText className="w-4 h-4" />
-                <h3>Lesson Overview & Study Notes</h3>
-              </div>
-              <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
-                {lesson.description}
-              </div>
-            </section>
+              {/* Dedicated Lesson Overview & Detailed Notes Section */}
+              {lesson.description && (
+                <section className={panel}>
+                  <div className="flex items-center gap-2 text-cyan-400 font-bold text-base">
+                    <FileText className="w-4 h-4" />
+                    <h3>Lesson Overview & Study Notes</h3>
+                  </div>
+                  <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                    {lesson.description}
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
           {/* Quiz Section */}
