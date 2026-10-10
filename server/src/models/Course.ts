@@ -57,6 +57,7 @@ export interface ICourse extends Document {
   pdfFileName?: string;
   videoUrl?: string;
   thumbnailUrl?: string;
+  thumbnailPublicId?: string;
   quiz?: IQuizQuestion[];
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -116,6 +117,7 @@ const CourseSchema = new Schema<ICourse>(
     pdfFileName: { type: String, default: '' },
     videoUrl: { type: String, default: '' },
     thumbnailUrl: { type: String, default: '' },
+    thumbnailPublicId: { type: String, default: '' },
     quiz: [QuizQuestionSchema],
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },

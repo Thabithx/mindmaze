@@ -39,6 +39,47 @@ export async function savePdf(file: Express.Multer.File) {
 }
 
 
+export async function saveImage(file: Express.Multer.File) {
+  if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+    throw new Error('Select a valid image file (PNG, JPG, JPEG, WEBP).');
+  }
+
+  if (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.UPLOAD_STORAGE !== 'local'
+  ) {
+    const result: any = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'image', folder: 'mind_maze_courses', public_id: `cover_${randomUUID()}` },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      stream.end(file.buffer);
+    });
+    console.log(`[Cloudinary] Course cover image uploaded to cloud: ${result.secure_url}`);
+    return { url: result.secure_url, publicId: result.public_id };
+  }
+
+  // Local fallback
+  const ext = path.extname(file.originalname) || '.jpg';
+  const key = `cover_${randomUUID()}${ext}`;
+  await mkdir(directory(), { recursive: true });
+  await writeFile(path.join(directory(), key), file.buffer, { flag: 'wx' });
+  return { url: `/uploads/${key}`, publicId: key };
+}
+
+export async function removeImage(publicId?: string) {
+  if (!publicId) return;
+  try {
+    if (publicId.startsWith('cover_') && !publicId.includes('/')) {
+      await unlink(path.join(directory(), path.basename(publicId))).catch(() => {});
+    } else {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+    }
+  } catch {}
+}
+
 export async function removePdf(course: any) {
   if (!course.pdfPublicId) return;
   if (course.pdfProvider === 'local') await unlink(path.join(directory(), path.basename(course.pdfPublicId))).catch(e => { if (e.code !== 'ENOENT') throw e; });

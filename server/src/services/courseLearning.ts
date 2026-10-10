@@ -67,8 +67,9 @@ export function validateLesson(body: any) {
   const price = Math.max(0, Number(body['price'] ?? 0) || 0);
   const isFree = body['isFree'] === true || body['isFree'] === 'true' || price === 0;
   const bankDetails = text('bankDetails');
+  const thumbnailUrl = text('thumbnailUrl');
   return {title, description, subject, stream, topic, medium, syllabus, status,
-    price, isFree, bankDetails,
+    price, isFree, bankDetails, thumbnailUrl,
     topicOrder: numeric('topicOrder',1,0,1000), lessonOrder: numeric('lessonOrder',1,0,1000), estimatedMinutes: numeric('estimatedMinutes',15,1,600),
     quiz, videos, curriculumBlocks, relatedPaperIds, videoUrl: ''};
 }

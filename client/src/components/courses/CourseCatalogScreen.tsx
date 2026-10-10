@@ -579,76 +579,90 @@ export const CourseCatalogScreen: React.FC = () => {
                               key={l._id}
                               disabled={opening}
                               onClick={() => openLesson(l._id)}
-                              className={panel + ' text-left hover:border-cyan-400/60 disabled:opacity-60 cursor-pointer transition'}
+                              className={panel + ' text-left hover:border-cyan-400/60 disabled:opacity-60 cursor-pointer transition group flex flex-col justify-between overflow-hidden'}
                             >
-                              <div className="flex items-center justify-between gap-2 flex-wrap">
-                                <p className="text-xs text-cyan-300 font-semibold">
-                                  {l.subject} · {l.topic}
-                                </p>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                                      l.isFree || !l.price
-                                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                    }`}
-                                  >
-                                    {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
-                                  </span>
+                              <div className="space-y-3 w-full">
+                                {l.thumbnailUrl ? (
+                                  <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 -mt-1 group-hover:scale-[1.01] transition-transform duration-200">
+                                    <img
+                                      src={l.thumbnailUrl}
+                                      alt={l.title}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
+                                  </div>
+                                ) : null}
 
-                                  {(() => {
-                                    const p = progress[l._id];
-                                    const completedCount = p?.completedBlocks?.length || 0;
-                                    const totalSections = l.curriculumBlocks && l.curriculumBlocks.length > 0
-                                      ? l.curriculumBlocks.length
-                                      : ((l.videoCount || 0) + (l.description ? 1 : 0) + (l.quizCount > 0 ? 1 : 0));
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <p className="text-xs text-cyan-300 font-semibold">
+                                    {l.subject} · {l.topic}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                        l.isFree || !l.price
+                                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                          : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                      }`}
+                                    >
+                                      {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
+                                    </span>
 
-                                    if (p?.completed) {
-                                      return (
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                          <span>Completed ✓</span>
-                                        </span>
-                                      );
-                                    }
-                                    if (completedCount > 0) {
-                                      return (
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
-                                          <CheckCircle2 className="w-3 h-3 text-cyan-400" />
-                                          <span>{completedCount}/{totalSections} Done</span>
-                                        </span>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                  {enrollments[l._id]?.status === 'approved' && (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                      ✓ Enrolled
-                                    </span>
-                                  )}
-                                  {enrollments[l._id]?.status === 'pending' && (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                                      ⏳ Slip Pending
-                                    </span>
-                                  )}
-                                  {enrollments[l._id]?.status === 'rejected' && (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                      ✕ Declined
-                                    </span>
-                                  )}
+                                    {(() => {
+                                      const p = progress[l._id];
+                                      const completedCount = p?.completedBlocks?.length || 0;
+                                      const totalSections = l.curriculumBlocks && l.curriculumBlocks.length > 0
+                                        ? l.curriculumBlocks.length
+                                        : ((l.videoCount || 0) + (l.description ? 1 : 0) + (l.quizCount > 0 ? 1 : 0));
+
+                                      if (p?.completed) {
+                                        return (
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                            <span>Completed ✓</span>
+                                          </span>
+                                        );
+                                      }
+                                      if (completedCount > 0) {
+                                        return (
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                                            <span>{completedCount}/{totalSections} Done</span>
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                    {enrollments[l._id]?.status === 'approved' && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        ✓ Enrolled
+                                      </span>
+                                    )}
+                                    {enrollments[l._id]?.status === 'pending' && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                                        ⏳ Slip Pending
+                                      </span>
+                                    )}
+                                    {enrollments[l._id]?.status === 'rejected' && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                        ✕ Declined
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
+
+                                <h3 className="text-lg font-bold text-white">{l.title}</h3>
+                                <p className="text-sm text-slate-400 line-clamp-2">{l.description}</p>
+                                <p className="text-xs text-slate-400">
+                                  {l.estimatedMinutes} min · {l.medium}
+                                  {l.curriculumBlocks?.length
+                                    ? ` · ${l.curriculumBlocks.length} sections`
+                                    : `${l.videoCount > 0 ? ` · ${l.videoCount} videos` : ''}${l.resourceCount > 0 ? ` · ${l.resourceCount} PDFs` : ''}${l.quizCount > 0 ? ` · ${l.quizCount} questions` : ''}`}
+                                </p>
                               </div>
 
-                              <h3 className="text-lg font-bold text-white">{l.title}</h3>
-                              <p className="text-sm text-slate-400 line-clamp-2">{l.description}</p>
-                              <p className="text-xs text-slate-400">
-                                {l.estimatedMinutes} min · {l.medium}
-                                {l.curriculumBlocks?.length
-                                  ? ` · ${l.curriculumBlocks.length} sections`
-                                  : `${l.videoCount > 0 ? ` · ${l.videoCount} videos` : ''}${l.resourceCount > 0 ? ` · ${l.resourceCount} PDFs` : ''}${l.quizCount > 0 ? ` · ${l.quizCount} questions` : ''}`}
-                              </p>
-
-                              <div className="flex items-center justify-between pt-1">
+                              <div className="flex items-center justify-between pt-4 mt-2 border-t border-white/5 w-full">
                                 <p
                                   className={`text-sm font-semibold flex items-center gap-1.5 ${
                                     progress[l._id]?.completed

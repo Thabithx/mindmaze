@@ -2,7 +2,7 @@ import {readPagination,pageInfo,literalSearch,queryText,PaginationError} from '.
 import {Router, RequestHandler} from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
-import {savePdf, removePdf, downloadPdf} from '../services/pdfStorage.js';
+import {savePdf, removePdf, downloadPdf, saveImage, removeImage} from '../services/pdfStorage.js';
 import Course from '../models/Course.js';
 import CourseProgress from '../models/CourseProgress.js';
 import PastPaper from '../models/PastPaper.js';
@@ -11,8 +11,13 @@ import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLe
 import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:25}}).fields([{name:'pdfFiles',maxCount:25},{name:'pdfFile',maxCount:5}]);
-const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,price:c.price??0,isFree:c.isFree??(c.price===0),bankDetails:c.bankDetails||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:25}}).fields([
+  {name:'pdfFiles',maxCount:25},
+  {name:'pdfFile',maxCount:5},
+  {name:'thumbnail',maxCount:1},
+  {name:'coverImage',maxCount:1}
+]);
+const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,price:c.price??0,isFree:c.isFree??(c.price===0),bankDetails:c.bankDetails||'',thumbnailUrl:c.thumbnailUrl||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
   let embedUrl = '';
@@ -112,7 +117,7 @@ router.get('/',async(req,res)=>{try{
   const filter:any={...publishedFilter};
   if(typeof req.query.subject==='string')filter.subject=req.query.subject;
   if(typeof req.query.stream==='string')filter.stream=req.query.stream;
-  const courses=await Course.aggregate([{$match:filter},{$project:{title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,price:1,isFree:1,bankDetails:1,videoUrl:1,videos:1,pdfUrl:1,pdfPublicId:1,resources:1,quizCount:{$size:{$ifNull:['$quiz',[]]}}}},{$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}]);
+  const courses=await Course.aggregate([{$match:filter},{$project:{title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,price:1,isFree:1,bankDetails:1,videoUrl:1,videos:1,pdfUrl:1,pdfPublicId:1,thumbnailUrl:1,resources:1,quizCount:{$size:{$ifNull:['$quiz',[]]}}}},{$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}]);
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 
@@ -177,10 +182,28 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if(existing&&Number(req.body.revision)!==(existing.revision||0)){res.status(409).json({message:'This lesson was edited elsewhere. Reload it before saving.'});return;}
     const groups=req.files as Record<string,Express.Multer.File[]>|undefined;
     const files=[...(groups?.pdfFiles||[]),...(groups?.pdfFile||[])];
+    const thumbFiles=[...(groups?.thumbnail||[]),...(groups?.coverImage||[])];
     const isPdf = (f: Express.Multer.File) => f.buffer && f.buffer.length >= 5 && f.buffer.subarray(0, Math.min(f.buffer.length, 1024)).includes(Buffer.from('%PDF-'));
     if(files.some(f => !isPdf(f))){res.status(400).json({message:'Select valid PDF files. (One or more attached files are not valid PDF documents).'});return;}
     const retained=existing?.resources.filter((r:any)=>keep.includes(String(r._id)))||[];
     if(retained.length+files.length>20){res.status(400).json({message:'A lesson can contain up to 20 PDF resources.'});return;}
+
+    let newCover: any = null;
+    if (thumbFiles.length > 0) {
+      newCover = await saveImage(thumbFiles[0]);
+      details.thumbnailUrl = newCover.url;
+      details.thumbnailPublicId = newCover.publicId;
+    } else if (req.body.removeThumbnail === 'true') {
+      if (existing?.thumbnailPublicId) {
+        await removeImage(existing.thumbnailPublicId).catch(() => {});
+      }
+      details.thumbnailUrl = '';
+      details.thumbnailPublicId = '';
+    } else if (existing) {
+      details.thumbnailUrl = existing.thumbnailUrl || '';
+      details.thumbnailPublicId = existing.thumbnailPublicId || '';
+    }
+
     for(const file of files)saved.push({...await savePdf(file),size:file.size});
     if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
       let fIdx = 0;
@@ -202,10 +225,18 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
       const filter:any={_id:existing._id};
       filter.$or=[{revision:existing.revision||0},...(!existing.revision?[{revision:{$exists:false}}]:[])];
       course=await Course.findOneAndUpdate(filter,{$set:details,$inc:{revision:1}},{new:true,runValidators:true});
-      if(!course){await Promise.all(saved.map(r=>removePdf(r).catch(()=>{})));res.status(409).json({message:'This lesson changed while saving. Reload and retry.'});return;}
+      if(!course){
+        if (newCover?.publicId) await removeImage(newCover.publicId).catch(() => {});
+        await Promise.all(saved.map(r=>removePdf(r).catch(()=>{})));
+        res.status(409).json({message:'This lesson changed while saving. Reload and retry.'});
+        return;
+      }
     }else course=await Course.create({...details,createdBy:req.user!._id});
     saved.length=0;
     if(existing){
+      if (newCover && existing.thumbnailPublicId) {
+        await removeImage(existing.thumbnailPublicId).catch(() => {});
+      }
       const removed=existing.resources.filter((r:any)=>!keep.includes(String(r._id)));
       if(!keep.includes('legacy'))removed.push(existing);
       await Promise.all(removed.map(r=>removePdf(r).catch(()=>{})));
@@ -225,6 +256,7 @@ router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));
 router.put('/:id',protect,contentManagerOnly,parseUpload,saveLesson(true));
 router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
   const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Lesson not found.'});return;}
+  if(c.thumbnailPublicId) await removeImage(c.thumbnailPublicId).catch(()=>{});
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
   await CourseProgress.deleteMany({course:c._id});res.json({message:'Lesson removed.'});
 }catch(e){fail(res,e);}});

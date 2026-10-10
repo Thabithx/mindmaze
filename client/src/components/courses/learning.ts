@@ -60,6 +60,7 @@ export interface Lesson {
   price?: number;
   isFree?: boolean;
   bankDetails?: string;
+  thumbnailUrl?: string;
   videoCount: number;
   resourceCount: number;
   quizCount: number;
