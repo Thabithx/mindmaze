@@ -19,11 +19,17 @@ export function validateLesson(body: any) {
     if (!Number.isInteger(value) || value < min || value > max) throw Error('Enter valid lesson order and study time.');
     return value;
   };
-  const quiz = parse('quizJson', []), videos = parse('videosJson', []), relatedPaperIds = parse('relatedPaperIds', []), curriculumBlocks = parse('curriculumBlocksJson', []);
+  let quiz = parse('quizJson', []), videos = parse('videosJson', []), relatedPaperIds = parse('relatedPaperIds', []), curriculumBlocks = parse('curriculumBlocksJson', []);
+  if (!Array.isArray(curriculumBlocks) || curriculumBlocks.length > 50) throw Error('Maximum 50 curriculum items allowed per lesson.');
+  if (Array.isArray(curriculumBlocks) && curriculumBlocks.length > 0) {
+    const fromBlocksQuiz = curriculumBlocks.filter((b: any) => b.type === 'quiz').flatMap((b: any) => b.quizQuestions || []);
+    if (fromBlocksQuiz.length > 0) quiz = fromBlocksQuiz;
+    const fromBlocksVideos = curriculumBlocks.filter((b: any) => b.type === 'video').map((b: any) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
+    if (fromBlocksVideos.length > 0) videos = fromBlocksVideos;
+  }
   if (!Array.isArray(quiz) || quiz.length > 100 || quiz.some(q => !q || typeof q.questionText !== 'string' || !q.questionText.trim() || !Array.isArray(q.options) || q.options.length < 2 || q.options.length > 6 || q.options.some((o: any) => typeof o !== 'string' || !o.trim()) || !Number.isInteger(q.correctOptionIndex) || q.correctOptionIndex < 0 || q.correctOptionIndex >= q.options.length || (q.explanation != null && typeof q.explanation !== 'string'))) throw Error('Each quiz question needs text, at least two answers and a valid correct answer.');
   if (!Array.isArray(videos) || videos.length > 20 || videos.some(v => !v || typeof v.title !== 'string' || !v.title.trim() || !safeMediaUrl(v.url))) throw Error('Each video needs a title and an HTTP or HTTPS link.');
   if (!Array.isArray(relatedPaperIds) || relatedPaperIds.length > 30 || relatedPaperIds.some(id => typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))) throw Error('Select valid related papers.');
-  if (!Array.isArray(curriculumBlocks) || curriculumBlocks.length > 50) throw Error('Maximum 50 curriculum items allowed per lesson.');
   const price = Math.max(0, Number(body['price'] ?? 0) || 0);
   const isFree = body['isFree'] === true || body['isFree'] === 'true' || price === 0;
   const bankDetails = text('bankDetails');

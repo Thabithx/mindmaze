@@ -78,6 +78,12 @@ const present=(c:any,admin=false)=>{
         formatted.pdfFileName = b.pdfFileName || 'Document';
         formatted.size = b.size || 0;
         formatted.path = b.pdfUrl ? b.pdfUrl : (b._id ? `/courses/${c._id}/resources/${b._id}/download` : '');
+      } else if (b.type === 'quiz') {
+        formatted.quizQuestions = (b.quizQuestions || []).map((q: any) => ({
+          questionText: q.questionText,
+          options: q.options,
+          ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
+        }));
       }
       return formatted;
     }),
@@ -154,6 +160,18 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     const retained=existing?.resources.filter((r:any)=>keep.includes(String(r._id)))||[];
     if(retained.length+files.length>20){res.status(400).json({message:'A lesson can contain up to 20 PDF resources.'});return;}
     for(const file of files)saved.push({...await savePdf(file),size:file.size});
+    if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
+      let fIdx = 0;
+      for (const b of details.curriculumBlocks) {
+        if (b.type === 'document' && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
+          const s = saved[fIdx++];
+          b.pdfUrl = s.pdfUrl;
+          b.pdfPublicId = s.pdfPublicId;
+          b.pdfFileName = s.pdfFileName || b.title || 'Document';
+          b.size = s.size;
+        }
+      }
+    }
     details.resources=[...retained,...saved];
     if(existing&&!keep.includes('legacy'))Object.assign(details,{pdfUrl:'',pdfPublicId:'',pdfFileName:''});
     let course;

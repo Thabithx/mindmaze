@@ -8,7 +8,7 @@ export interface IQuizQuestion {
 }
 
 export interface ICurriculumBlock {
-  type: 'video' | 'live_class' | 'document' | 'description';
+  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz';
   title?: string;
   description?: string;
   // Video block
@@ -25,6 +25,8 @@ export interface ICurriculumBlock {
   pdfPublicId?: string;
   pdfFileName?: string;
   size?: number;
+  // Quiz block
+  quizQuestions?: IQuizQuestion[];
   // Order
   order: number;
 }
@@ -89,7 +91,7 @@ const CourseSchema = new Schema<ICourse>(
     resources: [{ pdfProvider: String, pdfUrl: String, pdfPublicId: String, pdfFileName: String, size: Number }],
     curriculumBlocks: [
       {
-        type: { type: String, enum: ['video', 'live_class', 'document', 'description'], required: true },
+        type: { type: String, enum: ['video', 'live_class', 'document', 'description', 'quiz'], required: true },
         title: { type: String, default: '' },
         description: { type: String, default: '' },
         url: { type: String, default: '' },
@@ -103,6 +105,7 @@ const CourseSchema = new Schema<ICourse>(
         pdfPublicId: { type: String, default: '' },
         pdfFileName: { type: String, default: '' },
         size: { type: Number, default: 0 },
+        quizQuestions: [QuizQuestionSchema],
         order: { type: Number, default: 0 },
       },
     ],

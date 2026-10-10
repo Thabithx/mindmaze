@@ -7,9 +7,16 @@ export interface LessonVideo {
   isProtected?: boolean;
 }
 
+export interface CurriculumQuizQuestion {
+  questionText: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation?: string;
+}
+
 export interface CurriculumBlock {
   _id?: string;
-  type: 'video' | 'live_class' | 'document' | 'description';
+  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz';
   title?: string;
   description?: string;
   // Video block
@@ -29,6 +36,9 @@ export interface CurriculumBlock {
   pdfFileName?: string;
   size?: number;
   path?: string;
+  pendingFile?: File;
+  // Quiz block
+  quizQuestions?: CurriculumQuizQuestion[];
   // Ordering
   order: number;
 }

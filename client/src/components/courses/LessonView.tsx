@@ -16,6 +16,7 @@ import {
   BookOpen,
   Layers,
   Download,
+  HelpCircle,
 } from 'lucide-react';
 
 export function LessonView({
@@ -399,6 +400,119 @@ export function LessonView({
                           )}
                         </section>
                       )}
+
+                      {/* BLOCK: PRACTICE QUIZ / MCQS */}
+                      {block.type === 'quiz' && (
+                        <section className={`${panel} border-amber-500/30 ring-1 ring-amber-500/10 space-y-4`}>
+                          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                                <HelpCircle className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <h4 className="text-white font-bold text-base">{block.title || 'Practice Quiz'}</h4>
+                                <span className="text-xs text-amber-300/80">Check your understanding</span>
+                              </div>
+                            </div>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              {(block.quizQuestions?.length || quiz.length)} Questions
+                            </span>
+                          </div>
+
+                          {block.description && (
+                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800">
+                              {block.description}
+                            </p>
+                          )}
+
+                          {result ? (
+                            <div className="space-y-3">
+                              <p role="status" className="text-emerald-300 font-bold text-sm">
+                                You scored {result.score} / {result.total}.
+                              </p>
+                              <div className="flex flex-wrap gap-3">
+                                <button
+                                  className={button}
+                                  onClick={() => {
+                                    setResult(null);
+                                    setAnswers([]);
+                                    setMistakesOnly(false);
+                                  }}
+                                >
+                                  Try again
+                                </button>
+                                <button
+                                  className="text-cyan-300 text-sm cursor-pointer"
+                                  onClick={() => setMistakesOnly((v) => !v)}
+                                >
+                                  {mistakesOnly ? 'Show all answers' : 'Review mistakes'}
+                                </button>
+                              </div>
+                              {mistakesOnly && result.score === result.total && (
+                                <p className="text-slate-300 text-xs">All answers correct. You’re ready for the next section!</p>
+                              )}
+                              {result.results
+                                .filter((r: any) => !mistakesOnly || !r.correct)
+                                .map((r: any, i: number) => (
+                                  <div key={i} className="rounded-xl bg-slate-900/90 border border-slate-800 p-3.5 space-y-1.5 text-xs">
+                                    <p className="font-semibold text-white">
+                                      {r.correct ? '✓' : '↻'} {r.questionText}
+                                    </p>
+                                    <p className="text-slate-300">Your answer: {r.options[r.selectedIndex]}</p>
+                                    {!r.correct && (
+                                      <p className="text-emerald-300">
+                                        Correct answer: {r.options[r.correctOptionIndex]}
+                                      </p>
+                                    )}
+                                    {r.explanation && <p className="text-slate-400 mt-1 italic">{r.explanation}</p>}
+                                  </div>
+                                ))}
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {(block.quizQuestions && block.quizQuestions.length > 0 ? block.quizQuestions : quiz).map((q, i) => (
+                                <fieldset key={i} disabled={busy} className="space-y-2 border-t border-slate-800 pt-3">
+                                  <legend className="text-xs font-bold text-white mb-2">
+                                    {i + 1}. {q.questionText}
+                                  </legend>
+                                  {q.options.map((o, j) => (
+                                    <label
+                                      key={j}
+                                      className={`flex items-start gap-3 rounded-xl p-2.5 text-xs cursor-pointer transition ${
+                                        answers[i] === j
+                                          ? 'bg-indigo-600/25 border border-indigo-500/40 text-white'
+                                          : 'bg-slate-900/80 hover:bg-slate-850 text-slate-300 border border-transparent'
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`quiz-block-${blockId}-q-${i}`}
+                                        checked={answers[i] === j}
+                                        onChange={() =>
+                                          setAnswers((a) => {
+                                            const next = [...a];
+                                            next[i] = j;
+                                            return next;
+                                          })
+                                        }
+                                      />
+                                      <span>{o}</span>
+                                    </label>
+                                  ))}
+                                </fieldset>
+                              ))}
+
+                              <button
+                                className={button}
+                                disabled={busy || (!signedIn && !preview) || (block.quizQuestions && block.quizQuestions.length > 0 ? block.quizQuestions : quiz).some((_, i) => answers[i] === undefined)}
+                                onClick={submit}
+                              >
+                                {busy ? 'Checking…' : 'Check answers'}
+                              </button>
+                            </div>
+                          )}
+                        </section>
+                      )}
                     </div>
                   );
                 })}
@@ -504,8 +618,8 @@ export function LessonView({
             </>
           )}
 
-          {/* Quiz Section */}
-          {!!quiz.length && (
+          {/* Quiz Section (Fallback for legacy lessons without curriculum quiz blocks) */}
+          {!!quiz.length && !lesson.curriculumBlocks?.some((b) => b.type === 'quiz') && (
             <section className={panel}>
               <h3 className="font-bold text-white text-lg">Check your understanding</h3>
               {result ? (
