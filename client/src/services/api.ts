@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -87,7 +87,15 @@ export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-pape
 
 // API Methods
 export const api = {
-  presentPaper: (p:any) => ({...p,markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl:API_BASE+p.pdfPath}),
+  presentPaper: (p:any) => {
+    const token = getAuthToken();
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    return {
+      ...p,
+      markingSchemeUrl: p.markingSchemePath ? `${API_BASE}${p.markingSchemePath}${tokenQuery}` : undefined,
+      pdfUrl: `${API_BASE}${p.pdfPath}${tokenQuery}`,
+    };
+  },
   telegramStatus:()=>apiFetch('/telegram/status'),
   startTelegramVerification:(body:{phone:string;currentPassword?:string})=>apiFetch('/telegram/start',{method:'POST',body:JSON.stringify(body)}),
   confirmTelegramVerification:(code:string)=>apiFetch('/telegram/confirm',{method:'POST',body:JSON.stringify({code})}),
@@ -137,7 +145,13 @@ export const api = {
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
-  courseResourceUrl: (path: string) => API_BASE + path,
+  courseResourceUrl: (path: string) => {
+    const token = getAuthToken();
+    const base = API_BASE + path;
+    if (!token) return base;
+    const sep = path.includes('?') ? '&' : '?';
+    return `${base}${sep}token=${encodeURIComponent(token)}`;
+  },
   getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
   getCourseProgress: () => apiFetch('/courses/progress'),

@@ -1,8 +1,12 @@
 import { Response } from 'express';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { watermarkPdf, WatermarkDetails } from './pdfWatermark.js';
 
-export async function deliverRemotePdf(url: string, fileName: string, res: Response) {
+export async function deliverRemotePdf(
+  url: string,
+  fileName: string,
+  res: Response,
+  watermark?: WatermarkDetails | null
+) {
   let remote: globalThis.Response;
   try {
     remote = await fetch(url, { signal: AbortSignal.timeout(30000) });
@@ -25,7 +29,22 @@ export async function deliverRemotePdf(url: string, fileName: string, res: Respo
     });
     return;
   }
-  res.attachment(fileName || 'document.pdf');
-  res.type('application/pdf');
-  await pipeline(Readable.fromWeb(remote.body as any), res);
+
+  try {
+    const arrayBuffer = await remote.arrayBuffer();
+    const rawBuffer = Buffer.from(arrayBuffer);
+
+    // Apply student dynamic watermark
+    const finalBuffer = await watermarkPdf(rawBuffer, watermark);
+
+    res.attachment(fileName || 'document.pdf');
+    res.type('application/pdf');
+    res.setHeader('Content-Length', finalBuffer.length);
+    res.send(finalBuffer);
+  } catch (err: any) {
+    console.error('Failed delivering watermarked remote PDF:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to process and deliver PDF document.' });
+    }
+  }
 }

@@ -2,11 +2,14 @@ import {Router} from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import path from 'node:path';
+import {readFile} from 'node:fs/promises';
 import PastPaper from '../models/PastPaper.js';
 import PaperAsset from '../models/PaperAsset.js';
 import {protect,contentManagerOnly} from '../middleware/authMiddleware.js';
 import {saveAsset,removeAsset,assetDirectory} from '../services/paperAssets.js';
 import {deliverRemotePdf} from '../services/pdfDelivery.js';
+import {extractDownloadWatermark} from '../services/downloadAuth.js';
+import {watermarkPdf} from '../services/pdfWatermark.js';
 const router=Router();
 const receiver=(size:number,field:string)=>{const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:size,files:1}}).single(field);return (req:any,res:any,next:any)=>upload(req,res,(e:any)=>e?res.status(400).json({message:e.code==='LIMIT_FILE_SIZE'?'File exceeds the upload size limit.':e.message}):next());};
 router.param('id',(_req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(404).json({message:'Paper not found.'});return;}next();});
@@ -21,7 +24,23 @@ router.post('/:id/marking-scheme',protect,contentManagerOnly,receiver(25*1024*10
  res.status(201).json({markingSchemePath:'/past-papers/'+req.params.id+'/marking-scheme'});
  }catch{if(asset)await removeAsset(asset).catch(()=>{});res.status(500).json({message:'Could not save marking scheme. The existing scheme has been kept.'});}
 });
-router.get('/:id/marking-scheme',async(req,res)=>{try{const paper=await PastPaper.findById(req.params.id);const asset=paper?.markingSchemeId?await PaperAsset.findById(paper.markingSchemeId):null;if(!asset){res.status(404).json({message:'No marking scheme has been uploaded.'});return;}if(asset.provider==='local'){res.download(path.join(assetDirectory(),path.basename(asset.fileKey!)),asset.fileName!,e=>{if(e&&!res.headersSent)res.status(404).json({message:'Marking scheme file is missing.'});});return;}await deliverRemotePdf(asset.remoteUrl!,asset.fileName!,res);}catch{if(!res.headersSent)res.status(500).json({message:'Could not download marking scheme.'});}});
+router.get('/:id/marking-scheme',async(req,res)=>{try{
+  const paper=await PastPaper.findById(req.params.id);
+  const asset=paper?.markingSchemeId?await PaperAsset.findById(paper.markingSchemeId):null;
+  if(!asset){res.status(404).json({message:'No marking scheme has been uploaded.'});return;}
+  const watermark=await extractDownloadWatermark(req);
+  if(asset.provider==='local'){
+    const localPath=path.join(assetDirectory(),path.basename(asset.fileKey!));
+    const rawBuffer=await readFile(localPath);
+    const finalBuffer=await watermarkPdf(rawBuffer,watermark);
+    res.attachment(asset.fileName!||'marking-scheme.pdf');
+    res.type('application/pdf');
+    res.setHeader('Content-Length',finalBuffer.length);
+    res.send(finalBuffer);
+    return;
+  }
+  await deliverRemotePdf(asset.remoteUrl!,asset.fileName!,res,watermark);
+}catch{if(!res.headersSent)res.status(500).json({message:'Could not download marking scheme.'});}});
 router.post('/:id/question-images',protect,contentManagerOnly,receiver(5*1024*1024,'imageFile'),async(req,res)=>{
  try{const paper=await PastPaper.findById(req.params.id);if(!paper||paper.type!=='MCQ'){res.status(400).json({message:'Choose an MCQ paper.'});return;}const b=req.file?.buffer;let mime='',ext='';
  if(b&&b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))){mime='image/png';ext='.png';}else if(b&&b[0]===255&&b[1]===216&&b[2]===255){mime='image/jpeg';ext='.jpg';}else if(b&&b.subarray(0,4).toString()==='RIFF'&&b.subarray(8,12).toString()==='WEBP'){mime='image/webp';ext='.webp';}

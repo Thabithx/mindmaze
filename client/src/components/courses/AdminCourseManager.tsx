@@ -2,7 +2,7 @@ import {Pagination} from '../common/Pagination';
 import {usePagedResource} from '../../hooks/usePagedResource';
 import React,{useEffect,useRef,useState} from 'react';
 import {api,apiFetch} from '../../services/api';
-import {Lesson,subjects,control,button,panel} from './learning';
+import {Lesson,subjects,control,button,panel,extractYouTubeId,getYouTubeThumbnail} from './learning';
 import {LessonView} from './LessonView';
 
 type Question={questionText:string;options:string[];correctOptionIndex:number;explanation:string};
@@ -60,8 +60,149 @@ export const AdminCourseManager:React.FC=()=>{
         </div>
         <label className="block text-sm text-slate-300">Lesson title<input required className={control+' mt-1'} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/></label>
         <label className="block text-sm text-slate-300">What students will learn<textarea required rows={3} className={control+' mt-1'} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></label>
-        <section className="space-y-3"><h4 className="font-bold text-white">Video lessons</h4>{videos.map((v,i)=><div key={i} className="grid sm:grid-cols-[1fr_2fr_auto] gap-2"><input aria-label={`Video ${i+1} title`} required placeholder="Video title" className={control} value={v.title} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,title:e.target.value}:x))}/><input aria-label={`Video ${i+1} URL`} required type="url" placeholder="https://www.youtube.com/watch?v=…" className={control} value={v.url} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,url:e.target.value}:x))}/><button type="button" className="text-rose-300 text-sm" onClick={()=>setVideos(prev=>prev.filter((_,j)=>j!==i))}>Remove video</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={videos.length>=20} onClick={()=>setVideos(prev=>[...prev,{title:'',url:''}])}>+ Add video</button></section>
-        <section className="space-y-3"><h4 className="font-bold text-white">PDF notes</h4>{resources.map(r=><div key={r.id} className="flex gap-3 justify-between text-sm text-slate-300"><span>{r.title}</span><button type="button" className="text-rose-300" onClick={()=>setResources(prev=>prev.filter(x=>x.id!==r.id))}>Remove PDF</button></div>)}<label className="block text-sm text-slate-300">Add PDFs (up to 8 per save, 25 MiB each)<input key={fileKey} type="file" multiple accept="application/pdf,.pdf" className="block mt-2 w-full" onChange={e=>{const selected=Array.from(e.target.files||[]);if(selected.length>8||selected.some(f=>f.size>25*1024*1024)){setError('Choose up to 8 PDFs, each no larger than 25 MiB.');e.target.value='';setFiles([]);return;}setFiles(selected);setError('');}}/></label><p className="text-xs text-slate-400">Your storage account may have a lower file-size limit. Existing PDFs stay attached unless removed.</p></section>
+        <section className="space-y-4 rounded-xl border border-slate-700/80 bg-slate-800/40 p-4">
+          <div>
+            <h4 className="font-bold text-white flex items-center gap-2">
+              <span>Video Lessons</span>
+              <span className="text-xs font-normal text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+                Protected Streaming Only
+              </span>
+            </h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Paste YouTube URLs (e.g. watch link, youtu.be, shorts). Students can only stream inside the platform; direct downloads and watch links are blocked.
+            </p>
+          </div>
+          {videos.map((v, i) => {
+            const ytId = extractYouTubeId(v.url);
+            const thumb = ytId ? getYouTubeThumbnail(v.url) : null;
+            return (
+              <div key={i} className="space-y-2 rounded-xl bg-slate-900/80 p-3 border border-slate-800">
+                <div className="grid sm:grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                  <input
+                    aria-label={`Video ${i+1} title`}
+                    required
+                    placeholder="Video title (e.g. Theory Part 1)"
+                    className={control}
+                    value={v.title}
+                    onChange={e => setVideos(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
+                  />
+                  <input
+                    aria-label={`Video ${i+1} URL`}
+                    required
+                    type="url"
+                    placeholder="Paste YouTube Link: https://www.youtube.com/watch?v=… or https://youtu.be/…"
+                    className={control}
+                    value={v.url}
+                    onChange={e => setVideos(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
+                  />
+                  <button
+                    type="button"
+                    className="text-rose-300 hover:text-rose-200 text-sm px-2 py-1 rounded transition"
+                    onClick={() => setVideos(prev => prev.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+                {v.url && (
+                  <div className="flex items-center gap-3 text-xs pt-1">
+                    {ytId ? (
+                      <span className="text-emerald-400 font-medium flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                        Valid YouTube Video (ID: {ytId}) · Protected Player Ready
+                      </span>
+                    ) : (
+                      <span className="text-amber-400">
+                        Enter a valid YouTube URL (watch, share, or shorts link)
+                      </span>
+                    )}
+                    {thumb && (
+                      <img src={thumb} alt="Preview" className="h-8 rounded border border-slate-700 object-cover" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            className="text-cyan-300 hover:text-cyan-200 text-sm font-medium flex items-center gap-1"
+            disabled={videos.length >= 20}
+            onClick={() => setVideos(prev => [...prev, { title: '', url: '' }])}
+          >
+            + Add video lesson
+          </button>
+        </section>
+
+        <section className="space-y-4 rounded-xl border border-slate-700/80 bg-slate-800/40 p-4">
+          <div>
+            <h4 className="font-bold text-white flex items-center gap-2">
+              <span>PDF Notes & Documents</span>
+              <span className="text-xs font-normal text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                Dynamic Watermark Active
+              </span>
+            </h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Upload PDF notes. When a student downloads any file, their Full Name and Unique Index Number will be dynamically stamped across all pages.
+            </p>
+          </div>
+          {resources.map(r => (
+            <div key={r.id} className="flex gap-3 justify-between items-center text-sm text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+              <span className="font-medium text-white">{r.title}</span>
+              <button
+                type="button"
+                className="text-rose-300 hover:text-rose-200 text-xs"
+                onClick={() => setResources(prev => prev.filter(x => x.id !== r.id))}
+              >
+                Remove PDF
+              </button>
+            </div>
+          ))}
+          <label className="block text-sm text-slate-300">
+            Attach PDFs (up to 8 per save, 25 MiB each)
+            <input
+              key={fileKey}
+              type="file"
+              multiple
+              accept="application/pdf,.pdf"
+              className="block mt-2 w-full text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+              onChange={e => {
+                const selected = Array.from(e.target.files || []);
+                if (selected.length > 8 || selected.some(f => f.size > 25 * 1024 * 1024)) {
+                  setError('Choose up to 8 PDFs, each no larger than 25 MiB.');
+                  e.target.value = '';
+                  setFiles([]);
+                  return;
+                }
+                const nonPdf = selected.find(f => !f.name.toLowerCase().endsWith('.pdf') && f.type !== 'application/pdf');
+                if (nonPdf) {
+                  setError(`"${nonPdf.name}" is not a PDF file. Please select only valid PDF (.pdf) documents for lecture notes.`);
+                  e.target.value = '';
+                  setFiles([]);
+                  return;
+                }
+                setFiles(selected);
+                setError('');
+              }}
+            />
+          </label>
+          {files.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-xs font-semibold text-slate-400">Selected PDFs ready to upload ({files.length}):</p>
+              {files.map((f, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-xs text-indigo-200">
+                  <span className="truncate font-medium">📄 {f.name} ({(f.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                  <button
+                    type="button"
+                    onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
+                    className="text-rose-400 hover:text-rose-300 ml-2 font-bold cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
         <section className="space-y-4"><h4 className="font-bold text-white">Practice quiz ({quiz.length} questions)</h4>{quiz.map((q,i)=><div key={i} className="rounded-xl bg-slate-800 p-4 space-y-3"><label className="block text-sm text-slate-300">Question {i+1}<textarea required className={control+' mt-1'} value={q.questionText} onChange={e=>changeQuestion(i,{questionText:e.target.value})}/></label><div className="grid sm:grid-cols-2 gap-2">{q.options.map((o,j)=><label key={j} className="text-xs text-slate-400">Answer {j+1}<input required className={control+' mt-1'} value={o} onChange={e=>changeQuestion(i,{options:q.options.map((x,k)=>k===j?e.target.value:x)})}/></label>)}</div><div className="flex flex-wrap gap-3"><button type="button" disabled={q.options.length>=6} className="text-cyan-300 text-sm" onClick={()=>changeQuestion(i,{options:[...q.options,'']})}>+ Add answer</button><button type="button" disabled={q.options.length<=2} className="text-slate-300 text-sm" onClick={()=>changeQuestion(i,{options:q.options.slice(0,-1),correctOptionIndex:Math.min(q.correctOptionIndex,q.options.length-2)})}>Remove last answer</button></div><label className="block text-sm text-slate-300">Correct answer<select className={control+' mt-1'} value={q.correctOptionIndex} onChange={e=>changeQuestion(i,{correctOptionIndex:Number(e.target.value)})}>{q.options.map((_,j)=><option key={j} value={j}>Answer {j+1}</option>)}</select></label><label className="block text-sm text-slate-300">Explanation<textarea className={control+' mt-1'} value={q.explanation} onChange={e=>changeQuestion(i,{explanation:e.target.value})}/></label><button type="button" className="text-rose-300 text-sm" onClick={()=>setQuiz(prev=>prev.filter((_,j)=>j!==i))}>Remove question</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={quiz.length>=100} onClick={()=>setQuiz(prev=>[...prev,{questionText:'',options:['',''],correctOptionIndex:0,explanation:''}])}>+ Add quiz question</button></section>
         <fieldset className="space-y-2"><legend className="font-bold text-white mb-2">Related past papers</legend><label className="block text-sm text-slate-300">Search related papers<input className={control} type="search" value={paperSearch} onChange={e=>setPaperSearch(e.target.value)}/></label><label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={selectedPapersOnly} onChange={e=>setSelectedPapersOnly(e.target.checked)}/>Show selected papers ({related.length})</label><Pagination {...papersPage.pagination} label="Related papers"/>{papersPage.error&&<p role="alert">{papersPage.error} <button type="button" onClick={papersPage.reload}>Retry</button></p>}<div className="max-h-44 overflow-y-auto space-y-2">{papers.map(p=><label key={p.id} className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={related.includes(p.id)} onChange={e=>setRelated(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/>{p.title}</label>)}{papersPage.loading?<p role="status">Loading papers…</p>:!papers.length&&!papersPage.error&&<p className="text-sm text-slate-400">No matching papers.</p>}</div></fieldset>
         <div className="flex flex-wrap gap-3"><button type="submit" className={button}>{busy?'Saving lesson…':form.status==='draft'?'Save draft':editing?'Save and publish changes':'Publish lesson'}</button>{editing&&<button type="button" className="text-slate-300" onClick={reset}>Cancel editing</button>}</div>

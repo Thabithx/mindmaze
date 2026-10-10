@@ -12,6 +12,8 @@ import {
   LogIn,
   Bell,
   Search,
+  ShieldCheck,
+  GraduationCap,
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -127,6 +129,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {userProfile.stream}
                 </span>
               </div>
+
+              {['admin', 'content_manager'].includes(userProfile.role || '') && (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      onNavigate('admin');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-rose-300 hover:bg-rose-500/15 hover:text-white transition-colors cursor-pointer font-semibold"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-rose-400" /> Admin Control Panel
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      onNavigate('courses');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-300 hover:bg-emerald-500/15 hover:text-white transition-colors cursor-pointer font-semibold"
+                  >
+                    <GraduationCap className="w-4 h-4 text-emerald-400" /> Course & Lesson Manager
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={() => {

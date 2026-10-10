@@ -323,6 +323,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                 {isGuest ? 'Guest' : userRole === 'admin' ? 'Admin' : 'Student'}
               </span>
+              {(currentUser?.indexNumber || userProfile?.indexNumber) && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                  Index: {currentUser?.indexNumber || userProfile?.indexNumber}
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
@@ -334,6 +339,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <BookOpen className="w-3.5 h-3.5" />
                 {stream} {stream === 'Physical Science' ? `(${elective})` : ''}
               </span>
+              {(currentUser?.indexNumber || userProfile?.indexNumber) && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-bold">
+                    Official Index: {currentUser?.indexNumber || userProfile?.indexNumber}
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="inline-flex items-center gap-1 text-amber-300">
                 <Flame className="w-3.5 h-3.5 fill-amber-400" />

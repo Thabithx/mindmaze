@@ -29,7 +29,9 @@ import {
   Sparkles,
   Layers,
   Globe,
+  GraduationCap,
 } from 'lucide-react';
+import { AdminCourseManager } from '../courses/AdminCourseManager';
 import { api, getAuthToken } from '../../services/api';
 import { PastPaper } from '../../types';
 import { validateRequired, validateYear } from '../../lib/validation';
@@ -54,7 +56,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isAdmin=userRole==='admin';
   const canManageContent=isAdmin||userRole==='content_manager';
   const [roleUpdating,setRoleUpdating]=useState<string|null>(null);
-  const [activeTab, setActiveTab] = useState<'directory' | 'pastpapers' | 'quiz'>(isAdmin?'directory':'pastpapers');
+  const [activeTab, setActiveTab] = useState<'directory' | 'courses' | 'pastpapers' | 'quiz'>(isAdmin?'directory':'courses');
   const [users, setUsers] = useState<any[]>([]);
   const [verificationTarget,setVerificationTarget]=useState<any>(null);
   const [verificationMethod,setVerificationMethod]=useState<'call'|'whatsapp'>('call');
@@ -392,6 +394,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>}
 
         <button
+          onClick={() => setActiveTab('courses')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'courses'
+              ? 'bg-[#6B4EFF] text-white shadow-lg shadow-purple-500/25'
+              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4 text-emerald-300" />
+          <span>Course & Lesson Manager</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+            Videos & PDFs
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('pastpapers')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
             activeTab === 'pastpapers'
@@ -684,6 +701,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <thead>
                   <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4">Student</th>
+                    <th className="py-3 px-4">Index No</th>
                     <th className="py-3 px-4">Phone</th>
                     <th className="py-3 px-4">Verification</th>
                     <th className="py-3 px-4">Stream & Elective</th>
@@ -696,7 +714,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <tbody className="divide-y divide-white/5">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
                         {usersPage.loading?'Loading users…':usersPage.error?'Unable to load users. Please retry.':'No matching registered students found.'}
                       </td>
                     </tr>
@@ -706,6 +724,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 font-semibold text-white">
                           <div><span className="mr-2 text-slate-400">{(usersPage.pagination.page-1)*usersPage.pagination.pageSize+i+1}.</span>{canViewActivity ? <button type="button" onClick={() => setActivityUserId(u._id)} className="font-semibold text-cyan-300 hover:text-cyan-200 underline decoration-dotted underline-offset-4 cursor-pointer text-left" title="View activity">{u.name}</button> : u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-cyan-300 text-[11px] whitespace-nowrap">
+                          {u.indexNumber || "—"}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-emerald-400 text-[11px] whitespace-nowrap">
                           {u.whatsappNumber || u.mobileNumber || u.phoneNumber || u.phone || "—"}
@@ -1057,6 +1078,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Tab: Course & Lesson Manager */}
+      {activeTab === 'courses' && <AdminCourseManager />}
 
       {/* Tab 3: Practice Quiz Publisher (Weekly Century / Daily Spark) */}
       {activeTab === 'quiz' && <PracticePublisher />}

@@ -13,6 +13,7 @@ import Mistake from '../models/Mistake.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import { protect, AuthRequest } from '../middleware/authMiddleware.js';
 import { sendPasswordResetEmail } from '../services/emailService.js';
+import { generateStudentIndexNumber, ensureUserIndexNumber } from '../services/studentIndex.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'mind_maze_jwt_secret_key_2026_al_app';
@@ -77,10 +78,12 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
 
     const validStreams = ['Physical Science', 'Biological Science', 'Maths', 'Bio'];
     const selectedStream = validStreams.includes(stream) ? stream : 'Physical Science';
+    const indexNumber = await generateStudentIndexNumber();
 
     const user = await User.create({
       name,
       email,
+      indexNumber,
       passwordHash,
       telegramVerificationRequired:telegramEnabled(),
       role,
@@ -102,6 +105,7 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
         id: user._id,
         name: user.name,
         email: user.email,
+        indexNumber: user.indexNumber,
         ...telegramState(user),
         role: user.role,
         stream: user.stream,
@@ -199,6 +203,10 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
       return;
     }
 
+    if (!user.indexNumber) {
+      user.indexNumber = await ensureUserIndexNumber(user);
+    }
+
     const streakUpdated = updateStreakOnActivity(user);
     if (streakUpdated) {
       await user.save();
@@ -212,6 +220,7 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
         id: user._id,
         name: user.name,
         email: user.email,
+        indexNumber: user.indexNumber,
         ...telegramState(user),
         role: user.role,
         stream: user.stream,
@@ -240,12 +249,15 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
 router.get('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!;
+    if (!user.indexNumber) {
+      user.indexNumber = await ensureUserIndexNumber(user);
+    }
     user.targetExamYear = normalizeBatch(user.targetExamYear);
     const streakUpdated = updateStreakOnActivity(user);
     if (streakUpdated) {
       await (user as any).save();
     }
-    res.json({ user:{...user.toObject(),...telegramState(user)} });
+    res.json({ user:{...user.toObject(),indexNumber:user.indexNumber,...telegramState(user)} });
   } catch (e) {
     res.json({ user: req.user });
   }

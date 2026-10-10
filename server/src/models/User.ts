@@ -14,6 +14,7 @@ export interface IPushSubscription {
 export interface IUser extends Document {
   name: string;
   email: string;
+  indexNumber?: string;
   passwordHash: string;
   telegramVerificationRequired: boolean;
   telegramVerifiedAt?: Date;
@@ -68,6 +69,7 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    indexNumber: { type: String, unique: true, sparse: true, trim: true },
     telegramVerificationRequired:{type:Boolean,default:false},
     telegramVerifiedAt:{type:Date,default:undefined},
     telegramVerifiedPhone:{type:String,unique:true,sparse:true,default:undefined},
@@ -117,4 +119,6 @@ const UserSchema = new Schema<IUser>(
 
 UserSchema.index({createdAt:-1,_id:-1});
 UserSchema.index({stream:1,createdAt:-1,_id:-1});
+UserSchema.index({indexNumber:1});
+
 export default mongoose.model<IUser>('User', UserSchema);

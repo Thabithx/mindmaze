@@ -122,6 +122,7 @@ export interface UserProfile {
   id?: string;
   name: string;
   email?: string;
+  indexNumber?: string;
   avatar?: string;
   provider?: any;
   isAuthenticated?: boolean;

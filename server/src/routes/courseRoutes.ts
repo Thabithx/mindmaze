@@ -8,16 +8,46 @@ import CourseProgress from '../models/CourseProgress.js';
 import PastPaper from '../models/PastPaper.js';
 import {protect, contentManagerOnly, AuthRequest} from '../middleware/authMiddleware.js';
 import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLearning.js';
+import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:8}}).fields([{name:'pdfFiles',maxCount:8},{name:'pdfFile',maxCount:1}]);
 const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
-const present=(c:any,admin=false)=>({ ...summary(c),
-  videos:[...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl}]:[]),...(c.videos||[]).map((v:any)=>({title:v.title,url:v.url}))],
-  resources:[...(c.pdfUrl||c.pdfPublicId?[{id:'legacy',title:c.pdfFileName||'Study notes',path:`/courses/${c._id}/download`}]:[]),...(c.resources||[]).map((r:any)=>({id:String(r._id),title:r.pdfFileName,size:r.size,path:`/courses/${c._id}/resources/${r._id}/download`}))],
-  quiz:(c.quiz||[]).map((q:any)=>({questionText:q.questionText,options:q.options,...(admin?{correctOptionIndex:q.correctOptionIndex,explanation:q.explanation}:{})})),
-  relatedPaperIds:c.relatedPaperIds||[],
-});
+function formatSecureVideo(title: string, url: string, admin: boolean) {
+  let isYouTube = false;
+  let embedUrl = '';
+  try {
+    const u = new URL(url);
+    let id = '';
+    if (u.hostname === 'youtu.be') id = u.pathname.slice(1);
+    else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'www.youtube-nocookie.com'].includes(u.hostname)) {
+      id = u.searchParams.get('v') || u.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1] || '';
+    }
+    if (/^[\w-]{11}$/.test(id)) {
+      isYouTube = true;
+      embedUrl = `https://www.youtube-nocookie.com/embed/${id}?modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&controls=1`;
+    }
+  } catch {}
+
+  return {
+    title,
+    ...(admin ? { url } : {}),
+    embedUrl: embedUrl || (admin ? url : ''),
+    isYouTube,
+    isProtected: true,
+  };
+}
+
+const present=(c:any,admin=false)=>{
+  const rawVideos = [...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl}]:[]), ...(c.videos||[])];
+  return {
+    ...summary(c),
+    videos: rawVideos.map(v => formatSecureVideo(v.title, v.url, admin)),
+    resources:[...(c.pdfUrl||c.pdfPublicId?[{id:'legacy',title:c.pdfFileName||'Study notes',path:`/courses/${c._id}/download`}]:[]),...(c.resources||[]).map((r:any)=>({id:String(r._id),title:r.pdfFileName,size:r.size,path:`/courses/${c._id}/resources/${r._id}/download`}))],
+    quiz:(c.quiz||[]).map((q:any)=>({questionText:q.questionText,options:q.options,...(admin?{correctOptionIndex:q.correctOptionIndex,explanation:q.explanation}:{})})),
+    relatedPaperIds:c.relatedPaperIds||[],
+  };
+};
 const fail=(res:any,error:any)=>res.status(error?.name==='CastError'?400:500).json({message:'Could not complete the lesson request. Please try again.'});
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
@@ -43,8 +73,8 @@ router.get('/',async(req,res)=>{try{
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 
-router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}await downloadPdf(c,res);}catch(e){if(!res.headersSent)fail(res,e);}});
-router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}await downloadPdf(resource,res);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(c,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(resource,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
 router.get('/:id',async(req,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
   const papers=await PastPaper.find({_id:{$in:c.relatedPaperIds||[]}}).select('title year subject type').lean();
@@ -82,7 +112,8 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if(existing&&Number(req.body.revision)!==(existing.revision||0)){res.status(409).json({message:'This lesson was edited elsewhere. Reload it before saving.'});return;}
     const groups=req.files as Record<string,Express.Multer.File[]>|undefined;
     const files=[...(groups?.pdfFiles||[]),...(groups?.pdfFile||[])];
-    if(files.some(f=>f.buffer.subarray(0,5).toString()!=='%PDF-')){res.status(400).json({message:'Select valid PDF files.'});return;}
+    const isPdf = (f: Express.Multer.File) => f.buffer && f.buffer.length >= 5 && f.buffer.subarray(0, Math.min(f.buffer.length, 1024)).includes(Buffer.from('%PDF-'));
+    if(files.some(f => !isPdf(f))){res.status(400).json({message:'Select valid PDF files. (One or more attached files are not valid PDF documents).'});return;}
     const retained=existing?.resources.filter((r:any)=>keep.includes(String(r._id)))||[];
     if(retained.length+files.length>20){res.status(400).json({message:'A lesson can contain up to 20 PDF resources.'});return;}
     for(const file of files)saved.push({...await savePdf(file),size:file.size});

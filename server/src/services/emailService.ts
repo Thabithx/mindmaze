@@ -170,7 +170,7 @@ async function dispatchEmail(payload: SendEmailPayload): Promise<void> {
   }
 
   const primary = createPrimaryTransporter();
-  const mailOptions: nodemailer.SendMailOptions = {
+  const mailOptions: any = {
     from: `"${payload.fromName || 'Mind Maze'}" <${payload.fromEmail || FROM_ADDR}>`,
     to: payload.to,
     bcc: payload.bcc,

@@ -2,10 +2,12 @@ import {readPagination,pageInfo,paperListFilter,PaginationError} from '../servic
 import PaperAsset from '../models/PaperAsset.js';
 import { removeAsset } from '../services/paperAssets.js';
 import { deliverRemotePdf } from '../services/pdfDelivery.js';
+import { watermarkPdf } from '../services/pdfWatermark.js';
+import { extractDownloadWatermark } from '../services/downloadAuth.js';
 import {Router} from 'express';
 import multer from 'multer';
 import {randomUUID} from 'node:crypto';
-import {mkdir,writeFile,unlink} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,unlink} from 'node:fs/promises';
 import path from 'node:path';
 import PastPaper from '../models/PastPaper.js';
 import cloudinary from '../config/cloudinary.js';
@@ -71,8 +73,18 @@ router.put('/:id',...savePaper(true));
 router.get('/:id/download',async(req,res)=>{
   try{
     const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}
-    if(p.provider==='local'){res.download(path.join(directory(),path.basename(p.fileKey)),p.fileName,error=>{if(error&&!res.headersSent)res.status(404).json({message:'PDF file is missing. Ask the administrator to upload it again.'});});return;}
-    await deliverRemotePdf(p.remoteUrl,p.fileName,res);
+    const watermark=await extractDownloadWatermark(req);
+    if(p.provider==='local'){
+      const localPath = path.join(directory(), path.basename(p.fileKey));
+      const rawBuffer = await readFile(localPath);
+      const finalBuffer = await watermarkPdf(rawBuffer, watermark);
+      res.attachment(p.fileName || 'paper.pdf');
+      res.type('application/pdf');
+      res.setHeader('Content-Length', finalBuffer.length);
+      res.send(finalBuffer);
+      return;
+    }
+    await deliverRemotePdf(p.remoteUrl,p.fileName,res,watermark);
   }catch{if(!res.headersSent)res.status(500).json({message:'Could not download this paper.'});}
 });
 router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{const p=await PastPaper.findById(req.params.id);if(!p){res.status(404).json({message:'Paper not found.'});return;}await removeFile(p);await p.deleteOne();for(const asset of await PaperAsset.find({paper:p._id}))await removeAsset(asset).catch(()=>{});res.json({message:'Paper removed.'});}catch{res.status(500).json({message:'Could not remove the paper.'});}});

@@ -1581,17 +1581,14 @@ export function App() {
           {/* Admin Panel */}
           {currentScreen === 'admin' && (
             ['admin','content_manager'].includes(user?.role) ? (
-              <div className="space-y-8">
-                <AdminPanel
-                  userRole={user?.role || 'admin'}
-                  profileLoaded={true}
-                  onNavigateHome={() => setCurrentScreen('dashboard')}
-                  pastPapers={pastPapers}
-                  onAddPastPaper={handleAddPastPaper}
-                  onDeletePastPaper={handleDeletePastPaper}
-                />
-                <AdminCourseManager />
-              </div>
+              <AdminPanel
+                userRole={user?.role || 'admin'}
+                profileLoaded={true}
+                onNavigateHome={() => setCurrentScreen('dashboard')}
+                pastPapers={pastPapers}
+                onAddPastPaper={handleAddPastPaper}
+                onDeletePastPaper={handleDeletePastPaper}
+              />
             ) : (
               <div className="p-8 rounded-3xl bg-[#161831]/80 border border-white/10 text-center space-y-4 max-w-md mx-auto my-12">
                 <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
