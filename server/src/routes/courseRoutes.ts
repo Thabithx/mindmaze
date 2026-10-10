@@ -12,7 +12,7 @@ import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:8}}).fields([{name:'pdfFiles',maxCount:8},{name:'pdfFile',maxCount:1}]);
-const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
+const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,price:c.price??0,isFree:c.isFree??(c.price===0),bankDetails:c.bankDetails||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
   let embedUrl = '';
@@ -43,6 +43,9 @@ const present=(c:any,admin=false)=>{
   const rawVideos = [...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl,description:''}]:[]), ...(c.videos||[])];
   return {
     ...summary(c),
+    price: c.price ?? 0,
+    isFree: c.isFree ?? (c.price === 0),
+    bankDetails: c.bankDetails || '',
     videos: rawVideos.map(v => formatSecureVideo(v.title, v.url, admin, v.description)),
 
     resources:[...(c.pdfUrl||c.pdfPublicId?[{id:'legacy',title:c.pdfFileName||'Study notes',path:`/courses/${c._id}/download`}]:[]),...(c.resources||[]).map((r:any)=>({id:String(r._id),title:r.pdfFileName,size:r.size,path:`/courses/${c._id}/resources/${r._id}/download`}))],
@@ -71,7 +74,7 @@ router.get('/',async(req,res)=>{try{
   const filter:any={...publishedFilter};
   if(typeof req.query.subject==='string')filter.subject=req.query.subject;
   if(typeof req.query.stream==='string')filter.stream=req.query.stream;
-  const courses=await Course.aggregate([{$match:filter},{$project:{title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,videoUrl:1,videos:1,pdfUrl:1,pdfPublicId:1,resources:1,quizCount:{$size:{$ifNull:['$quiz',[]]}}}},{$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}]);
+  const courses=await Course.aggregate([{$match:filter},{$project:{title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,price:1,isFree:1,bankDetails:1,videoUrl:1,videos:1,pdfUrl:1,pdfPublicId:1,resources:1,quizCount:{$size:{$ifNull:['$quiz',[]]}}}},{$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}]);
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 

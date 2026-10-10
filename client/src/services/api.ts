@@ -210,4 +210,21 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  // Course Enrollments & Payments
+  enrollInCourse: (courseId: string, formData?: FormData) =>
+    apiFetch(`/enrollments/enroll/${courseId}`, {
+      method: 'POST',
+      body: formData || JSON.stringify({}),
+    }),
+  getMyEnrollments: () => apiFetch('/enrollments/my'),
+  getCourseEnrollmentStatus: (courseId: string) => apiFetch(`/enrollments/my/${courseId}`),
+  getAdminEnrollments: (params: Record<string, string> = {}) =>
+    apiFetch('/enrollments/admin/all?' + new URLSearchParams(params)),
+  updateEnrollmentStatus: (id: string, status: 'approved' | 'rejected' | 'pending', adminNotes?: string) =>
+    apiFetch(`/enrollments/admin/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, adminNotes }),
+    }),
+  deleteEnrollment: (id: string) => apiFetch(`/enrollments/admin/${id}`, { method: 'DELETE' }),
 };

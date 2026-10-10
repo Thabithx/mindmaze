@@ -52,6 +52,7 @@ import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { ProgressAnalytics } from './components/progress/ProgressAnalytics';
 import { SettingsScreen } from './components/settings/SettingsScreen';
 import { AdminPanel } from './components/admin/AdminPanel';
+import { EnrollmentsManager } from './components/admin/EnrollmentsManager';
 import { ProfileEditModal } from './components/profile/ProfileEditModal';
 import { NotificationsScreen } from './components/notifications/NotificationsScreen';
 import { LandingPage } from './components/screens/LandingPage';
@@ -1597,6 +1598,29 @@ export function App() {
                 <h2 className="text-xl font-black text-white">Access Restricted</h2>
                 <p className="text-xs text-slate-400">
                   This workspace is available to administrators and content managers. Please sign in with an authorized account.
+                </p>
+                <button
+                  onClick={() => setCurrentScreen('dashboard')}
+                  className="px-5 py-2.5 rounded-xl bg-[#6B4EFF] text-white text-xs font-bold hover:bg-[#5b3eff] transition cursor-pointer"
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            )
+          )}
+
+          {/* Enrollments & Payments Desk */}
+          {currentScreen === 'enrollments' && (
+            ['admin','content_manager'].includes(user?.role) ? (
+              <EnrollmentsManager />
+            ) : (
+              <div className="p-8 rounded-3xl bg-[#161831]/80 border border-white/10 text-center space-y-4 max-w-md mx-auto my-12">
+                <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <h2 className="text-xl font-black text-white">Access Restricted</h2>
+                <p className="text-xs text-slate-400">
+                  Course enrollments and bank payment verification desk is restricted to administrators and content managers.
                 </p>
                 <button
                   onClick={() => setCurrentScreen('dashboard')}

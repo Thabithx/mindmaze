@@ -375,13 +375,13 @@ html[data-theme="light"] ::-webkit-scrollbar-track { background:#e2e8f0; }
 html[data-theme="light"] .support-contacts { color:#6b7280; }
 
 /* Course surfaces have explicit palettes in both themes. */
-.learning-area { --lesson-panel:rgba(15,23,42,.85); --lesson-input:#0f172a; --lesson-border:#475569; }
+.learning-area { --lesson-panel:rgba(15,23,42,.85); --lesson-card-bg:rgba(2,6,23,0.7); --lesson-input:#0f172a; --lesson-border:#334155; }
 .learning-area .learning-panel { background:var(--lesson-panel); border-color:var(--lesson-border); }
 .learning-area .learning-control { background:var(--lesson-input); border-color:var(--lesson-border); }
 .learning-area .learning-control:focus { border-color:#22d3ee; outline:2px solid #22d3ee; outline-offset:2px; }
 .learning-area .learning-button { color:#fff; background:#4f46e5; }
 .learning-area .learning-button:hover:not(:disabled) { background:#4338ca; }
-html[data-theme="light"] .learning-area { --lesson-panel:#fff; --lesson-input:#f8fafc; --lesson-border:#cbd5e1; color:#172033; }
+html[data-theme="light"] .learning-area { --lesson-panel:#ffffff; --lesson-card-bg:#ffffff; --lesson-input:#f8fafc; --lesson-border:#e2e8f0; color:#172033; }
 html[data-theme="light"] .learning-area .learning-panel { background:var(--lesson-panel); border-color:var(--lesson-border); }
 html[data-theme="light"] .learning-area .learning-control { background:var(--lesson-input); border-color:var(--lesson-border); color:#172033; }
 html[data-theme="light"] .learning-area .learning-control:focus { border-color:#0e7490; outline-color:#0e7490; }
@@ -389,6 +389,75 @@ html[data-theme="light"] .learning-area .bg-slate-800 { background:#eef2f7; }
 html[data-theme="light"] .learning-area .bg-indigo-600\/25 { background:#e0e7ff; color:#312e81; }
 html[data-theme="light"] .learning-area .learning-button { color:#fff; }
 html[data-theme="light"] .learning-area .border-slate-700 { border-color:#cbd5e1; }
+html[data-theme="light"] .learning-area .border-slate-800,
+html[data-theme="light"] .learning-area .border-slate-800\/80 { border-color:#e2e8f0; }
+html[data-theme="light"] .learning-area .bg-slate-950\/70,
+html[data-theme="light"] .learning-area .bg-slate-950\/60,
+html[data-theme="light"] .learning-area .bg-slate-950 { background-color:#ffffff; box-shadow:0 1px 3px 0 rgba(0, 0, 0, 0.05); }
+
+/* Enrollments Desk surface colors in light theme */
+html[data-theme="light"] .enrollments-surface,
+html[data-theme="light"] .enrollments-surface .enrollments-header {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-header h2 {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-stat-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04) !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-total-val {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-total-label {
+  color: #64748b !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-stat-pending {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-pending-val {
+  color: #d97706 !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-pending-label {
+  color: #92400e !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-stat-approved {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-approved-val {
+  color: #16a34a !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-approved-label {
+  color: #166534 !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-revenue-val {
+  color: #0891b2 !important;
+}
+html[data-theme="light"] .enrollments-surface .stat-revenue-label {
+  color: #64748b !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-filter-box {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-empty-box {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-empty-box h3 {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .enrollments-surface .enrollments-empty-box p {
+  color: #64748b !important;
+}
 html[data-theme="light"] .community-banner { background:linear-gradient(90deg,#ecfdf5,#f0fdfa,#f8fafc); color:#172033; }
 
 /* =========================================================================

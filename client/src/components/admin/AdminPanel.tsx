@@ -30,8 +30,10 @@ import {
   Layers,
   Globe,
   GraduationCap,
+  CreditCard,
 } from 'lucide-react';
 import { AdminCourseManager } from '../courses/AdminCourseManager';
+import { EnrollmentsManager } from './EnrollmentsManager';
 import { api, getAuthToken } from '../../services/api';
 import { PastPaper } from '../../types';
 import { validateRequired, validateYear } from '../../lib/validation';
@@ -56,7 +58,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isAdmin=userRole==='admin';
   const canManageContent=isAdmin||userRole==='content_manager';
   const [roleUpdating,setRoleUpdating]=useState<string|null>(null);
-  const [activeTab, setActiveTab] = useState<'directory' | 'courses' | 'pastpapers' | 'quiz'>(isAdmin?'directory':'courses');
+  const [activeTab, setActiveTab] = useState<'directory' | 'courses' | 'pastpapers' | 'quiz' | 'enrollments'>(isAdmin?'directory':'courses');
   const [users, setUsers] = useState<any[]>([]);
   const [verificationTarget,setVerificationTarget]=useState<any>(null);
   const [verificationMethod,setVerificationMethod]=useState<'call'|'whatsapp'>('call');
@@ -405,6 +407,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <span>Course & Lesson Manager</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
             Videos & PDFs
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('enrollments')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'enrollments'
+              ? 'bg-[#6B4EFF] text-white shadow-lg shadow-purple-500/25'
+              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-emerald-400" />
+          <span>Enrollments & Payments</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+            Slips
           </span>
         </button>
 
@@ -1081,6 +1098,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Tab: Course & Lesson Manager */}
       {activeTab === 'courses' && <AdminCourseManager />}
+
+      {/* Tab: Enrollments & Bank Payments */}
+      {activeTab === 'enrollments' && <EnrollmentsManager />}
 
       {/* Tab 3: Practice Quiz Publisher (Weekly Century / Daily Spark) */}
       {activeTab === 'quiz' && <PracticePublisher />}

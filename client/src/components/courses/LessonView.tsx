@@ -71,10 +71,21 @@ export function LessonView({
           <p className="text-xs font-semibold text-cyan-300">
             {lesson.subject} / {lesson.topic} · {lesson.medium} · {lesson.estimatedMinutes} min
           </p>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-            <Shield className="w-3.5 h-3.5 text-cyan-400" />
-            Protected Video & Material
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                lesson.isFree || !lesson.price
+                  ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+              }`}
+            >
+              {lesson.isFree || !lesson.price ? 'FREE' : `Rs. ${(lesson.price || 0).toLocaleString()}`}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              Protected Video & Material
+            </span>
+          </div>
         </div>
         <h2 className="text-2xl font-bold text-white">{lesson.title}</h2>
         <p className="whitespace-pre-wrap text-sm text-slate-300">{lesson.description}</p>

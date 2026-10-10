@@ -21,6 +21,9 @@ export interface Lesson {
   syllabus: string;
   status: string;
   revision: number;
+  price?: number;
+  isFree?: boolean;
+  bankDetails?: string;
   videoCount: number;
   resourceCount: number;
   quizCount: number;
@@ -29,6 +32,31 @@ export interface Lesson {
   quiz?: { questionText: string; options: string[]; correctOptionIndex?: number; explanation?: string }[];
   relatedPaperIds?: string[];
   relatedPapers?: { _id: string; title: string; pdfPath: string }[];
+}
+
+export interface CourseEnrollmentRecord {
+  _id: string;
+  user: any;
+  course: any;
+  status: 'pending' | 'approved' | 'rejected';
+  amount: number;
+  isFree: boolean;
+  slipUrl?: string;
+  slipPublicId?: string;
+  slipFileName?: string;
+  bankReference?: string;
+  notes?: string;
+  adminNotes?: string;
+  reviewedBy?: any;
+  reviewedAt?: string;
+  enrolledAt: string;
+  createdAt: string;
+  learningProgress?: {
+    completed: boolean;
+    quizScore: number | null;
+    quizTotal: number;
+    lastOpenedAt: string;
+  } | null;
 }
 
 export interface Progress {

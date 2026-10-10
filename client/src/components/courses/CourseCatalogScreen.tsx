@@ -3,14 +3,17 @@ import { usePagination } from '../../hooks/usePagination';
 import React, { useEffect, useRef, useState } from 'react';
 import { api, getAuthToken, getStoredUser } from '../../services/api';
 import { getSubjectsForStream } from '../../data/alSyllabusData';
-import { Lesson, Progress, subjects, control, button, panel } from './learning';
+import { Lesson, Progress, CourseEnrollmentRecord, subjects, control, button, panel } from './learning';
 import { LessonView } from './LessonView';
 import { AdminCourseManager } from './AdminCourseManager';
-import { ShieldCheck, Plus, GraduationCap, Settings } from 'lucide-react';
+import { CourseEnrollModal } from './CourseEnrollModal';
+import { ShieldCheck, Plus, GraduationCap, Settings, CreditCard, Lock, CheckCircle2, Clock } from 'lucide-react';
 
 export const CourseCatalogScreen: React.FC = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
+  const [enrollments, setEnrollments] = useState<Record<string, CourseEnrollmentRecord>>({});
+  const [enrollModalTarget, setEnrollModalTarget] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [progressError, setProgressError] = useState('');
@@ -46,6 +49,7 @@ export const CourseCatalogScreen: React.FC = () => {
     const results = await Promise.allSettled([
       api.getCourses(),
       getAuthToken() ? api.getCourseProgress() : Promise.resolve({ progress: [] }),
+      getAuthToken() ? api.getMyEnrollments() : Promise.resolve({ enrollments: [] }),
     ]);
     if (version !== catalogRequest.current) return;
     if (results[0].status === 'fulfilled') setLessons(results[0].value.courses);
@@ -53,6 +57,14 @@ export const CourseCatalogScreen: React.FC = () => {
     if (results[1].status === 'fulfilled')
       setProgress(Object.fromEntries(results[1].value.progress.map((p: Progress) => [p.course, p])));
     else setProgressError('Saved progress could not be loaded. Retry before continuing.');
+    if (results[2].status === 'fulfilled') {
+      const eMap: Record<string, CourseEnrollmentRecord> = {};
+      for (const e of results[2].value.enrollments || []) {
+        const cId = typeof e.course === 'object' ? e.course?._id : e.course;
+        if (cId) eMap[cId] = e;
+      }
+      setEnrollments(eMap);
+    }
     setLoading(false);
   };
 
@@ -67,6 +79,16 @@ export const CourseCatalogScreen: React.FC = () => {
   }, []);
 
   const openLesson = async (id: string) => {
+    const lesson = lessons.find((l) => l._id === id);
+    const enrollment = enrollments[id];
+    const isPaid = lesson && !lesson.isFree && (lesson.price || 0) > 0;
+
+    // If paid course and student not admin, check if approved:
+    if (isPaid && !isAdmin && (!enrollment || enrollment.status !== 'approved')) {
+      if (lesson) setEnrollModalTarget(lesson);
+      return;
+    }
+
     const version = ++request.current;
     setOpening(true);
     setError('');
@@ -466,9 +488,39 @@ export const CourseCatalogScreen: React.FC = () => {
                               onClick={() => openLesson(l._id)}
                               className={panel + ' text-left hover:border-cyan-400/60 disabled:opacity-60 cursor-pointer transition'}
                             >
-                              <p className="text-xs text-cyan-300">
-                                {l.subject} · {l.topic}
-                              </p>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <p className="text-xs text-cyan-300 font-semibold">
+                                  {l.subject} · {l.topic}
+                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                      l.isFree || !l.price
+                                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                    }`}
+                                  >
+                                    {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
+                                  </span>
+
+                                  {enrollments[l._id]?.status === 'approved' && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      ✓ Enrolled
+                                    </span>
+                                  )}
+                                  {enrollments[l._id]?.status === 'pending' && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                                      ⏳ Slip Pending
+                                    </span>
+                                  )}
+                                  {enrollments[l._id]?.status === 'rejected' && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                      ✕ Declined
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
                               <h3 className="text-lg font-bold text-white">{l.title}</h3>
                               <p className="text-sm text-slate-400 line-clamp-2">{l.description}</p>
                               <p className="text-xs text-slate-400">
@@ -477,17 +529,28 @@ export const CourseCatalogScreen: React.FC = () => {
                                 {l.resourceCount > 0 ? ` · ${l.resourceCount} PDFs` : ''}
                                 {l.quizCount > 0 ? ` · ${l.quizCount} questions` : ''}
                               </p>
-                              <p
-                                className={`text-sm ${
-                                  progress[l._id]?.completed ? 'text-emerald-300' : 'text-indigo-300'
-                                }`}
-                              >
-                                {progress[l._id]?.completed
-                                  ? 'Completed ✓'
-                                  : progress[l._id]
-                                  ? 'In progress →'
-                                  : 'Start lesson →'}
-                              </p>
+
+                              <div className="flex items-center justify-between pt-1">
+                                <p
+                                  className={`text-sm font-semibold ${
+                                    progress[l._id]?.completed ? 'text-emerald-300' : 'text-indigo-300'
+                                  }`}
+                                >
+                                  {progress[l._id]?.completed
+                                    ? 'Completed ✓'
+                                    : progress[l._id]
+                                    ? 'In progress →'
+                                    : !l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved')
+                                    ? 'Enroll to unlock →'
+                                    : 'Start lesson →'}
+                                </p>
+                                {!l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved') && (
+                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Bank Slip Required</span>
+                                  </span>
+                                )}
+                              </div>
                             </button>
                           ))}
                     </div>
@@ -497,6 +560,23 @@ export const CourseCatalogScreen: React.FC = () => {
             </>
           )}
         </>
+      )}
+
+      {/* Student Enrollment Modal */}
+      {enrollModalTarget && (
+        <CourseEnrollModal
+          course={enrollModalTarget}
+          isOpen={Boolean(enrollModalTarget)}
+          onClose={() => setEnrollModalTarget(null)}
+          onSuccess={async (status) => {
+            const target = enrollModalTarget;
+            setEnrollModalTarget(null);
+            await load();
+            if (status === 'approved') {
+              openLesson(target._id);
+            }
+          }}
+        />
       )}
     </div>
   );

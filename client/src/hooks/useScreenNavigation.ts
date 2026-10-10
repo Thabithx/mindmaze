@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScreenId } from '../types';
 
-const screens = new Set<ScreenId>(['dashboard', 'planner', 'topics', 'progress', 'admin', 'settings', 'courses', 'quiz', 'mistakes', 'pastpapers', 'paperquiz', 'leaderboard', 'notifications']);
-const aliases: Record<string, ScreenId> = { timetable: 'planner', daily: 'planner', 'study-plan': 'planner', practice: 'quiz', 'past-papers': 'pastpapers', analytics: 'progress', 'daily-topics': 'topics' };
+const screens = new Set<ScreenId>(['dashboard', 'planner', 'topics', 'progress', 'admin', 'settings', 'courses', 'quiz', 'mistakes', 'pastpapers', 'paperquiz', 'leaderboard', 'notifications', 'enrollments']);
+const aliases: Record<string, ScreenId> = { timetable: 'planner', daily: 'planner', 'study-plan': 'planner', practice: 'quiz', 'past-papers': 'pastpapers', analytics: 'progress', 'daily-topics': 'topics', enrollment: 'enrollments', payments: 'enrollments' };
 export function resolveScreen(value: string): ScreenId | null {
   return screens.has(value as ScreenId) ? value as ScreenId : aliases[value] || null;
 }

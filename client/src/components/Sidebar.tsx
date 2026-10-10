@@ -21,6 +21,7 @@ import {
   Sparkles,
   Brain,
   Bell,
+  CreditCard,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -170,10 +171,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Admin */}
           {['admin','content_manager'].includes(userRole) && (
-            <div>
+            <div className="space-y-1">
               {!isCollapsed && (
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 px-2 mb-2">
-                  {userRole==='admin'?'Admin':'Content'}
+                  {userRole==='admin'?'Admin Desk':'Management'}
                 </p>
               )}
               <button
@@ -190,6 +191,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 <ShieldCheck className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'admin' ? 'text-rose-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                 {!isCollapsed && <span className="text-[13px]">{userRole==='admin'?'Admin Control':'Content Manager'}</span>}
+              </button>
+
+              <button
+                onClick={() => handleSelect('enrollments')}
+                title={isCollapsed ? 'Enrollments & Payments' : undefined}
+                className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                  currentScreen === 'enrollments'
+                    ? 'bg-white/10 text-white shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                {currentScreen === 'enrollments' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-emerald-400" />
+                )}
+                <CreditCard className={`w-[18px] h-[18px] shrink-0 ${currentScreen === 'enrollments' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                {!isCollapsed && <span className="flex-1 text-left truncate text-[13px]">Enrollments & Payments</span>}
+                {!isCollapsed && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    Slips
+                  </span>
+                )}
               </button>
             </div>
           )}

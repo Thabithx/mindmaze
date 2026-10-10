@@ -20,6 +20,9 @@ export interface ICourse extends Document {
   syllabus: string;
   status: string;
   revision: number;
+  price: number;
+  isFree: boolean;
+  bankDetails?: string;
   videos: {title: string; url: string; description?: string}[];
   resources: any[];
   relatedPaperIds: string[];
@@ -56,6 +59,9 @@ const CourseSchema = new Schema<ICourse>(
     syllabus: { type: String, default: 'current' },
     status: { type: String, enum: ['draft', 'published'], default: 'published' },
     revision: { type: Number, default: 0 },
+    price: { type: Number, default: 0, min: 0 },
+    isFree: { type: Boolean, default: true },
+    bankDetails: { type: String, default: '' },
     videos: [{ title: String, url: String, description: { type: String, default: '' } }],
     resources: [{ pdfProvider: String, pdfUrl: String, pdfPublicId: String, pdfFileName: String, size: Number }],
     relatedPaperIds: [{type: String}],

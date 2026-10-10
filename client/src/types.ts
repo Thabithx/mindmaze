@@ -5,7 +5,7 @@ export type StreamType =
   | 'Maths'
   | 'Bio';
 
-export type ScreenId = 'dashboard' | 'planner' | 'timetable' | 'daily' | 'topics' | 'progress' | 'admin' | 'settings' | 'courses' | 'quiz' | 'mistakes' | 'pastpapers' | 'paperquiz' | 'leaderboard' | 'notifications';
+export type ScreenId = 'dashboard' | 'planner' | 'timetable' | 'daily' | 'topics' | 'progress' | 'admin' | 'settings' | 'courses' | 'quiz' | 'mistakes' | 'pastpapers' | 'paperquiz' | 'leaderboard' | 'notifications' | 'enrollments';
 
 export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 

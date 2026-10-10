@@ -23,6 +23,7 @@ import {
   Edit,
   Eye,
   RefreshCw,
+  CreditCard,
 } from 'lucide-react';
 
 type Question = {
@@ -38,6 +39,12 @@ type VideoItem = {
   description: string;
 };
 
+const DEFAULT_BANK_DETAILS = `Bank: Commercial Bank / Bank of Ceylon
+Account Name: Mind Maze Education
+Account Number: 8009234567
+Branch: Colombo Fort
+Deposit the fee and upload the bank transfer receipt / deposit slip.`;
+
 const initialForm = () => ({
   title: '',
   description: '',
@@ -50,6 +57,9 @@ const initialForm = () => ({
   medium: 'English',
   syllabus: 'current',
   status: 'published' as 'draft' | 'published',
+  price: 0,
+  isFree: true,
+  bankDetails: DEFAULT_BANK_DETAILS,
 });
 
 export const AdminCourseManager: React.FC = () => {
@@ -142,6 +152,9 @@ export const AdminCourseManager: React.FC = () => {
       medium: lesson.medium,
       syllabus: lesson.syllabus,
       status: (lesson.status as 'draft' | 'published') || 'published',
+      price: lesson.price ?? 0,
+      isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
+      bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
     });
     setVideos(
       (lesson.videos || []).map((v) => ({
@@ -233,7 +246,7 @@ export const AdminCourseManager: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="learning-area space-y-8">
       {/* Top Banner Header */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-md p-6 shadow-xl flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -532,6 +545,81 @@ export const AdminCourseManager: React.FC = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Row 5: Course Pricing & Bank Transfer Details */}
+              <div className="rounded-xl border border-indigo-500/30 bg-slate-900/60 p-4 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">Course Pricing & Access</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, isFree: true, price: 0 }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.isFree || form.price === 0
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      ✓ Free Course (No Fee)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, isFree: false, price: f.price || 1500 }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        !form.isFree && form.price > 0
+                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      Paid Course (Bank Slip)
+                    </button>
+                  </div>
+                </div>
+
+                {!form.isFree && form.price > 0 && (
+                  <div className="grid sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 animate-in fade-in duration-150">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">
+                        Course Fee (LKR) <span className="text-rose-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
+                        <input
+                          type="number"
+                          min={1}
+                          required={!form.isFree}
+                          placeholder="e.g. 2500"
+                          className={`${control} pl-10 font-bold`}
+                          value={form.price}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value));
+                            setForm((f) => ({ ...f, price: val, isFree: val === 0 }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                        Bank Account & Transfer Instructions
+                      </label>
+                      <textarea
+                        rows={3}
+                        className={`${control} text-xs font-mono leading-relaxed`}
+                        placeholder="Bank: Commercial Bank | Account: 123456789 | Name: Mind Maze | Branch: Colombo"
+                        value={form.bankDetails}
+                        onChange={(e) => setForm((f) => ({ ...f, bankDetails: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Students must transfer the fee and upload their bank slip before being enrolled.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Collapsed Advanced Ordering & Stream Settings */}
@@ -1178,26 +1266,39 @@ export const AdminCourseManager: React.FC = () => {
             {visible.map((l) => (
               <div
                 key={l._id}
-                className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 transition flex items-center justify-between flex-wrap gap-4"
+                className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 dark:bg-slate-950/70 dark:border-slate-800/80 transition flex items-center justify-between flex-wrap gap-4"
+                style={{
+                  backgroundColor: 'var(--lesson-card-bg, rgba(2, 6, 23, 0.7))',
+                  borderColor: 'var(--lesson-border, rgba(51, 65, 85, 0.8))',
+                }}
               >
                 <div className="space-y-1 max-w-lg">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-cyan-300">{l.subject}</span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-xs text-slate-400">{l.topic}</span>
+                    <span className="text-xs font-black text-cyan-500 dark:text-cyan-300">{l.subject}</span>
+                    <span className="text-slate-400 dark:text-slate-600">•</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{l.topic}</span>
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         l.status === 'published'
-                          ? 'bg-emerald-500/10 text-emerald-300'
-                          : 'bg-amber-500/10 text-amber-300'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20'
                       }`}
                     >
                       {l.status}
                     </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                        l.isFree || !l.price
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
+                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
+                      }`}
+                    >
+                      {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
+                    </span>
                   </div>
-                  <h4 className="font-bold text-white text-sm">{l.title}</h4>
-                  <p className="text-xs text-slate-400 line-clamp-1">{l.description}</p>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">{l.title}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{l.description}</p>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 font-medium">
                     <span>🎬 {l.videoCount || 0} Videos</span>
                     <span>•</span>
                     <span>📄 {l.resourceCount || 0} PDFs</span>
@@ -1210,7 +1311,7 @@ export const AdminCourseManager: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => edit(l)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold border border-indigo-500/30 transition cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-bold border border-indigo-200 dark:border-indigo-500/30 transition cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -1221,7 +1322,7 @@ export const AdminCourseManager: React.FC = () => {
                       setPreview(l);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:text-white text-xs font-bold border border-slate-300 dark:border-slate-700 transition cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>Preview</span>
@@ -1229,7 +1330,7 @@ export const AdminCourseManager: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => remove(l)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-bold border border-rose-500/20 transition cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold border border-rose-200 dark:border-rose-500/20 transition cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete</span>
