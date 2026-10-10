@@ -389,5 +389,68 @@ html[data-theme="light"] .learning-area .bg-slate-800 { background:#eef2f7; }
 html[data-theme="light"] .learning-area .bg-indigo-600\/25 { background:#e0e7ff; color:#312e81; }
 html[data-theme="light"] .learning-area .learning-button { color:#fff; }
 html[data-theme="light"] .learning-area .border-slate-700 { border-color:#cbd5e1; }
-html[data-theme="light"] .learning-area progress { accent-color:#0e7490; }
 html[data-theme="light"] .community-banner { background:linear-gradient(90deg,#ecfdf5,#f0fdfa,#f8fafc); color:#172033; }
+
+/* =========================================================================
+   CLEAN VIDEO PLAYER: DEDICATED THEATER MODE (DARK & HIGH CONTRAST IN ALL THEMES)
+   A video player overlay must NEVER inherit light-theme font darkening.
+   ========================================================================= */
+.clean-video-player,
+html[data-theme="light"] .clean-video-player,
+html[data-theme="dark"] .clean-video-player {
+  color-scheme: dark !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-control-bar,
+.clean-video-player .video-control-bar {
+  background-color: rgba(2, 6, 23, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-action-btn,
+.clean-video-player .video-action-btn {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-action-btn:hover,
+.clean-video-player .video-action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-time-badge,
+.clean-video-player .video-time-badge {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-watermark,
+.clean-video-player .video-watermark {
+  background-color: rgba(2, 6, 23, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .clean-video-player .video-header-pill,
+.clean-video-player .video-header-pill {
+  background-color: rgba(2, 6, 23, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .clean-video-player .text-white,
+html[data-theme="light"] .clean-video-player span.text-white,
+html[data-theme="light"] .clean-video-player button.text-white {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .clean-video-player svg {
+  color: inherit !important;
+}
+

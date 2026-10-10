@@ -166,10 +166,32 @@ export function LessonView({
                         </div>
                       )}
                     </div>
+                    {video.description && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
+                        <div className="font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Video Notes & Details</span>
+                        </div>
+                        <p className="whitespace-pre-line text-slate-300">{video.description}</p>
+                      </div>
+                    )}
                   </section>
                 );
               })}
             </div>
+          )}
+
+          {/* Dedicated Lesson Overview & Detailed Notes Section */}
+          {lesson.description && (
+            <section className={panel}>
+              <div className="flex items-center gap-2 text-cyan-400 font-bold text-base">
+                <FileText className="w-4 h-4" />
+                <h3>Lesson Overview & Study Notes</h3>
+              </div>
+              <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                {lesson.description}
+              </div>
+            </section>
           )}
 
           {/* Quiz Section */}

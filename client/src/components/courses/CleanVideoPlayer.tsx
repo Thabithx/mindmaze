@@ -309,7 +309,7 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
       onMouseMove={handleUserActivity}
       onMouseEnter={() => setShowControls(true)}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-2xl select-none group"
+      className="clean-video-player relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-2xl select-none group"
     >
       {/* 
         IFRAME CONTAINER WITH CROP MASK
@@ -333,16 +333,24 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
       >
         {/* Big Center Play/Pause Indicator (on pause) */}
         {!isPlaying && isReady && (
-          <div className="w-20 h-20 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-2xl shadow-indigo-500/50 hover:scale-110 transition-transform backdrop-blur-md border border-white/20">
-            <Play className="w-9 h-9 ml-1 fill-white" />
+          <div
+            style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}
+            className="w-20 h-20 rounded-full flex items-center justify-center shadow-2xl shadow-indigo-500/50 hover:scale-110 transition-transform backdrop-blur-md border border-white/20"
+          >
+            <Play className="w-9 h-9 ml-1" style={{ fill: '#ffffff', color: '#ffffff' }} />
           </div>
         )}
 
         {/* Buffering Indicator */}
         {isBuffering && (
-          <div className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-black/70 backdrop-blur-md border border-white/10 text-white">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-            <span className="text-xs font-semibold tracking-wider uppercase text-cyan-300">Loading lesson...</span>
+          <div
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', color: '#ffffff' }}
+            className="flex flex-col items-center gap-2 p-4 rounded-2xl backdrop-blur-md border border-white/10"
+          >
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#22d3ee' }} />
+            <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#67e8f9' }}>
+              Loading lesson...
+            </span>
           </div>
         )}
       </div>
@@ -352,98 +360,150 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
         Floats dynamically across the screen with student name and verified index number
       */}
       <div
-        style={{ ...watermarkPos }}
-        className="pointer-events-none absolute z-20 px-3 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-mono font-medium text-white/50 tracking-wider transition-all duration-1000 shadow-lg"
+        style={{
+          ...watermarkPos,
+          backgroundColor: 'rgba(2, 6, 23, 0.88)',
+          borderColor: 'rgba(255, 255, 255, 0.22)',
+          color: '#ffffff',
+        }}
+        className="video-watermark pointer-events-none absolute z-20 px-3.5 py-1.5 rounded-xl backdrop-blur-md border text-[11px] font-mono font-bold tracking-wider transition-all duration-1000 shadow-xl"
       >
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2 animate-pulse" />
-        {studentName} • {indexNumber}
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse" />
+        <span style={{ color: '#ffffff' }}>{studentName} • {indexNumber}</span>
       </div>
 
-      {/* TOP HEADER OVERLAY (Clean Title) */}
+      {/* TOP HEADER OVERLAY (High Contrast Glass Pill) */}
       <div
-        className={`absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent transition-opacity duration-300 pointer-events-none ${
+        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none transition-opacity duration-300 ${
           showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-cyan-300 border border-indigo-400/30">
-              Mind Maze Player
-            </span>
-            {title && <h3 className="text-sm font-bold text-white drop-shadow truncate max-w-md">{title}</h3>}
-          </div>
-          <span className="text-[11px] font-semibold text-slate-400 bg-black/50 px-2.5 py-1 rounded-full border border-white/10">
-            Encrypted Stream
+        <div
+          style={{ backgroundColor: 'rgba(2, 6, 23, 0.88)', borderColor: 'rgba(255, 255, 255, 0.18)' }}
+          className="video-header-pill flex items-center gap-2 backdrop-blur-md px-3.5 py-2 rounded-xl border shadow-xl max-w-[70%]"
+        >
+          <span
+            className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-600 shrink-0"
+            style={{ color: '#ffffff' }}
+          >
+            MIND MAZE PLAYER
           </span>
+          {title && (
+            <span className="text-xs font-bold truncate" style={{ color: '#ffffff' }}>
+              {title}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{ backgroundColor: 'rgba(2, 6, 23, 0.88)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+          className="flex items-center gap-1.5 backdrop-blur-md px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-xl"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span style={{ color: '#34d399' }}>Protected Stream</span>
         </div>
       </div>
 
       {/* 
-        CUSTOM PROFESSIONAL BOTTOM CONTROL BAR
-        Zero YouTube branding, custom timeline, speed, volume, and fullscreen controls
+        CUSTOM HIGH-CONTRAST FROSTED BOTTOM CONTROL BAR
+        Crystal clear icons, bright white labels, frosted dark background
       */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-30 px-4 py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-all duration-300 ${
+        style={{
+          backgroundColor: 'rgba(2, 6, 23, 0.94)',
+          borderColor: 'rgba(255, 255, 255, 0.18)',
+          color: '#ffffff',
+        }}
+        className={`video-control-bar absolute bottom-3 left-3 right-3 z-30 p-3 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 ${
           showControls || !isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Timeline Slider */}
-        <div className="relative mb-2 flex items-center group/timeline">
+        {/* Seekbar Timeline */}
+        <div className="relative mb-2.5 flex items-center">
           <input
             type="range"
             min={0}
             max={duration || 100}
             value={currentTime}
             onChange={handleSeek}
-            className="w-full h-1.5 bg-slate-700/80 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none hover:h-2 transition-all"
+            className="w-full h-2 rounded-full appearance-none cursor-pointer accent-cyan-400 focus:outline-none hover:h-2.5 transition-all"
             style={{
-              background: `linear-gradient(to right, #22d3ee ${progressPercent}%, rgba(51, 65, 85, 0.8) ${progressPercent}%)`,
+              background: `linear-gradient(to right, #22d3ee ${progressPercent}%, rgba(255, 255, 255, 0.25) ${progressPercent}%)`,
+              accentColor: '#22d3ee',
             }}
           />
         </div>
 
         {/* Action Controls Row */}
-        <div className="flex items-center justify-between text-white text-xs">
-          {/* Left Controls: Play/Pause, Skip, Time, Volume */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between text-white flex-wrap gap-2" style={{ color: '#ffffff' }}>
+          {/* Left Controls: Play/Pause, Rewind, Forward, Volume, Time */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Play/Pause Button */}
             <button
               onClick={togglePlay}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-white transition cursor-pointer"
+              style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}
+              className="p-2.5 rounded-xl hover:bg-indigo-500 transition cursor-pointer shadow-md shadow-indigo-600/30 flex items-center justify-center shrink-0 border border-indigo-400/30"
               title={isPlaying ? 'Pause' : 'Play'}
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white" />}
+              {isPlaying ? (
+                <Pause className="w-4 h-4" style={{ fill: '#ffffff', color: '#ffffff' }} />
+              ) : (
+                <Play className="w-4 h-4 ml-0.5" style={{ fill: '#ffffff', color: '#ffffff' }} />
+              )}
             </button>
 
+            {/* Skip Rewind 10s */}
             <button
               onClick={() => skipSeconds(-10)}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
-              title="Rewind 10s"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                color: '#ffffff',
+              }}
+              className="video-action-btn px-2.5 py-1.5 rounded-xl hover:bg-white/25 border transition cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 shadow-sm"
+              title="Rewind 10 seconds"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" style={{ color: '#ffffff' }} />
+              <span style={{ color: '#ffffff' }}>-10s</span>
             </button>
 
+            {/* Skip Forward 10s */}
             <button
               onClick={() => skipSeconds(10)}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
-              title="Forward 10s"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                color: '#ffffff',
+              }}
+              className="video-action-btn px-2.5 py-1.5 rounded-xl hover:bg-white/25 border transition cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 shadow-sm"
+              title="Forward 10 seconds"
             >
-              <RotateCw className="w-4 h-4" />
+              <RotateCw className="w-3.5 h-3.5" style={{ color: '#ffffff' }} />
+              <span style={{ color: '#ffffff' }}>+10s</span>
             </button>
 
             {/* Volume Control */}
-            <div className="flex items-center gap-1.5 group/volume ml-1">
+            <div
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                color: '#ffffff',
+              }}
+              className="video-action-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border shrink-0 shadow-sm"
+            >
               <button
                 onClick={toggleMute}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
+                style={{ color: '#ffffff' }}
+                className="hover:text-cyan-300 transition cursor-pointer flex items-center justify-center"
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted || volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-rose-400" />
+                  <VolumeX className="w-4 h-4" style={{ color: '#fb7185' }} />
                 ) : volume < 50 ? (
-                  <Volume1 className="w-4 h-4" />
+                  <Volume1 className="w-4 h-4" style={{ color: '#ffffff' }} />
                 ) : (
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-4 h-4" style={{ color: '#ffffff' }} />
                 )}
               </button>
               <input
@@ -452,42 +512,65 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
                 max={100}
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-16 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
+                className="w-16 h-1 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
+                style={{ accentColor: '#22d3ee', backgroundColor: 'rgba(255, 255, 255, 0.35)' }}
               />
             </div>
 
-            {/* Time Indicator */}
-            <div className="text-slate-300 font-mono text-[11px] ml-2 font-medium">
-              <span>{formatTime(currentTime)}</span>
-              <span className="text-slate-500 mx-1">/</span>
-              <span className="text-slate-400">{formatTime(duration)}</span>
+            {/* Time Indicator Badge */}
+            <div
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                color: '#ffffff',
+              }}
+              className="video-time-badge px-3 py-1.5 rounded-xl border font-mono text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm"
+            >
+              <span style={{ color: '#38bdf8' }}>{formatTime(currentTime)}</span>
+              <span style={{ color: 'rgba(255, 255, 255, 0.45)' }}>/</span>
+              <span style={{ color: '#ffffff' }}>{formatTime(duration)}</span>
             </div>
           </div>
 
           {/* Right Controls: Playback Speed, Fullscreen */}
-          <div className="flex items-center gap-2 relative">
-            {/* Playback Speed Button */}
+          <div className="flex items-center gap-2 relative shrink-0">
+            {/* Playback Speed Selector */}
             <div className="relative">
               <button
                 onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold transition cursor-pointer"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                  borderColor: 'rgba(255, 255, 255, 0.24)',
+                  color: '#ffffff',
+                }}
+                className="video-action-btn flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-white/25 border text-xs font-bold transition cursor-pointer shadow-sm"
                 title="Playback speed"
               >
-                <span>{playbackRate}x</span>
+                <Settings className="w-3.5 h-3.5" style={{ color: '#38bdf8' }} />
+                <span style={{ color: '#ffffff' }}>{playbackRate}x</span>
               </button>
 
               {/* Speed Menu Dropdown */}
               {showSpeedMenu && (
-                <div className="absolute bottom-full right-0 mb-2 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md flex flex-col min-w-[80px] z-50">
+                <div
+                  style={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#ffffff' }}
+                  className="video-speed-menu absolute bottom-full right-0 mb-2 py-1.5 rounded-xl border shadow-2xl backdrop-blur-xl flex flex-col min-w-[105px] z-50"
+                >
+                  <span style={{ color: '#94a3b8' }} className="px-3 py-1 text-[10px] font-bold uppercase border-b border-white/10">
+                    Speed
+                  </span>
                   {[0.75, 1, 1.25, 1.5, 2].map((rate) => (
                     <button
                       key={rate}
                       onClick={() => setSpeed(rate)}
-                      className={`px-3 py-1.5 text-left text-xs font-semibold hover:bg-white/10 transition cursor-pointer ${
-                        playbackRate === rate ? 'text-cyan-400 bg-white/5' : 'text-slate-300'
-                      }`}
+                      style={{
+                        color: playbackRate === rate ? '#38bdf8' : '#e2e8f0',
+                        backgroundColor: playbackRate === rate ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                      }}
+                      className="px-3 py-1.5 text-left text-xs font-bold hover:bg-white/15 transition cursor-pointer flex items-center justify-between"
                     >
-                      {rate === 1 ? 'Normal (1x)' : `${rate}x`}
+                      <span>{rate === 1 ? 'Normal' : `${rate}x`}</span>
+                      {playbackRate === rate && <span style={{ color: '#38bdf8' }}>✓</span>}
                     </button>
                   ))}
                 </div>
@@ -497,10 +580,19 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
             {/* Fullscreen Button */}
             <button
               onClick={toggleFullscreen}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                color: '#ffffff',
+              }}
+              className="video-action-btn p-2 rounded-xl hover:bg-white/25 border transition cursor-pointer flex items-center justify-center shadow-sm"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4" style={{ color: '#ffffff' }} />
+              ) : (
+                <Maximize className="w-4 h-4" style={{ color: '#ffffff' }} />
+              )}
             </button>
           </div>
         </div>
@@ -508,3 +600,4 @@ export const CleanVideoPlayer: React.FC<CleanVideoPlayerProps> = ({
     </div>
   );
 };
+

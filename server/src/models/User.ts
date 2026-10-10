@@ -119,6 +119,5 @@ const UserSchema = new Schema<IUser>(
 
 UserSchema.index({createdAt:-1,_id:-1});
 UserSchema.index({stream:1,createdAt:-1,_id:-1});
-UserSchema.index({indexNumber:1});
 
 export default mongoose.model<IUser>('User', UserSchema);

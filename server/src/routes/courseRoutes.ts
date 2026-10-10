@@ -13,7 +13,7 @@ import {extractDownloadWatermark} from '../services/downloadAuth.js';
 const router=Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:8}}).fields([{name:'pdfFiles',maxCount:8},{name:'pdfFile',maxCount:1}]);
 const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
-function formatSecureVideo(title: string, url: string, admin: boolean) {
+function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
   let embedUrl = '';
   try {
@@ -31,6 +31,7 @@ function formatSecureVideo(title: string, url: string, admin: boolean) {
 
   return {
     title,
+    description: description || '',
     ...(admin ? { url } : {}),
     embedUrl: embedUrl || (admin ? url : ''),
     isYouTube,
@@ -39,10 +40,11 @@ function formatSecureVideo(title: string, url: string, admin: boolean) {
 }
 
 const present=(c:any,admin=false)=>{
-  const rawVideos = [...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl}]:[]), ...(c.videos||[])];
+  const rawVideos = [...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl,description:''}]:[]), ...(c.videos||[])];
   return {
     ...summary(c),
-    videos: rawVideos.map(v => formatSecureVideo(v.title, v.url, admin)),
+    videos: rawVideos.map(v => formatSecureVideo(v.title, v.url, admin, v.description)),
+
     resources:[...(c.pdfUrl||c.pdfPublicId?[{id:'legacy',title:c.pdfFileName||'Study notes',path:`/courses/${c._id}/download`}]:[]),...(c.resources||[]).map((r:any)=>({id:String(r._id),title:r.pdfFileName,size:r.size,path:`/courses/${c._id}/resources/${r._id}/download`}))],
     quiz:(c.quiz||[]).map((q:any)=>({questionText:q.questionText,options:q.options,...(admin?{correctOptionIndex:q.correctOptionIndex,explanation:q.explanation}:{})})),
     relatedPaperIds:c.relatedPaperIds||[],

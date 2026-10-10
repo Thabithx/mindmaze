@@ -8,21 +8,36 @@ import cloudinary from '../config/cloudinary.js';
 
 const directory = () => path.resolve(process.env.UPLOAD_DIR || 'uploads');
 
+const isPdf = (buffer: Buffer) => buffer && buffer.length >= 5 && buffer.subarray(0, Math.min(buffer.length, 1024)).includes(Buffer.from('%PDF-'));
+
 export async function savePdf(file: Express.Multer.File) {
-  if (file.buffer.subarray(0, 5).toString() !== '%PDF-') throw new Error('Select a valid PDF file.');
-  if (process.env.UPLOAD_STORAGE === 'local') {
-    const key = `${randomUUID()}.pdf`;
-    await mkdir(directory(), { recursive: true });
-    await writeFile(path.join(directory(), key), file.buffer, { flag: 'wx' });
-    return { pdfProvider: 'local', pdfPublicId: key, pdfUrl: '', pdfFileName: file.originalname };
+  if (!isPdf(file.buffer)) throw new Error('Select a valid PDF file.');
+
+  // Save directly to Cloudinary cloud storage
+  if (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.UPLOAD_STORAGE !== 'local'
+  ) {
+    const result: any = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'raw', folder: 'mind_maze_courses', public_id: `${randomUUID()}.pdf` },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      stream.end(file.buffer);
+    });
+    console.log(`[Cloudinary] PDF uploaded to cloud: ${result.secure_url}`);
+    return { pdfProvider: 'raw', pdfPublicId: result.public_id, pdfUrl: result.secure_url, pdfFileName: file.originalname };
   }
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_CLOUD_NAME === 'local-disabled') throw new Error('PDF storage is not configured.');
-  const result: any = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ resource_type: 'raw', folder: 'mind_maze_courses', public_id: `${randomUUID()}.pdf` }, (error, result) => error ? reject(error) : resolve(result));
-    stream.end(file.buffer);
-  });
-  return { pdfProvider: 'raw', pdfPublicId: result.public_id, pdfUrl: result.secure_url, pdfFileName: file.originalname };
+
+  // Fallback only if local storage is explicitly forced
+  const key = `${randomUUID()}.pdf`;
+  await mkdir(directory(), { recursive: true });
+  await writeFile(path.join(directory(), key), file.buffer, { flag: 'wx' });
+  return { pdfProvider: 'local', pdfPublicId: key, pdfUrl: '', pdfFileName: file.originalname };
 }
+
 
 export async function removePdf(course: any) {
   if (!course.pdfPublicId) return;

@@ -1,6 +1,7 @@
 export interface LessonVideo {
   title: string;
   url?: string;
+  description?: string;
   embedUrl?: string;
   isYouTube?: boolean;
   isProtected?: boolean;
