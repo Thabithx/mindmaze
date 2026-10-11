@@ -584,8 +584,11 @@ export function LessonView({
                             const targetUrl = block.embedUrl || block.url || '';
                             const embed = youtubeEmbed(targetUrl);
                             const hasValidId = Boolean(extractYouTubeId(targetUrl));
+                            const hasAttachedPdf = Boolean(block.recordingPdfUrl || block.pdfUrl || block.pdfFileName || block.recordingPdfFileName);
+                            const attachedPdfUrl = block.recordingPdfUrl || block.pdfUrl || (block._id ? `/courses/${lesson._id}/blocks/${block._id}/download` : '');
+                            const attachedPdfTitle = block.recordingPdfFileName || block.pdfFileName || 'Companion Notes (PDF)';
 
-                            return (
+                            const renderPlayer = () => (
                               <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
                                 {embed || hasValidId ? (
                                   isPlaying ? (
@@ -602,7 +605,7 @@ export function LessonView({
                                     />
                                   ) : (
                                     <button
-                                      className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
+                                      className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-855 hover:to-slate-900 transition cursor-pointer"
                                       onClick={() => setActiveMedia(blockId)}
                                     >
                                       <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
@@ -640,6 +643,50 @@ export function LessonView({
                                 )}
                               </div>
                             );
+
+                            if (hasAttachedPdf) {
+                              return (
+                                <div className="grid lg:grid-cols-12 gap-4 items-stretch">
+                                  {/* Left: Protected Video Player */}
+                                  <div className="lg:col-span-7 flex flex-col justify-center">
+                                    {renderPlayer()}
+                                  </div>
+
+                                  {/* Right: Companion PDF Document Viewer */}
+                                  <div className="lg:col-span-5 flex flex-col rounded-xl bg-slate-900/90 border border-emerald-500/30 overflow-hidden shadow-lg min-h-[320px]">
+                                    <div className="p-3 bg-slate-950/80 border-b border-emerald-500/20 flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2 truncate">
+                                        <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span className="text-xs font-bold text-white truncate">
+                                          {attachedPdfTitle}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <a
+                                          href={attachedPdfUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-1 px-2 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-[11px] font-bold transition flex items-center gap-1"
+                                          title="Open PDF in new tab"
+                                        >
+                                          <ExternalLink className="w-3 h-3" />
+                                          <span className="hidden sm:inline">Open</span>
+                                        </a>
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 bg-slate-950 relative min-h-[280px]">
+                                      <iframe
+                                        src={`${attachedPdfUrl}#toolbar=0`}
+                                        title={attachedPdfTitle}
+                                        className="w-full h-full min-h-[280px] border-0"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return renderPlayer();
                           })()}
 
                           {block.description && (

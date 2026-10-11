@@ -16,6 +16,8 @@ import {
   Building,
   RefreshCw,
   PieChart,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 
 interface CourseEnrollModalProps {
@@ -155,6 +157,50 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
               <p className="text-[11px] text-amber-300 font-medium">
                 💡 You can upload a new or corrected bank deposit slip below to re-submit your enrollment for approval.
               </p>
+            </div>
+          )}
+
+          {/* Expired Subscription Alert */}
+          {existingEnrollment?.isExpired && (
+            <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs space-y-1">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Subscription Expired</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Your previous access period has expired. Upload your latest deposit slip to renew access for the new session.
+              </p>
+            </div>
+          )}
+
+          {/* Target Month & Validity Badges */}
+          {(course.targetMonth || course.validityPeriod) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {course.targetMonth && (
+                <span className="px-3 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Target Month: <strong>{course.targetMonth}</strong></span>
+                </span>
+              )}
+              {course.validityPeriod && (
+                <span className="px-3 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    Access Validity:{' '}
+                    <strong>
+                      {course.validityPeriod === '1_month'
+                        ? '1 Month (30 Days)'
+                        : course.validityPeriod === '3_months'
+                        ? '3 Months (90 Days)'
+                        : course.validityPeriod === '6_months'
+                        ? '6 Months (180 Days)'
+                        : course.validityPeriod === '1_year'
+                        ? '1 Year (365 Days)'
+                        : 'Lifetime Access'}
+                    </strong>
+                  </span>
+                </span>
+              )}
             </div>
           )}
 

@@ -35,6 +35,9 @@ export interface CurriculumBlock {
   isCompleted?: boolean;
   recordingUrl?: string;
   recordingEmbedUrl?: string;
+  recordingPdfUrl?: string;
+  recordingPdfFileName?: string;
+  recordingPdfPublicId?: string;
   // Document block
   pdfUrl?: string;
   pdfFileName?: string;
@@ -62,10 +65,18 @@ export interface Lesson {
   syllabus: string;
   status: string;
   revision: number;
+  courseType?: 'free' | 'one_time' | 'monthly';
+  isMonthlyProgram?: boolean;
+  parentCourseId?: string;
+  targetMonth?: string;
+  validityPeriod?: '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime';
+  validityMonths?: number;
   price?: number;
   isFree?: boolean;
   billingType?: 'one_time' | 'monthly';
   monthlyFee?: number;
+  subCourses?: Lesson[];
+  subCourseCount?: number;
   bankDetails?: string;
   thumbnailUrl?: string;
   videoCount: number;
@@ -127,6 +138,10 @@ export interface CourseEnrollmentRecord {
   reviewedBy?: any;
   reviewedAt?: string;
   enrolledAt: string;
+  expiresAt?: string | null;
+  targetMonth?: string;
+  validityPeriod?: string;
+  isExpired?: boolean;
   createdAt: string;
   learningProgress?: {
     _id?: string;

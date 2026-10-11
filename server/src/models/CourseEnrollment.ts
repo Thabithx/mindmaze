@@ -20,6 +20,9 @@ export interface ICourseEnrollment extends Document {
   reviewedBy?: mongoose.Types.ObjectId;
   reviewedAt?: Date;
   enrolledAt: Date;
+  expiresAt?: Date | null;
+  targetMonth?: string;
+  validityPeriod?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +53,9 @@ const CourseEnrollmentSchema = new Schema<ICourseEnrollment>(
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date },
     enrolledAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, default: null },
+    targetMonth: { type: String, default: '', trim: true },
+    validityPeriod: { type: String, default: 'lifetime' },
   },
   { timestamps: true }
 );

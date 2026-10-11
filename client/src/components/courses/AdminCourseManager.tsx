@@ -74,6 +74,12 @@ const initialForm = () => ({
   isFree: true,
   billingType: 'one_time' as 'one_time' | 'monthly',
   monthlyFee: 0,
+  courseType: 'free' as 'free' | 'one_time' | 'monthly',
+  isMonthlyProgram: false,
+  parentCourseId: '',
+  targetMonth: '',
+  validityPeriod: 'lifetime' as '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime',
+  validityMonths: 0,
   bankDetails: DEFAULT_BANK_DETAILS,
 });
 
@@ -184,6 +190,12 @@ export const AdminCourseManager: React.FC = () => {
       isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
       billingType: lesson.billingType || 'one_time',
       monthlyFee: lesson.monthlyFee ?? (lesson.billingType === 'monthly' ? lesson.price : 0),
+      courseType: lesson.courseType || (lesson.isFree ? 'free' : (lesson.billingType === 'monthly' ? 'monthly' : 'one_time')),
+      isMonthlyProgram: Boolean(lesson.isMonthlyProgram),
+      parentCourseId: lesson.parentCourseId ? String(lesson.parentCourseId) : '',
+      targetMonth: lesson.targetMonth || '',
+      validityPeriod: lesson.validityPeriod || 'lifetime',
+      validityMonths: lesson.validityMonths ?? 0,
       bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
     });
 
@@ -295,9 +307,9 @@ export const AdminCourseManager: React.FC = () => {
         .map((b) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
       body.append('videosJson', JSON.stringify(allVideos));
 
-      // Append files uploaded directly on document blocks
+      // Append files uploaded directly on document or video blocks
       curriculumBlocks.forEach((b) => {
-        if (b.type === 'document' && b.pendingFile) {
+        if (b.pendingFile) {
           body.append('pdfFiles', b.pendingFile);
         }
       });
@@ -954,55 +966,211 @@ export const AdminCourseManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 5: Course Pricing & Bank Transfer Details */}
+              {/* Row 5: Course Pricing, Type & Access Validity */}
               <div className="rounded-xl border border-indigo-500/30 bg-slate-900/60 p-4 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-white">Course Pricing & Access</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">Course Type & Access Settings</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, isFree: true, price: 0, billingType: 'one_time', monthlyFee: 0 }))}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: true,
+                          price: 0,
+                          billingType: 'one_time',
+                          monthlyFee: 0,
+                          courseType: 'free',
+                          isMonthlyProgram: false,
+                          parentCourseId: '',
+                          validityPeriod: 'lifetime',
+                          validityMonths: 0,
+                        }))
+                      }
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        form.isFree || form.price === 0
+                        form.courseType === 'free' || form.isFree || form.price === 0
                           ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
                           : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                       }`}
                     >
-                      ✓ Free Course (No Fee)
+                      ✓ Free Course
                     </button>
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, isFree: false, price: f.price || 1500, billingType: 'one_time' }))}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          price: f.price || 1500,
+                          billingType: 'one_time',
+                          courseType: 'one_time',
+                          isMonthlyProgram: false,
+                          parentCourseId: '',
+                        }))
+                      }
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        !form.isFree && form.price > 0 && form.billingType !== 'monthly'
+                        form.courseType === 'one_time' && !form.isFree && !form.isMonthlyProgram
                           ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
                           : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                       }`}
                     >
-                      💳 Paid Course (Full Fee)
+                      💳 One-Time Paid Course
                     </button>
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, isFree: false, billingType: 'monthly', monthlyFee: f.monthlyFee || f.price || 1500, price: f.price || 1500 }))}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          billingType: 'monthly',
+                          courseType: 'monthly',
+                          isMonthlyProgram: true,
+                          parentCourseId: '',
+                          monthlyFee: f.monthlyFee || f.price || 2500,
+                          price: f.price || 2500,
+                          validityPeriod: 'lifetime',
+                          validityMonths: 0,
+                        }))
+                      }
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        !form.isFree && form.billingType === 'monthly'
+                        form.isMonthlyProgram
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
                           : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                       }`}
                     >
-                      📅 Monthly Paid Course
+                      📁 Monthly Program (Master Category)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          billingType: 'monthly',
+                          courseType: 'monthly',
+                          isMonthlyProgram: false,
+                          monthlyFee: f.monthlyFee || f.price || 2500,
+                          price: f.price || 2500,
+                          validityPeriod: f.validityPeriod === 'lifetime' ? '1_month' : f.validityPeriod,
+                          validityMonths: f.validityMonths || 1,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.courseType === 'monthly' && !form.isMonthlyProgram
+                          ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      📅 Monthly Sub-Class (e.g. October Class)
                     </button>
                   </div>
                 </div>
 
-                {!form.isFree && form.price > 0 && (
+                {/* Monthly Program (Master) Informational Notice */}
+                {form.isMonthlyProgram && (
+                  <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/40 text-xs text-purple-200 space-y-1">
+                    <div className="font-bold text-purple-300 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4" />
+                      <span>Parent Program / Master Course Category (e.g. "2027 A/L Physics Class")</span>
+                    </div>
+                    <p className="text-slate-300 leading-relaxed text-[11px]">
+                      This parent course will be displayed on the course catalog with its cover photo, description, and monthly fee.
+                      Inside, students will see the list of Monthly Classes (e.g. October, November) and enroll per month.
+                    </p>
+                    {editing && (
+                      <div className="pt-2 mt-2 border-t border-purple-500/20">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-300">
+                            Sub-courses under this program: {lessons.filter((l) => l.parentCourseId === editing._id).length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parentId = editing._id;
+                              const parentSubject = editing.subject;
+                              const parentFee = editing.monthlyFee || editing.price || 2500;
+                              reset();
+                              setForm((f) => ({
+                                ...f,
+                                subject: parentSubject,
+                                courseType: 'monthly',
+                                isMonthlyProgram: false,
+                                parentCourseId: parentId,
+                                title: `${editing.title} - `,
+                                price: parentFee,
+                                monthlyFee: parentFee,
+                                isFree: false,
+                                billingType: 'monthly',
+                                validityPeriod: '1_month',
+                                validityMonths: 1,
+                              }));
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add New Month Class to this Program
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-Class Parent Selector & Month Settings */}
+                {form.courseType === 'monthly' && !form.isMonthlyProgram && (
+                  <div className="grid sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
+                        Parent Monthly Program (Master Category)
+                      </label>
+                      <select
+                        className={control}
+                        value={form.parentCourseId}
+                        onChange={(e) => setForm((f) => ({ ...f, parentCourseId: e.target.value }))}
+                      >
+                        <option value="">-- Standalone Monthly Class (No Parent) --</option>
+                        {lessons
+                          .filter((l) => l.isMonthlyProgram)
+                          .map((prog) => (
+                            <option key={prog._id} value={prog._id}>
+                              📁 {prog.title} ({prog.subject})
+                            </option>
+                          ))}
+                      </select>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Select which master program (e.g. 2027 A/L Physics) this monthly class belongs to.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
+                        Target Month (e.g. October 2026)
+                      </label>
+                      <input
+                        className={control}
+                        placeholder="e.g. October 2026"
+                        value={form.targetMonth}
+                        onChange={(e) => setForm((f) => ({ ...f, targetMonth: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Students paying for this month will gain access specifically to this month's recordings and materials.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fee and Validity Expiry settings for paid courses */}
+                {!form.isFree && (
                   <div className="grid sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 animate-in fade-in duration-150">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">
-                        {form.billingType === 'monthly' ? 'Monthly Fee (LKR / mo)' : 'Course Fee (LKR)'} <span className="text-rose-400">*</span>
+                        {form.courseType === 'monthly' || form.billingType === 'monthly'
+                          ? 'Monthly Fee (LKR / mo)'
+                          : 'Course Fee (LKR)'}{' '}
+                        <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
@@ -1026,7 +1194,32 @@ export const AdminCourseManager: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="sm:col-span-2">
+                    {/* Expiration Validity Period (1 month, 3 months, 6 months, 1 year, Lifetime) */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1.5">
+                        Access Expiration / Validity
+                      </label>
+                      <select
+                        className={control}
+                        value={form.validityPeriod}
+                        onChange={(e) => {
+                          const val = e.target.value as any;
+                          const months = val === '1_month' ? 1 : val === '3_months' ? 3 : val === '6_months' ? 6 : val === '1_year' ? 12 : 0;
+                          setForm((f) => ({ ...f, validityPeriod: val, validityMonths: months }));
+                        }}
+                      >
+                        <option value="1_month">1 Month (30 Days from approval)</option>
+                        <option value="3_months">3 Months (90 Days from approval)</option>
+                        <option value="6_months">6 Months (180 Days from approval)</option>
+                        <option value="1_year">1 Year (365 Days from approval)</option>
+                        <option value="lifetime">Lifetime Access (Never expires)</option>
+                      </select>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        When expired, the student must renew their enrollment to continue watching.
+                      </p>
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                         Bank Account & Transfer Instructions
                       </label>
@@ -1038,7 +1231,7 @@ export const AdminCourseManager: React.FC = () => {
                         onChange={(e) => setForm((f) => ({ ...f, bankDetails: e.target.value }))}
                       />
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Students must transfer the fee and upload their bank slip before being enrolled.
+                        Shown to students when uploading bank deposit receipts.
                       </p>
                     </div>
                   </div>
@@ -1421,6 +1614,61 @@ export const AdminCourseManager: React.FC = () => {
                                 value={block.description || ''}
                                 onChange={(e) => updateBlock(idx, { description: e.target.value })}
                               />
+                            </div>
+
+                            {/* Companion PDF Attachment for Side-by-Side Viewing */}
+                            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span>Attach Companion PDF Notes / Tute Sheet</span>
+                                </label>
+                                <span className="text-[11px] text-cyan-400/80">Opens side-by-side with video for students</span>
+                              </div>
+
+                              {(block.recordingPdfUrl || block.pdfUrl || block.pendingFile) ? (
+                                <div className="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-cyan-500/30 text-xs">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                                    <span className="font-semibold text-slate-200 truncate">
+                                      {block.pendingFile?.name || block.recordingPdfFileName || block.pdfFileName || 'Attached PDF Notes'}
+                                    </span>
+                                    {block.pendingFile && (
+                                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                                        Ready to upload
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateBlock(idx, { pendingFile: undefined, pdfUrl: '', pdfFileName: '', recordingPdfUrl: '', recordingPdfFileName: '' })}
+                                    className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer text-xs flex items-center gap-1"
+                                    title="Remove attached PDF"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Remove
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 rounded-lg bg-slate-900/50 hover:bg-slate-900 cursor-pointer transition">
+                                  <Upload className="w-4 h-4 text-cyan-400 shrink-0" />
+                                  <span className="text-xs text-slate-300">Click to attach PDF notes / tute sheet (Displays on right side of video)</span>
+                                  <input
+                                    type="file"
+                                    accept=".pdf,application/pdf"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        updateBlock(idx, {
+                                          pendingFile: file,
+                                          pdfFileName: file.name,
+                                          recordingPdfFileName: file.name,
+                                        });
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              )}
                             </div>
                           </div>
                         )}

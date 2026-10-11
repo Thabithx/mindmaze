@@ -90,10 +90,16 @@ export function validateLesson(body: any) {
   const isFree = body['isFree'] === true || body['isFree'] === 'true' || price === 0;
   const billingType = body['billingType'] === 'monthly' ? 'monthly' : 'one_time';
   const monthlyFee = Math.max(0, Number(body['monthlyFee'] ?? 0) || 0);
+  const courseType = body['courseType'] === 'free' ? 'free' : body['courseType'] === 'monthly' ? 'monthly' : (isFree ? 'free' : (billingType === 'monthly' ? 'monthly' : 'one_time'));
+  const targetMonth = text('targetMonth');
+  const validityPeriod = ['1_month', '3_months', '6_months', '1_year', 'lifetime'].includes(body['validityPeriod']) ? body['validityPeriod'] : 'lifetime';
+  const validityMonths = Number(body['validityMonths'] ?? (validityPeriod === '1_month' ? 1 : validityPeriod === '3_months' ? 3 : validityPeriod === '6_months' ? 6 : validityPeriod === '1_year' ? 12 : 0)) || 0;
+  const isMonthlyProgram = body['isMonthlyProgram'] === true || body['isMonthlyProgram'] === 'true';
+  const parentCourseId = text('parentCourseId') || undefined;
   const bankDetails = text('bankDetails');
   const thumbnailUrl = text('thumbnailUrl');
   return {title, description, subject, stream, topic, medium, syllabus, status,
-    price, isFree, billingType, monthlyFee, bankDetails, thumbnailUrl,
+    price, isFree, billingType, monthlyFee, courseType, isMonthlyProgram, parentCourseId, targetMonth, validityPeriod, validityMonths, bankDetails, thumbnailUrl,
     topicOrder: numeric('topicOrder',1,0,1000), lessonOrder: numeric('lessonOrder',1,0,1000), estimatedMinutes: numeric('estimatedMinutes',15,1,600),
     quiz, videos, curriculumBlocks, relatedPaperIds, videoUrl: ''};
 }

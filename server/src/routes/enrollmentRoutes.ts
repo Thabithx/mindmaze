@@ -42,6 +42,22 @@ async function uploadSlipToCloudinary(file: Express.Multer.File): Promise<{ url:
   });
 }
 
+export function computeExpiresAt(validityMonths?: number, fromDate: Date = new Date()): Date | null {
+  if (!validityMonths || validityMonths <= 0) return null;
+  const expires = new Date(fromDate);
+  expires.setDate(expires.getDate() + (validityMonths * 30));
+  return expires;
+}
+
+export function formatEnrollmentRecord(e: any) {
+  if (!e) return e;
+  const isExpired = Boolean(e.expiresAt && new Date(e.expiresAt).getTime() < Date.now());
+  if (typeof e.toObject === 'function') {
+    return { ...e.toObject(), isExpired };
+  }
+  return { ...e, isExpired };
+}
+
 // -------------------------------------------------------------
 // STUDENT ENROLLMENT ROUTES
 // -------------------------------------------------------------
@@ -73,6 +89,9 @@ router.post(
 
       // If it's a FREE course -> instant auto-approved enrollment
       if (isFreeCourse) {
+        const validity = course.validityMonths ?? (course.validityPeriod === '1_month' ? 1 : course.validityPeriod === '3_months' ? 3 : course.validityPeriod === '6_months' ? 6 : course.validityPeriod === '1_year' ? 12 : 0);
+        const expiresAt = computeExpiresAt(validity);
+
         const enrollment = await CourseEnrollment.findOneAndUpdate(
           { user: userId, course: courseId },
           {
@@ -83,6 +102,9 @@ router.post(
               paymentType: 'free',
               isFree: true,
               enrolledAt: new Date(),
+              expiresAt,
+              targetMonth: course.targetMonth || '',
+              validityPeriod: course.validityPeriod || 'lifetime',
               adminNotes: 'Auto-enrolled in free course',
             },
           },
@@ -92,8 +114,8 @@ router.post(
         res.json({
           success: true,
           status: 'approved',
-          message: 'Enrolled successfully! You have full access to this course.',
-          enrollment,
+          message: 'Enrolled successfully! You have active access to this course.',
+          enrollment: formatEnrollmentRecord(enrollment),
         });
         return;
       }
@@ -101,15 +123,19 @@ router.post(
       // If it's a PAID course -> requires slip upload
       const file = req.file;
       if (!file) {
-        // If already approved, don't require slip
+        // If already approved, check if expired
         if (existing && existing.status === 'approved') {
-          res.json({
-            success: true,
-            status: 'approved',
-            message: 'You are already enrolled in this course.',
-            enrollment: existing,
-          });
-          return;
+          const isExpired = Boolean(existing.expiresAt && new Date(existing.expiresAt).getTime() < Date.now());
+          if (!isExpired) {
+            res.json({
+              success: true,
+              status: 'approved',
+              message: 'You already have active enrollment in this course.',
+              enrollment: formatEnrollmentRecord(existing),
+            });
+            return;
+          }
+          // If expired, allow student to re-apply / renew with a new slip!
         }
 
         res.status(400).json({
@@ -147,6 +173,8 @@ router.post(
             slipFileName: file.originalname,
             bankReference,
             notes,
+            targetMonth: course.targetMonth || '',
+            validityPeriod: course.validityPeriod || 'lifetime',
             enrolledAt: new Date(),
             adminNotes: '', // clears old rejection reason so student starts fresh
           },
@@ -158,7 +186,7 @@ router.post(
         success: true,
         status: 'pending',
         message: 'Bank payment slip submitted! The administrator will review and activate your course access.',
-        enrollment,
+        enrollment: formatEnrollmentRecord(enrollment),
       });
     } catch (err: any) {
       console.error('[Enrollment] Error during course enrollment:', err);
@@ -173,11 +201,11 @@ router.post(
 router.get('/my', protect, async (req: AuthRequest, res: Response) => {
   try {
     const enrollments = await CourseEnrollment.find({ user: req.user!._id })
-      .populate('course', 'title subject stream topic price isFree bankDetails status estimatedMinutes')
+      .populate('course', 'title subject stream topic price isFree courseType targetMonth validityPeriod validityMonths bankDetails status estimatedMinutes')
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json({ enrollments });
+    res.json({ enrollments: enrollments.map(formatEnrollmentRecord) });
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to fetch your course enrollments.' });
   }
@@ -193,7 +221,7 @@ router.get('/my/:courseId', protect, async (req: AuthRequest, res: Response) => 
     }
 
     const enrollment = await CourseEnrollment.findOne({ user: req.user!._id, course: courseId }).lean();
-    res.json({ enrollment: enrollment || null });
+    res.json({ enrollment: enrollment ? formatEnrollmentRecord(enrollment) : null });
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to check enrollment status.' });
   }
@@ -332,9 +360,23 @@ router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthReq
       update.amountPaid = amountPaid;
     }
 
+    if (status === 'approved') {
+      const currentEnr = await CourseEnrollment.findById(id).populate('course');
+      const courseObj: any = currentEnr?.course;
+      const validity = courseObj?.validityMonths ?? (courseObj?.validityPeriod === '1_month' ? 1 : courseObj?.validityPeriod === '3_months' ? 3 : courseObj?.validityPeriod === '6_months' ? 6 : courseObj?.validityPeriod === '1_year' ? 12 : 0);
+      update.expiresAt = computeExpiresAt(validity);
+      update.enrolledAt = new Date();
+      if (courseObj?.targetMonth) {
+        update.targetMonth = courseObj.targetMonth;
+      }
+      if (courseObj?.validityPeriod) {
+        update.validityPeriod = courseObj.validityPeriod;
+      }
+    }
+
     const updated = await CourseEnrollment.findByIdAndUpdate(id, { $set: update }, { new: true })
       .populate('user', 'name email indexNumber mobileNumber')
-      .populate('course', 'title price')
+      .populate('course', 'title price courseType targetMonth validityPeriod validityMonths')
       .populate('reviewedBy', 'name email');
 
     if (!updated) {
@@ -345,7 +387,7 @@ router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthReq
     res.json({
       success: true,
       message: `Enrollment marked as ${status}.`,
-      enrollment: updated,
+      enrollment: formatEnrollmentRecord(updated),
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message || 'Failed to update enrollment status.' });

@@ -22,6 +22,9 @@ export interface ICurriculumBlock {
   meetingPlatform?: string;
   isCompleted?: boolean;
   recordingUrl?: string;
+  recordingPdfUrl?: string;
+  recordingPdfFileName?: string;
+  recordingPdfPublicId?: string;
   // Document block
   pdfProvider?: string;
   pdfUrl?: string;
@@ -48,6 +51,12 @@ export interface ICourse extends Document {
   syllabus: string;
   status: string;
   revision: number;
+  courseType?: 'free' | 'one_time' | 'monthly';
+  isMonthlyProgram?: boolean;
+  parentCourseId?: mongoose.Types.ObjectId;
+  targetMonth?: string;
+  validityPeriod?: '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime';
+  validityMonths?: number;
   price: number;
   isFree: boolean;
   billingType?: 'one_time' | 'monthly';
@@ -94,6 +103,12 @@ const CourseSchema = new Schema<ICourse>(
     syllabus: { type: String, default: 'current' },
     status: { type: String, enum: ['draft', 'published'], default: 'published' },
     revision: { type: Number, default: 0 },
+    courseType: { type: String, enum: ['free', 'one_time', 'monthly'], default: 'one_time' },
+    isMonthlyProgram: { type: Boolean, default: false },
+    parentCourseId: { type: Schema.Types.ObjectId, ref: 'Course', default: null },
+    targetMonth: { type: String, default: '', trim: true },
+    validityPeriod: { type: String, enum: ['1_month', '3_months', '6_months', '1_year', 'lifetime'], default: 'lifetime' },
+    validityMonths: { type: Number, default: 0, min: 0 },
     price: { type: Number, default: 0, min: 0 },
     isFree: { type: Boolean, default: true },
     billingType: { type: String, enum: ['one_time', 'monthly'], default: 'one_time' },
@@ -112,6 +127,9 @@ const CourseSchema = new Schema<ICourse>(
         meetingPlatform: { type: String, default: 'Zoom / Google Meet' },
         isCompleted: { type: Boolean, default: false },
         recordingUrl: { type: String, default: '' },
+        recordingPdfUrl: { type: String, default: '' },
+        recordingPdfFileName: { type: String, default: '' },
+        recordingPdfPublicId: { type: String, default: '' },
         pdfProvider: { type: String, default: 'cloudinary' },
         pdfUrl: { type: String, default: '' },
         pdfPublicId: { type: String, default: '' },
@@ -138,4 +156,5 @@ const CourseSchema = new Schema<ICourse>(
 
 CourseSchema.index({subject:1,topicOrder:1,lessonOrder:1,_id:1});
 CourseSchema.index({status:1,subject:1,topicOrder:1,lessonOrder:1,_id:1});
+CourseSchema.index({parentCourseId: 1});
 export default mongoose.model<ICourse>('Course', CourseSchema);

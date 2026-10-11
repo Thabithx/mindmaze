@@ -7,13 +7,15 @@ import { Lesson, Progress, CourseEnrollmentRecord, subjects, control, button, pa
 import { LessonView } from './LessonView';
 import { AdminCourseManager } from './AdminCourseManager';
 import { CourseEnrollModal } from './CourseEnrollModal';
-import { ShieldCheck, Plus, GraduationCap, Settings, CreditCard, Lock, CheckCircle2, Clock, Search, X } from 'lucide-react';
+import { ShieldCheck, Plus, GraduationCap, Settings, CreditCard, Lock, CheckCircle2, Clock, Search, X, Layers, Calendar, ChevronRight } from 'lucide-react';
 
 export const CourseCatalogScreen: React.FC = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [enrollments, setEnrollments] = useState<Record<string, CourseEnrollmentRecord>>({});
   const [enrollModalTarget, setEnrollModalTarget] = useState<Lesson | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<Lesson | null>(null);
+  const [loadingProgram, setLoadingProgram] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [progressError, setProgressError] = useState('');
@@ -87,14 +89,28 @@ export const CourseCatalogScreen: React.FC = () => {
     };
   }, []);
 
-  const openLesson = async (id: string) => {
-    const lesson = lessons.find((l) => l._id === id);
+  const openProgram = async (programId: string) => {
+    setLoadingProgram(true);
+    setError('');
+    try {
+      const res = await api.getCourseById(programId);
+      setSelectedProgram(res.course);
+    } catch (err: any) {
+      setError(err.message || 'Could not load monthly program classes.');
+    } finally {
+      setLoadingProgram(false);
+    }
+  };
+
+  const openLesson = async (id: string, directLesson?: Lesson) => {
+    const lesson = directLesson || lessons.find((l) => l._id === id) || (selectedProgram?.subCourses || []).find((sc) => sc._id === id);
     const enrollment = enrollments[id];
     const isPaid = lesson && !lesson.isFree && (lesson.price || 0) > 0;
+    const isExpired = Boolean(enrollment?.isExpired || (enrollment?.expiresAt && new Date(enrollment.expiresAt).getTime() < Date.now()));
 
     // If student is not admin:
-    // If paid course and not approved -> open enroll modal:
-    if (isPaid && !isAdmin && (!enrollment || enrollment.status !== 'approved')) {
+    // If paid course and not approved or expired -> open enroll modal:
+    if (isPaid && !isAdmin && (!enrollment || enrollment.status !== 'approved' || isExpired)) {
       if (lesson) setEnrollModalTarget(lesson);
       return;
     }
@@ -112,6 +128,7 @@ export const CourseCatalogScreen: React.FC = () => {
       const res = await api.getCourseById(id);
       if (version !== request.current) return;
       setActive(res.course);
+      setSelectedProgram(null);
       setSubject(res.course.subject);
       setTopic(res.course.topic);
       setQuery('');
@@ -144,8 +161,8 @@ export const CourseCatalogScreen: React.FC = () => {
   const matchesPricing = (l: Lesson, filter: 'all' | 'free' | 'paid' | 'monthly') => {
     if (filter === 'all') return true;
     if (filter === 'free') return Boolean(l.isFree || !l.price || l.price <= 0);
-    if (filter === 'paid') return Boolean(!l.isFree && (l.price || 0) > 0 && l.billingType !== 'monthly');
-    if (filter === 'monthly') return Boolean(l.billingType === 'monthly' || enrollments[l._id]?.paymentType === 'partial');
+    if (filter === 'paid') return Boolean(!l.isFree && (l.price || 0) > 0 && l.billingType !== 'monthly' && !l.isMonthlyProgram && l.courseType !== 'monthly');
+    if (filter === 'monthly') return Boolean(l.isMonthlyProgram || l.billingType === 'monthly' || l.courseType === 'monthly' || enrollments[l._id]?.paymentType === 'partial');
     return true;
   };
 
@@ -704,11 +721,19 @@ export const CourseCatalogScreen: React.FC = () => {
                   ) : (
                     <>
                       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        {lessonsPage.items.map(l => (
+                        {lessonsPage.items.map(l => {
+                          const isProgram = Boolean(l.isMonthlyProgram);
+                          return (
                             <button
                               key={l._id}
-                              disabled={opening}
-                              onClick={() => openLesson(l._id)}
+                              disabled={opening || loadingProgram}
+                              onClick={() => {
+                                if (isProgram) {
+                                  openProgram(l._id);
+                                } else {
+                                  openLesson(l._id);
+                                }
+                              }}
                               className={panel + ' text-left hover:border-cyan-400/60 disabled:opacity-60 cursor-pointer transition group flex flex-col justify-between overflow-hidden'}
                             >
                               <div className="space-y-3 w-full">
@@ -729,21 +754,33 @@ export const CourseCatalogScreen: React.FC = () => {
                                     {l.subject} · {l.topic}
                                   </p>
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                                        l.isFree || !l.price
-                                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                    {isProgram ? (
+                                      <>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                                          <Layers className="w-3 h-3 text-purple-400" />
+                                          <span>Master Program</span>
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                          Rs. {(l.monthlyFee || l.price || 0).toLocaleString()} / mo
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                          l.isFree || !l.price
+                                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                            : l.billingType === 'monthly'
+                                            ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                            : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                        }`}
+                                      >
+                                        {l.isFree || !l.price
+                                          ? 'FREE'
                                           : l.billingType === 'monthly'
-                                          ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
-                                          : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                      }`}
-                                    >
-                                      {l.isFree || !l.price
-                                        ? 'FREE'
-                                        : l.billingType === 'monthly'
-                                        ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
-                                        : `Rs. ${(l.price || 0).toLocaleString()}`}
-                                    </span>
+                                          ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
+                                          : `Rs. ${(l.price || 0).toLocaleString()}`}
+                                      </span>
+                                    )}
 
                                     {(() => {
                                       const p = progress[l._id];
@@ -800,6 +837,20 @@ export const CourseCatalogScreen: React.FC = () => {
 
                               <div className="flex items-center justify-between pt-4 mt-2 border-t border-white/5 w-full">
                                 {(() => {
+                                  if (isProgram) {
+                                    return (
+                                      <div className="flex items-center justify-between w-full">
+                                        <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                                          <Layers className="w-3.5 h-3.5 text-purple-400" />
+                                          <span>{l.subCourseCount || 0} Monthly Classes</span>
+                                        </span>
+                                        <span className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 flex items-center gap-1">
+                                          <span>Browse Classes →</span>
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
                                   const enr = enrollments[l._id];
                                   const isEnrolledApproved = enr?.status === 'approved' || isAdmin;
                                   const isPending = enr?.status === 'pending';
@@ -886,7 +937,8 @@ export const CourseCatalogScreen: React.FC = () => {
                                 })()}
                               </div>
                             </button>
-                          ))}
+                          );
+                        })}
                         </div>
 
                         {lessonsPage.pagination.totalPages > 1 && (
@@ -922,6 +974,211 @@ export const CourseCatalogScreen: React.FC = () => {
             }
           }}
         />
+      )}
+
+      {/* Monthly Program / Master Category Sub-Courses Modal */}
+      {selectedProgram && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
+                  <Layers className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-300">
+                    {selectedProgram.subject} • Master Monthly Program
+                  </span>
+                  <h3 className="text-lg font-bold text-white leading-tight">{selectedProgram.title}</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProgram(null)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Program Details Banner */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid md:grid-cols-12 gap-5 items-center p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                {selectedProgram.thumbnailUrl && (
+                  <div className="md:col-span-4 aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800">
+                    <img
+                      src={selectedProgram.thumbnailUrl}
+                      alt={selectedProgram.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className={`${selectedProgram.thumbnailUrl ? 'md:col-span-8' : 'md:col-span-12'} space-y-2`}>
+                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                    {selectedProgram.description}
+                  </p>
+                  <div className="flex items-center gap-3 flex-wrap pt-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      Rs. {(selectedProgram.monthlyFee || selectedProgram.price || 0).toLocaleString()} / month
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      ⚡ Select your target month class below to enroll and watch lectures
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-Courses List */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                    <span>Monthly Classes ({(selectedProgram.subCourses || []).length})</span>
+                  </h4>
+                  <span className="text-xs text-slate-400">Enroll per month</span>
+                </div>
+
+                {(!selectedProgram.subCourses || selectedProgram.subCourses.length === 0) ? (
+                  <div className="p-8 text-center rounded-xl border border-dashed border-slate-800 bg-slate-950/40 text-slate-400 text-sm space-y-2">
+                    <Layers className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p>No monthly classes have been published for this program yet.</p>
+                    <p className="text-xs text-slate-500">Check back soon when new month schedules are released!</p>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {selectedProgram.subCourses.map((sc) => {
+                      const enr = enrollments[sc._id];
+                      const isApproved = enr?.status === 'approved' || isAdmin;
+                      const isPending = enr?.status === 'pending';
+                      const isDeclined = enr?.status === 'rejected';
+                      const isExpired = Boolean(enr?.isExpired || (enr?.expiresAt && new Date(enr.expiresAt).getTime() < Date.now()));
+
+                      return (
+                        <div
+                          key={sc._id}
+                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              {sc.targetMonth ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{sc.targetMonth}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">{sc.topic || 'Class'}</span>
+                              )}
+
+                              <span className="text-xs font-black text-amber-300">
+                                Rs. {(sc.price || selectedProgram.monthlyFee || selectedProgram.price || 0).toLocaleString()}
+                              </span>
+                            </div>
+
+                            <h5 className="font-bold text-white text-sm line-clamp-1">{sc.title}</h5>
+                            <p className="text-xs text-slate-400 line-clamp-2">{sc.description}</p>
+
+                            <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-1 font-medium">
+                              <span>🎬 {sc.videoCount || 0} Videos</span>
+                              <span>•</span>
+                              <span>📄 {sc.resourceCount || 0} PDFs</span>
+                              <span>•</span>
+                              <span>
+                                ⏱️{' '}
+                                {sc.validityPeriod === '1_month'
+                                  ? '1 mo validity'
+                                  : sc.validityPeriod === '3_months'
+                                  ? '3 mo validity'
+                                  : sc.validityPeriod === '6_months'
+                                  ? '6 mo validity'
+                                  : sc.validityPeriod === '1_year'
+                                  ? '1 yr validity'
+                                  : 'Lifetime'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+                            {isApproved && !isExpired ? (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>✓ Enrolled</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openLesson(sc._id, sc)}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-600/20"
+                                >
+                                  Open Class →
+                                </button>
+                              </div>
+                            ) : isPending ? (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs font-bold text-amber-400 flex items-center gap-1 animate-pulse">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>⏳ Slip Pending</span>
+                                </span>
+                                <span className="text-[11px] text-slate-500">Under Review</span>
+                              </div>
+                            ) : isDeclined ? (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs font-bold text-rose-400">✕ Declined</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEnrollModalTarget(sc)}
+                                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer"
+                                >
+                                  Re-apply →
+                                </button>
+                              </div>
+                            ) : isExpired ? (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs font-bold text-amber-400">Access Expired</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEnrollModalTarget(sc)}
+                                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer"
+                                >
+                                  Renew Access →
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs text-slate-400">Not enrolled</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEnrollModalTarget(sc)}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-indigo-600/20 flex items-center gap-1"
+                                >
+                                  <span>Enroll for {sc.targetMonth || 'This Month'} →</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <span className="text-xs text-slate-400">
+                Mind Maze A/L Platform • Monthly Paid Class System
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedProgram(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+              >
+                Close Program
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

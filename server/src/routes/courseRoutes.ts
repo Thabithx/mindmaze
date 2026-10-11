@@ -17,7 +17,7 @@ const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*102
   {name:'thumbnail',maxCount:1},
   {name:'coverImage',maxCount:1}
 ]);
-const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,price:c.price??0,isFree:c.isFree??(c.price===0),billingType:c.billingType||'one_time',monthlyFee:c.monthlyFee||0,bankDetails:c.bankDetails||'',thumbnailUrl:c.thumbnailUrl||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0});
+const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,courseType:c.courseType||(c.isFree?'free':(c.billingType==='monthly'?'monthly':'one_time')),isMonthlyProgram:Boolean(c.isMonthlyProgram),parentCourseId:c.parentCourseId?String(c.parentCourseId):undefined,targetMonth:c.targetMonth||'',validityPeriod:c.validityPeriod||'lifetime',validityMonths:c.validityMonths??0,price:c.price??0,isFree:c.isFree??(c.price===0),billingType:c.billingType||'one_time',monthlyFee:c.monthlyFee||0,bankDetails:c.bankDetails||'',thumbnailUrl:c.thumbnailUrl||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0,subCourseCount:c.subCourseCount||0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
   let embedUrl = '';
@@ -89,6 +89,11 @@ const present=(c:any,admin=false)=>{
         formatted.embedUrl = sec.embedUrl;
         formatted.isYouTube = sec.isYouTube;
         formatted.isProtected = true;
+        formatted.pdfUrl = b.pdfUrl || b.recordingPdfUrl || '';
+        formatted.pdfFileName = b.pdfFileName || b.recordingPdfFileName || '';
+        if (formatted.pdfUrl) {
+          formatted.pdfPath = `/courses/${c._id}/blocks/${b._id}/download`;
+        }
       } else if (b.type === 'live_class') {
         formatted.liveLink = b.liveLink || '';
         formatted.scheduledTime = b.scheduledTime || '';
@@ -98,6 +103,11 @@ const present=(c:any,admin=false)=>{
         if (b.recordingUrl) {
           const sec = formatSecureVideo('Recording', b.recordingUrl, admin);
           formatted.recordingEmbedUrl = sec.embedUrl;
+        }
+        formatted.recordingPdfUrl = b.recordingPdfUrl || b.pdfUrl || '';
+        formatted.recordingPdfFileName = b.recordingPdfFileName || b.pdfFileName || '';
+        if (formatted.recordingPdfUrl) {
+          formatted.pdfPath = `/courses/${c._id}/blocks/${b._id}/download`;
         }
       } else if (b.type === 'document') {
         formatted.pdfUrl = b.pdfUrl || '';
@@ -168,10 +178,35 @@ router.get('/admin/list',protect,contentManagerOnly,async(req,res)=>{try{
 }catch(e){if(e instanceof PaginationError)res.status(400).json({message:e.message});else fail(res,e);}});
 router.get('/progress',protect,async(req:AuthRequest,res)=>{try{res.json({progress:await CourseProgress.find({user:req.user!._id}).lean()});}catch(e){fail(res,e);}});
 router.get('/',async(req,res)=>{try{
-  const filter:any={...publishedFilter};
+  const filter:any={
+    ...publishedFilter,
+    $or: [{ parentCourseId: { $exists: false } }, { parentCourseId: null }]
+  };
   if(typeof req.query.subject==='string')filter.subject=req.query.subject;
   if(typeof req.query.stream==='string')filter.stream=req.query.stream;
-  const courses=await Course.aggregate([{$match:filter},{$project:{title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,price:1,isFree:1,billingType:1,monthlyFee:1,bankDetails:1,videoUrl:1,videos:1,pdfUrl:1,pdfPublicId:1,thumbnailUrl:1,resources:1,quizCount:{$size:{$ifNull:['$quiz',[]]}}}},{$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}]);
+  const courses=await Course.aggregate([
+    {$match:filter},
+    {
+      $lookup: {
+        from: 'courses',
+        localField: '_id',
+        foreignField: 'parentCourseId',
+        as: 'subCoursesList'
+      }
+    },
+    {
+      $project:{
+        title:1,description:1,subject:1,stream:1,topic:1,topicOrder:1,lessonOrder:1,
+        estimatedMinutes:1,medium:1,syllabus:1,status:1,revision:1,courseType:1,
+        isMonthlyProgram:1,parentCourseId:1,targetMonth:1,validityPeriod:1,validityMonths:1,
+        price:1,isFree:1,billingType:1,monthlyFee:1,bankDetails:1,videoUrl:1,videos:1,
+        pdfUrl:1,pdfPublicId:1,thumbnailUrl:1,resources:1,
+        quizCount:{$size:{$ifNull:['$quiz',[]]}},
+        subCourseCount:{$size:'$subCoursesList'}
+      }
+    },
+    {$sort:{subject:1,topicOrder:1,lessonOrder:1,title:1}}
+  ]);
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 
@@ -182,7 +217,7 @@ router.get('/:id/blocks/:blockId/download',async(req,res)=>{
     const c=await Course.findOne({_id:req.params.id,...publishedFilter});
     if(!c){res.status(404).json({message:'Lesson not found.'});return;}
     const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId);
-    if(!block || block.type !== 'document'){
+    if(!block || (block.type !== 'document' && !block.pdfUrl && !block.recordingPdfUrl)){
       res.status(404).json({message:'Document not found.'});
       return;
     }
@@ -204,7 +239,16 @@ router.get('/:id',async(req,res)=>{try{
     Course.updateOne({_id:c._id},{$set:{curriculumBlocks:c.curriculumBlocks}}).catch(()=>{});
   }
   const papers=await PastPaper.find({_id:{$in:c.relatedPaperIds||[]}}).select('title year subject type').lean();
-  res.json({course:{...present(c),relatedPapers:papers.map(p=>({...p,pdfPath:`/past-papers/${p._id}/download`}))}});
+  const subCourses = await Course.find({ parentCourseId: c._id, ...publishedFilter })
+    .sort({ lessonOrder: 1, createdAt: 1 })
+    .lean();
+  res.json({
+    course:{
+      ...present(c),
+      subCourses: subCourses.map(sc => present(sc, false)),
+      relatedPapers:papers.map(p=>({...p,pdfPath:`/past-papers/${p._id}/download`}))
+    }
+  });
 }catch(e){fail(res,e);}});
 
 router.put('/:id/progress',protect,async(req:AuthRequest,res)=>{try{
@@ -362,11 +406,13 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
       let fIdx = 0;
       for (const b of details.curriculumBlocks) {
-        if (b.type === 'document' && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
+        if ((b.type === 'document' || b.type === 'video') && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
           const s = saved[fIdx++];
           b.pdfUrl = s.pdfUrl;
           b.pdfPublicId = s.pdfPublicId;
           b.pdfFileName = s.pdfFileName || b.title || 'Document';
+          b.recordingPdfUrl = s.pdfUrl;
+          b.recordingPdfFileName = s.pdfFileName || b.title || 'Document';
           b.pdfProvider = s.pdfProvider || 'raw';
           b.size = s.size;
         }
