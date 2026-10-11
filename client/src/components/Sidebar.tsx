@@ -20,7 +20,6 @@ import {
   X,
   Sparkles,
   Brain,
-  Bell,
   CreditCard,
 } from 'lucide-react';
 
@@ -56,11 +55,10 @@ const navGroups = [
     ],
   },
   {
-    label: 'Progress & Alerts',
+    label: 'Progress & Stats',
     items: [
       { id: 'leaderboard' as ScreenId, label: 'Leaderboard', icon: Trophy, color: 'text-amber-400', activeBg: 'bg-amber-600' },
       { id: 'progress' as ScreenId, label: 'Analytics', icon: BarChart3, color: 'text-teal-400', activeBg: 'bg-teal-600' },
-      { id: 'notifications' as ScreenId, label: 'Notifications', icon: Bell, color: 'text-indigo-400', activeBg: 'bg-indigo-600' },
     ],
   },
 ];
@@ -156,11 +154,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       />
                       {!isCollapsed && (
                         <span className="flex-1 text-left truncate text-[13px]">{item.label}</span>
-                      )}
-                      {!isCollapsed && item.id === 'notifications' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 text-cyan-300 border border-indigo-500/40">
-                          Alerts
-                        </span>
                       )}
                     </button>
                   );

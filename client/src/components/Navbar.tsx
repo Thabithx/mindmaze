@@ -10,7 +10,6 @@ import {
   Flame,
   Sparkles,
   LogIn,
-  Bell,
   Search,
   ShieldCheck,
   GraduationCap,
@@ -78,19 +77,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         )}
 
-        {/* Header Notifications Bell Button (Desktop/Tablet Only — Mobile in Sidebar) */}
-        <button
-          onClick={() => onNavigate('notifications')}
-          className={`hidden sm:flex relative p-2 rounded-xl border transition cursor-pointer min-h-[40px] min-w-[40px] items-center justify-center ${
-            currentScreen === 'notifications'
-              ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
-              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Notifications & Study Reminders"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-        </button>
 
         <div className="hidden sm:flex items-center">
           <PWAInstallButton />
