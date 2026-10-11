@@ -103,19 +103,52 @@ const present=(c:any,admin=false)=>{
         formatted.size = b.size || 0;
         formatted.path = `/courses/${c._id}/blocks/${b._id}/download`;
       } else if (b.type === 'quiz') {
+        formatted.passPercentage = b.passPercentage ?? 50;
         formatted.quizQuestions = (b.quizQuestions || []).map((q: any) => ({
+          _id: q._id ? String(q._id) : undefined,
           questionText: q.questionText,
-          options: q.options,
+          questionType: q.questionType || 'mcq',
+          imageUrl: q.imageUrl || '',
+          imagePublicId: q.imagePublicId || '',
+          options: q.options || [],
           ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
         }));
       }
       return formatted;
     }),
-    quiz:(c.quiz||[]).map((q:any)=>({questionText:q.questionText,options:q.options,...(admin?{correctOptionIndex:q.correctOptionIndex,explanation:q.explanation}:{})})),
+    quiz:(c.quiz||[]).map((q:any)=>({
+      _id: q._id ? String(q._id) : undefined,
+      questionText: q.questionText,
+      questionType: q.questionType || 'mcq',
+      imageUrl: q.imageUrl || '',
+      imagePublicId: q.imagePublicId || '',
+      options: q.options || [],
+      ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
+    })),
     relatedPaperIds:c.relatedPaperIds||[],
   };
 };
 const fail=(res:any,error:any)=>res.status(error?.name==='CastError'?400:500).json({message:'Could not complete the lesson request. Please try again.'});
+
+const imageOnlyUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+}).single('imageFile');
+
+// Upload quiz diagram/image to Cloudinary
+router.post('/admin/quiz-image', protect, contentManagerOnly, imageOnlyUpload, async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: 'Select an image file (PNG, JPG, WEBP).' });
+      return;
+    }
+    const uploaded = await saveImage(req.file);
+    res.json({ url: uploaded.url, publicId: uploaded.publicId });
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message || 'Could not upload quiz image.' });
+  }
+});
+
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
 // Register named routes before /:id. Public queries always exclude drafts.
@@ -182,11 +215,108 @@ router.put('/:id/progress',protect,async(req:AuthRequest,res)=>{try{
 }catch(e){fail(res,e);}});
 router.post('/:id/quiz',protect,async(req:AuthRequest,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
-  if(req.body.revision!==(c.revision||0)){res.status(409).json({message:'This lesson changed. Reopen it before trying the quiz.'});return;}
-  if(!c.quiz?.length){res.status(400).json({message:'This lesson has no quiz.'});return;}
-  let result;try{result=gradeLesson(c.quiz,req.body.answers);}catch(e:any){res.status(400).json({message:e.message});return;}
-  const progress=await CourseProgress.findOneAndUpdate({user:req.user!._id,course:c._id},{$set:{lastOpenedAt:new Date(),quizScore:result.score,quizTotal:result.total,needsRevision:result.score<result.total}},{upsert:true,new:true,setDefaultsOnInsert:true});
-  res.json({...result,progress});
+  if(req.body.revision!=null && Number(req.body.revision)!==(c.revision||0)){res.status(409).json({message:'This lesson changed. Reopen it before trying the quiz.'});return;}
+
+  const blockKey = req.body.blockKey;
+  let targetQuiz: any[] = [];
+  let passPercentage = 50;
+  let targetBlock: any = null;
+
+  if (c.curriculumBlocks && c.curriculumBlocks.length > 0) {
+    if (blockKey) {
+      targetBlock = c.curriculumBlocks.find((b: any) => String(b._id) === blockKey || b.type === 'quiz');
+    } else {
+      targetBlock = c.curriculumBlocks.find((b: any) => b.type === 'quiz');
+    }
+    if (targetBlock?.quizQuestions?.length) {
+      targetQuiz = targetBlock.quizQuestions;
+      passPercentage = typeof targetBlock.passPercentage === 'number' ? targetBlock.passPercentage : 50;
+    }
+  }
+
+  if (!targetQuiz.length) {
+    targetQuiz = c.quiz || [];
+  }
+
+  if(!targetQuiz.length){res.status(400).json({message:'This lesson has no quiz.'});return;}
+
+  let result;
+  try{
+    result=gradeLesson(targetQuiz,req.body.answers);
+  }catch(e:any){
+    res.status(400).json({message:e.message});
+    return;
+  }
+
+  const total = result.total;
+  const score = result.score;
+  const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+  const hasOpenEnded = Boolean(result.hasOpenEnded);
+
+  let status: 'passed' | 'failed' | 'pending_review' = 'pending_review';
+  if (!hasOpenEnded) {
+    status = percentage >= passPercentage ? 'passed' : 'failed';
+  }
+
+  const submission = {
+    blockKey: blockKey || (targetBlock?._id ? String(targetBlock._id) : 'quiz'),
+    blockTitle: targetBlock?.title || 'Practice Quiz',
+    submittedAt: new Date(),
+    status,
+    score,
+    totalQuestions: total,
+    passPercentage,
+    percentage,
+    hasOpenEnded,
+    answers: result.results.map((r: any) => ({
+      questionText: r.questionText,
+      questionType: r.questionType || 'mcq',
+      imageUrl: r.imageUrl || '',
+      options: r.options || [],
+      selectedIndex: r.selectedIndex,
+      textAnswer: r.textAnswer || '',
+      correctOptionIndex: r.correctOptionIndex,
+      explanation: r.explanation || '',
+      isCorrect: Boolean(r.isCorrect),
+      adminGraded: Boolean(r.adminGraded),
+    })),
+  };
+
+  const existingProgress = await CourseProgress.findOne({ user: req.user!._id, course: c._id });
+  const completedBlocks = new Set<string>(existingProgress?.completedBlocks || []);
+
+  const effectiveBlockKey = submission.blockKey;
+  if (status === 'passed' && effectiveBlockKey) {
+    completedBlocks.add(effectiveBlockKey);
+  } else if (status === 'failed' && effectiveBlockKey) {
+    completedBlocks.delete(effectiveBlockKey);
+  }
+
+  const progress = await CourseProgress.findOneAndUpdate(
+    { user: req.user!._id, course: c._id },
+    {
+      $set: {
+        lastOpenedAt: new Date(),
+        quizScore: score,
+        quizTotal: total,
+        needsRevision: status === 'failed',
+        completedBlocks: Array.from(completedBlocks),
+      },
+      $push: {
+        quizSubmissions: submission,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  res.json({
+    ...result,
+    percentage,
+    passPercentage,
+    status,
+    submission,
+    progress,
+  });
 }catch(e){fail(res,e);}});
 
 const parseUpload:RequestHandler=(req,res,next)=>upload(req,res,e=>{if(e){res.status(400).json({message:e.code==='LIMIT_FILE_SIZE'?'Each PDF must be 25 MiB or smaller.':e.message});return;}next();});

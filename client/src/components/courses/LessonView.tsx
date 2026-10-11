@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api, getAuthToken, getStoredUser } from '../../services/api';
-import { Lesson, Progress, button, panel, youtubeEmbed, extractYouTubeId, CurriculumBlock } from './learning';
+import { Lesson, Progress, button, panel, youtubeEmbed, extractYouTubeId, CurriculumBlock, CurriculumQuizQuestion } from './learning';
 import { CleanVideoPlayer } from './CleanVideoPlayer';
 import {
   Shield,
@@ -32,7 +32,7 @@ export function LessonView({
   onNext?: () => void;
   preview?: boolean;
 }) {
-  const [answers, setAnswers] = useState<number[]>([]);
+  const [answers, setAnswers] = useState<(number | string)[]>([]);
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -270,27 +270,69 @@ export function LessonView({
     }
   };
 
-  const submit = async () => {
+  const submitBlockQuiz = async (blockKey: string, questions: CurriculumQuizQuestion[], passPercentage = 50) => {
     setBusy(true);
     setError('');
     try {
       if (preview) {
-        const results = quiz.map((q, i) => ({
-          ...q,
-          selectedIndex: answers[i],
-          correct: answers[i] === q.correctOptionIndex,
-        }));
-        setResult({ results, score: results.filter(r => r.correct).length, total: quiz.length });
+        let score = 0;
+        let hasOpenEnded = false;
+        const results = questions.map((q, i) => {
+          if (q.questionType === 'text') {
+            hasOpenEnded = true;
+            return {
+              questionText: q.questionText,
+              questionType: 'text',
+              textAnswer: String(answers[i] || '').trim(),
+              explanation: q.explanation || '',
+              isCorrect: true,
+              correct: true,
+            };
+          }
+          const isCorrect = answers[i] === q.correctOptionIndex;
+          if (isCorrect) score += 1;
+          return {
+            questionText: q.questionText,
+            questionType: 'mcq',
+            options: q.options || [],
+            selectedIndex: answers[i],
+            correctOptionIndex: q.correctOptionIndex,
+            explanation: q.explanation || '',
+            isCorrect,
+            correct: isCorrect,
+          };
+        });
+        const pct = Math.round((score / questions.length) * 100);
+        const passed = !hasOpenEnded && pct >= passPercentage;
+        setResult({
+          results,
+          score,
+          total: questions.length,
+          percentage: pct,
+          passPercentage,
+          hasOpenEnded,
+          status: hasOpenEnded ? 'pending_review' : passed ? 'passed' : 'failed',
+        });
+        if (passed) {
+          toggleBlockCompletion(blockKey);
+        }
       } else {
-        const res = await api.submitCourseQuiz(lesson._id, answers, lesson.revision);
+        const res = await api.submitCourseQuiz(lesson._id, answers, lesson.revision, blockKey);
         setResult(res);
-        onProgress(res.progress);
+        if (res.progress) {
+          onProgress(res.progress);
+          window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
+        }
       }
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Could not submit quiz.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const submit = () => {
+    submitBlockQuiz('quiz', (lesson.quiz || []) as any, 50);
   };
 
   return (
@@ -579,6 +621,11 @@ export function LessonView({
                                       disablePictureInPicture
                                       className="w-full h-full bg-black"
                                       onContextMenu={e => e.preventDefault()}
+                                      onEnded={() => {
+                                        if (!done) {
+                                          toggleBlockCompletion(blockKey);
+                                        }
+                                      }}
                                     />
                                     {currentUser && (
                                       <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
@@ -606,19 +653,28 @@ export function LessonView({
                           )}
 
                           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs text-slate-400">Done watching this video lecture?</span>
-                            <button
-                              onClick={() => toggleBlockCompletion(blockKey)}
-                              disabled={busy || (!signedIn && !preview)}
-                              className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/40'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{done ? 'Video Watched ✓' : 'Mark as Watched'}</span>
-                            </button>
+                            <span className="text-xs text-slate-400">
+                              {done ? 'Video lecture completed' : 'Watch video to the end to complete this lesson'}
+                            </span>
+                            {done ? (
+                              <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Watched ✓</span>
+                              </span>
+                            ) : preview ? (
+                              <button
+                                onClick={() => toggleBlockCompletion(blockKey)}
+                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/40 flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Preview: Mark Watched</span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400 flex items-center gap-1.5 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-800">
+                                <Play className="w-3 h-3 text-cyan-400" />
+                                <span>Auto-completes after playback</span>
+                              </span>
+                            )}
                           </div>
                         </section>
                       )}
@@ -683,133 +739,260 @@ export function LessonView({
                       )}
 
                       {/* BLOCK: PRACTICE QUIZ / MCQS */}
-                      {block.type === 'quiz' && (
-                        <section className={`${panel} border-amber-500/30 ring-1 ring-amber-500/10 space-y-4`}>
-                          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
-                                <HelpCircle className="w-4 h-4" />
+                      {block.type === 'quiz' && (() => {
+                        const qList: CurriculumQuizQuestion[] =
+                          block.quizQuestions && block.quizQuestions.length > 0 ? block.quizQuestions : quiz;
+                        const reqPass = block.passPercentage ?? 50;
+                        const hasUnanswered = qList.some((q, i) => {
+                          if (q.questionType === 'text') {
+                            return !answers[i] || String(answers[i]).trim().length === 0;
+                          }
+                          return answers[i] === undefined;
+                        });
+
+                        return (
+                          <section className={`${panel} border-amber-500/30 ring-1 ring-amber-500/10 space-y-4`}>
+                            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                                  <HelpCircle className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <h4 className="text-white font-bold text-base">{block.title || 'Practice Quiz'}</h4>
+                                  <span className="text-xs text-amber-300/80">
+                                    Passing requirement: {reqPass}% score
+                                  </span>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="text-white font-bold text-base">{block.title || 'Practice Quiz'}</h4>
-                                <span className="text-xs text-amber-300/80">Check your understanding</span>
+                              <div className="flex items-center gap-2">
+                                {done && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Passed ✓
+                                  </span>
+                                )}
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  {qList.length} Questions
+                                </span>
                               </div>
                             </div>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              {(block.quizQuestions?.length || quiz.length)} Questions
-                            </span>
-                          </div>
 
-                          {block.description && (
-                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800">
-                              {block.description}
-                            </p>
-                          )}
-
-                          {result ? (
-                            <div className="space-y-3">
-                              <p role="status" className="text-emerald-300 font-bold text-sm">
-                                You scored {result.score} / {result.total}.
+                            {block.description && (
+                              <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800">
+                                {block.description}
                               </p>
-                              <div className="flex flex-wrap gap-3">
+                            )}
+
+                            {result ? (
+                              <div className="space-y-4">
+                                {result.status === 'passed' ? (
+                                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-1">
+                                    <div className="flex items-center gap-2 font-bold text-sm">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                      <span>Quiz Passed! ({result.score} / {result.total} · {result.percentage}%)</span>
+                                    </div>
+                                    <p className="text-xs text-emerald-200/80">
+                                      Required passing score: {result.passPercentage ?? reqPass}%. Excellent work! This step is marked as complete.
+                                    </p>
+                                  </div>
+                                ) : result.status === 'pending_review' ? (
+                                  <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 space-y-1">
+                                    <div className="flex items-center gap-2 font-bold text-sm">
+                                      <Clock className="w-4 h-4 text-indigo-400" />
+                                      <span>Submitted for Teacher Review!</span>
+                                    </div>
+                                    <p className="text-xs text-indigo-200/80">
+                                      Your written responses were submitted successfully. Once your teacher reviews and passes your submission (requires {result.passPercentage ?? reqPass}%), this section will automatically unlock.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-1">
+                                    <div className="flex items-center gap-2 font-bold text-sm">
+                                      <AlertCircle className="w-4 h-4 text-rose-400" />
+                                      <span>Passing Score Not Reached ({result.score} / {result.total} · {result.percentage}%)</span>
+                                    </div>
+                                    <p className="text-xs text-rose-200/80">
+                                      Required passing score: {result.passPercentage ?? reqPass}%. Please review your mistakes below and try again to unlock the next section.
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap gap-3">
+                                  <button
+                                    className={button}
+                                    onClick={() => {
+                                      setResult(null);
+                                      setAnswers([]);
+                                      setMistakesOnly(false);
+                                    }}
+                                  >
+                                    Try again
+                                  </button>
+                                  <button
+                                    className="text-cyan-300 text-sm cursor-pointer"
+                                    onClick={() => setMistakesOnly((v) => !v)}
+                                  >
+                                    {mistakesOnly ? 'Show all answers' : 'Review mistakes'}
+                                  </button>
+                                </div>
+
+                                {result.results
+                                  ?.filter((r: any) => !mistakesOnly || !r.correct)
+                                  .map((r: any, i: number) => (
+                                    <div key={i} className="rounded-xl bg-slate-900/90 border border-slate-800 p-3.5 space-y-2 text-xs">
+                                      <p className="font-semibold text-white">
+                                        {r.correct ? '✓' : '↻'} {r.questionText}
+                                      </p>
+                                      {r.imageUrl && (
+                                        <div className="my-2 max-w-sm rounded-lg overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
+                                          <img
+                                            src={r.imageUrl}
+                                            alt={r.questionText}
+                                            className="w-full max-h-48 object-contain rounded"
+                                            loading="lazy"
+                                          />
+                                        </div>
+                                      )}
+                                      {r.questionType === 'text' ? (
+                                        <div className="space-y-1 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                                          <span className="text-[11px] text-cyan-400 font-semibold block">Your Answer:</span>
+                                          <p className="text-slate-200 whitespace-pre-wrap">{r.textAnswer || '(No written answer)'}</p>
+                                          {r.adminGraded ? (
+                                            <p className={`text-[11px] font-bold ${r.isCorrect ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                              {r.isCorrect ? '✓ Graded by teacher: Correct' : '✗ Graded by teacher: Incorrect'}
+                                            </p>
+                                          ) : (
+                                            <p className="text-[11px] text-amber-400 italic">Teacher grading pending</p>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <p className="text-slate-300">
+                                            Your answer: {r.options && r.options[r.selectedIndex]}
+                                          </p>
+                                          {!r.correct && (
+                                            <p className="text-emerald-300">
+                                              Correct answer: {r.options && r.options[r.correctOptionIndex]}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                      {r.explanation && <p className="text-slate-400 mt-1 italic">{r.explanation}</p>}
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                {qList.map((q, i) => (
+                                  <fieldset key={i} disabled={busy} className="space-y-2 border-t border-slate-800 pt-3">
+                                    <legend className="text-xs font-bold text-white mb-2 flex items-center justify-between">
+                                      <span>{i + 1}. {q.questionText}</span>
+                                      {q.questionType === 'text' && (
+                                        <span className="text-[10px] uppercase font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+                                          Written Answer
+                                        </span>
+                                      )}
+                                    </legend>
+
+                                    {/* Question Diagram / Image */}
+                                    {q.imageUrl && (
+                                      <div className="my-2 max-w-md rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
+                                        <img
+                                          src={q.imageUrl}
+                                          alt={q.questionText}
+                                          className="w-full max-h-64 object-contain rounded-lg"
+                                          loading="lazy"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {q.questionType === 'text' ? (
+                                      <div className="space-y-1.5">
+                                        <textarea
+                                          value={typeof answers[i] === 'string' ? (answers[i] as string) : ''}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setAnswers((prev) => {
+                                              const next = [...prev];
+                                              next[i] = val;
+                                              return next;
+                                            });
+                                          }}
+                                          placeholder="Type your answer, formula, or steps here..."
+                                          rows={3}
+                                          className="w-full rounded-xl bg-slate-950 border border-slate-700/80 p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-y"
+                                        />
+                                        <p className="text-[11px] text-slate-400">
+                                          💡 This answer will be sent to your instructor for review and grading.
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      (q.options || []).map((o, j) => (
+                                        <label
+                                          key={j}
+                                          className={`flex items-start gap-3 rounded-xl p-2.5 text-xs cursor-pointer transition ${
+                                            answers[i] === j
+                                              ? 'bg-indigo-600/25 border border-indigo-500/40 text-white'
+                                              : 'bg-slate-900/80 hover:bg-slate-850 text-slate-300 border border-slate-700/60'
+                                          }`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`quiz-block-${blockId}-q-${i}`}
+                                            checked={answers[i] === j}
+                                            onChange={() =>
+                                              setAnswers((a) => {
+                                                const next = [...a];
+                                                next[i] = j;
+                                                return next;
+                                              })
+                                            }
+                                          />
+                                          <span>{o}</span>
+                                        </label>
+                                      ))
+                                    )}
+                                  </fieldset>
+                                ))}
+
                                 <button
                                   className={button}
-                                  onClick={() => {
-                                    setResult(null);
-                                    setAnswers([]);
-                                    setMistakesOnly(false);
-                                  }}
+                                  disabled={busy || (!signedIn && !preview) || hasUnanswered}
+                                  onClick={() => submitBlockQuiz(blockKey, qList, reqPass)}
                                 >
-                                  Try again
-                                </button>
-                                <button
-                                  className="text-cyan-300 text-sm cursor-pointer"
-                                  onClick={() => setMistakesOnly((v) => !v)}
-                                >
-                                  {mistakesOnly ? 'Show all answers' : 'Review mistakes'}
+                                  {busy ? 'Submitting & Grading…' : 'Submit Quiz Answers'}
                                 </button>
                               </div>
-                              {mistakesOnly && result.score === result.total && (
-                                <p className="text-slate-300 text-xs">All answers correct. You’re ready for the next section!</p>
+                            )}
+
+                            {/* Section Completion Status Indicator (No manual bypass) */}
+                            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2 text-xs">
+                              <span className="text-slate-400">
+                                {done ? 'Quiz passed and completed' : `Score at least ${reqPass}% to unlock next step`}
+                              </span>
+                              {done ? (
+                                <span className="font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Quiz Completed ✓</span>
+                                </span>
+                              ) : preview ? (
+                                <button
+                                  onClick={() => toggleBlockCompletion(blockKey)}
+                                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white border border-amber-500/40 flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Preview: Mark Quiz Done</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-500 flex items-center gap-1.5">
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>Auto-completes after passing</span>
+                                </span>
                               )}
-                              {result.results
-                                .filter((r: any) => !mistakesOnly || !r.correct)
-                                .map((r: any, i: number) => (
-                                   <div key={i} className="rounded-xl bg-slate-900/90 border border-slate-800 p-3.5 space-y-1.5 text-xs">
-                                    <p className="font-semibold text-white">
-                                      {r.correct ? '✓' : '↻'} {r.questionText}
-                                    </p>
-                                    <p className="text-slate-300">Your answer: {r.options[r.selectedIndex]}</p>
-                                    {!r.correct && (
-                                      <p className="text-emerald-300">
-                                        Correct answer: {r.options[r.correctOptionIndex]}
-                                      </p>
-                                    )}
-                                    {r.explanation && <p className="text-slate-400 mt-1 italic">{r.explanation}</p>}
-                                  </div>
-                                ))}
                             </div>
-                          ) : (
-                            <div className="space-y-4">
-                              {(block.quizQuestions && block.quizQuestions.length > 0 ? block.quizQuestions : quiz).map((q, i) => (
-                                <fieldset key={i} disabled={busy} className="space-y-2 border-t border-slate-800 pt-3">
-                                  <legend className="text-xs font-bold text-white mb-2">
-                                    {i + 1}. {q.questionText}
-                                  </legend>
-                                  {q.options.map((o, j) => (
-                                    <label
-                                      key={j}
-                                      className={`flex items-start gap-3 rounded-xl p-2.5 text-xs cursor-pointer transition ${
-                                        answers[i] === j
-                                          ? 'bg-indigo-600/25 border border-indigo-500/40 text-white'
-                                          : 'bg-slate-900/80 hover:bg-slate-850 text-slate-300 border border-slate-700/60'
-                                      }`}
-                                    >
-                                      <input
-                                        type="radio"
-                                        name={`quiz-block-${blockId}-q-${i}`}
-                                        checked={answers[i] === j}
-                                        onChange={() =>
-                                          setAnswers((a) => {
-                                            const next = [...a];
-                                            next[i] = j;
-                                            return next;
-                                          })
-                                        }
-                                      />
-                                      <span>{o}</span>
-                                    </label>
-                                  ))}
-                                </fieldset>
-                              ))}
-
-                              <button
-                                className={button}
-                                disabled={busy || (!signedIn && !preview) || (block.quizQuestions && block.quizQuestions.length > 0 ? block.quizQuestions : quiz).some((_, i) => answers[i] === undefined)}
-                                onClick={submit}
-                              >
-                                {busy ? 'Checking…' : 'Check answers'}
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs text-slate-400">Finished this practice quiz?</span>
-                            <button
-                              onClick={() => toggleBlockCompletion(blockKey)}
-                              disabled={busy || (!signedIn && !preview)}
-                              className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500/40'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{done ? 'Quiz Completed ✓' : 'Mark Quiz as Done'}</span>
-                            </button>
-                          </div>
-                        </section>
-                      )}
+                          </section>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -904,6 +1087,12 @@ export function LessonView({
                                 disablePictureInPicture
                                 className="w-full h-full bg-black"
                                 onContextMenu={e => e.preventDefault()}
+                                onEnded={() => {
+                                  const vKey = `video-${i}`;
+                                  if (!isLegacyDone(vKey)) {
+                                    toggleBlockCompletion(vKey);
+                                  }
+                                }}
                               />
                               {currentUser && (
                                 <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
@@ -928,19 +1117,28 @@ export function LessonView({
                         )}
 
                         <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
-                          <span className="text-xs text-slate-400">Done watching this video lesson?</span>
-                          <button
-                            onClick={() => toggleBlockCompletion(`video-${i}`)}
-                            disabled={busy || (!signedIn && !preview)}
-                            className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer ${
-                              isLegacyDone(`video-${i}`)
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/40'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{isLegacyDone(`video-${i}`) ? 'Video Watched ✓' : 'Mark as Watched'}</span>
-                          </button>
+                          <span className="text-xs text-slate-400">
+                            {isLegacyDone(`video-${i}`) ? 'Video lecture completed' : 'Watch video to the end to complete this lesson'}
+                          </span>
+                          {isLegacyDone(`video-${i}`) ? (
+                            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Watched ✓</span>
+                            </span>
+                          ) : preview ? (
+                            <button
+                              onClick={() => toggleBlockCompletion(`video-${i}`)}
+                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/40 flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Preview: Mark Watched</span>
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400 flex items-center gap-1.5 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-800">
+                              <Play className="w-3 h-3 text-cyan-400" />
+                              <span>Auto-completes after playback</span>
+                            </span>
+                          )}
                         </div>
                       </section>
                     );

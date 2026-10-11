@@ -52,7 +52,16 @@ export function validateLesson(body: any) {
       if (b.hasNewUpload) sanitized.hasNewUpload = true;
       if (b._id) sanitized._id = b._id;
       if (b.type === 'quiz' && Array.isArray(b.quizQuestions)) {
-        sanitized.quizQuestions = b.quizQuestions;
+        sanitized.quizQuestions = b.quizQuestions.map((q: any) => ({
+          questionText: typeof q.questionText === 'string' ? q.questionText.trim() : '',
+          questionType: q.questionType === 'text' ? 'text' : 'mcq',
+          imageUrl: typeof q.imageUrl === 'string' ? q.imageUrl.trim() : '',
+          imagePublicId: typeof q.imagePublicId === 'string' ? q.imagePublicId.trim() : '',
+          options: Array.isArray(q.options) ? q.options.map((o: any) => String(o || '').trim()).filter(Boolean) : [],
+          correctOptionIndex: Number(q.correctOptionIndex) >= 0 ? Number(q.correctOptionIndex) : 0,
+          explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '',
+        }));
+        sanitized.passPercentage = Number(b.passPercentage) >= 0 && Number(b.passPercentage) <= 100 ? Number(b.passPercentage) : 50;
       }
       return sanitized;
     });
@@ -61,7 +70,20 @@ export function validateLesson(body: any) {
     const fromBlocksVideos = curriculumBlocks.filter((b: any) => b.type === 'video').map((b: any) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
     if (fromBlocksVideos.length > 0) videos = fromBlocksVideos;
   }
-  if (!Array.isArray(quiz) || quiz.length > 100 || quiz.some(q => !q || typeof q.questionText !== 'string' || !q.questionText.trim() || !Array.isArray(q.options) || q.options.length < 2 || q.options.length > 6 || q.options.some((o: any) => typeof o !== 'string' || !o.trim()) || !Number.isInteger(q.correctOptionIndex) || q.correctOptionIndex < 0 || q.correctOptionIndex >= q.options.length || (q.explanation != null && typeof q.explanation !== 'string'))) throw Error('Each quiz question needs text, at least two answers and a valid correct answer.');
+  if (!Array.isArray(quiz) || quiz.length > 100) throw Error('Maximum 100 quiz questions allowed.');
+  for (const q of quiz) {
+    if (!q || typeof q.questionText !== 'string' || !q.questionText.trim()) {
+      throw Error('Each quiz question must have question text.');
+    }
+    if (q.questionType !== 'text') {
+      if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 6 || q.options.some((o: any) => typeof o !== 'string' || !o.trim())) {
+        throw Error('Each multiple-choice question needs at least two valid answer options.');
+      }
+      if (!Number.isInteger(q.correctOptionIndex) || q.correctOptionIndex < 0 || q.correctOptionIndex >= q.options.length) {
+        throw Error('Each multiple-choice question needs a valid correct answer option.');
+      }
+    }
+  }
   if (!Array.isArray(videos) || videos.length > 20 || videos.some(v => !v || typeof v.title !== 'string' || !v.title.trim() || !safeMediaUrl(v.url))) throw Error('Each video needs a title and an HTTP or HTTPS link.');
   if (!Array.isArray(relatedPaperIds) || relatedPaperIds.length > 30 || relatedPaperIds.some(id => typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))) throw Error('Select valid related papers.');
   const price = Math.max(0, Number(body['price'] ?? 0) || 0);
@@ -75,7 +97,65 @@ export function validateLesson(body: any) {
 }
 
 export function gradeLesson(quiz: any[], answers: unknown) {
-  if (!Array.isArray(answers) || answers.length !== quiz.length || answers.some((answer,index) => !Number.isInteger(answer) || answer < 0 || answer >= quiz[index].options.length)) throw Error('Answer every question before submitting.');
-  const results = quiz.map((q,index) => ({questionText:q.questionText, options:q.options, selectedIndex:answers[index], correctOptionIndex:q.correctOptionIndex, explanation:q.explanation || '', correct:answers[index]===q.correctOptionIndex}));
-  return {score:results.filter(r=>r.correct).length,total:quiz.length,results};
+  if (!Array.isArray(answers) || answers.length !== quiz.length) {
+    throw Error('Answer every question before submitting.');
+  }
+
+  let autoScore = 0;
+  let hasOpenEnded = false;
+
+  const results = quiz.map((q, index) => {
+    const rawAnswer = answers[index];
+    const isText = q.questionType === 'text';
+
+    if (isText) {
+      hasOpenEnded = true;
+      const textAns = typeof rawAnswer === 'string'
+        ? rawAnswer.trim()
+        : typeof rawAnswer === 'object' && rawAnswer
+        ? String((rawAnswer as any).textAnswer || '').trim()
+        : '';
+      if (!textAns) {
+        throw Error(`Please provide a written answer for question ${index + 1}.`);
+      }
+      return {
+        questionText: q.questionText,
+        questionType: 'text',
+        imageUrl: q.imageUrl || '',
+        textAnswer: textAns,
+        explanation: q.explanation || '',
+        isCorrect: false, // Requires admin review
+        adminGraded: false,
+      };
+    } else {
+      let selectedIdx = -1;
+      if (Number.isInteger(rawAnswer)) selectedIdx = Number(rawAnswer);
+      else if (typeof rawAnswer === 'object' && rawAnswer && Number.isInteger((rawAnswer as any).selectedIndex)) {
+        selectedIdx = Number((rawAnswer as any).selectedIndex);
+      }
+      if (selectedIdx < 0 || selectedIdx >= (q.options?.length || 0)) {
+        throw Error(`Please select an answer for question ${index + 1}.`);
+      }
+      const isCorrect = selectedIdx === q.correctOptionIndex;
+      if (isCorrect) autoScore += 1;
+      return {
+        questionText: q.questionText,
+        questionType: 'mcq',
+        imageUrl: q.imageUrl || '',
+        options: q.options || [],
+        selectedIndex: selectedIdx,
+        correctOptionIndex: q.correctOptionIndex,
+        explanation: q.explanation || '',
+        isCorrect,
+        correct: isCorrect,
+      };
+    }
+  });
+
+  return {
+    score: autoScore,
+    total: quiz.length,
+    hasOpenEnded,
+    results,
+  };
 }

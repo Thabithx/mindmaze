@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../../services/api';
-import { CourseEnrollmentRecord } from '../courses/learning';
+import { CourseEnrollmentRecord, QuizSubmissionRecord } from '../courses/learning';
 import {
   CreditCard,
   CheckCircle2,
@@ -24,6 +24,8 @@ import {
   TrendingUp,
   Download,
   Filter,
+  HelpCircle,
+  Check,
 } from 'lucide-react';
 
 interface EnrollmentsManagerProps {
@@ -54,6 +56,13 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
   // Rejection Note Modal
   const [rejectingItem, setRejectingItem] = useState<CourseEnrollmentRecord | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
+
+  // Quiz Review Modal
+  const [reviewingEnrollment, setReviewingEnrollment] = useState<CourseEnrollmentRecord | null>(null);
+  const [selectedSubmissionIdx, setSelectedSubmissionIdx] = useState<number>(0);
+  const [gradingAnswers, setGradingAnswers] = useState<{ [index: number]: boolean }>({});
+  const [adminFeedback, setAdminFeedback] = useState<string>('');
+  const [reviewBusy, setReviewBusy] = useState<boolean>(false);
 
   const loadEnrollments = async () => {
     setLoading(true);
@@ -123,6 +132,39 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
       alert(err.message || 'Failed to delete record');
     } finally {
       setActionBusy(null);
+    }
+  };
+
+  const handleSaveQuizReview = async (overrideStatus?: 'passed' | 'failed') => {
+    if (!reviewingEnrollment || !reviewingEnrollment.learningProgress?._id) return;
+    const submissions = reviewingEnrollment.learningProgress.quizSubmissions || [];
+    const currentSubmission = submissions[selectedSubmissionIdx];
+    if (!currentSubmission || !currentSubmission._id) return;
+
+    setReviewBusy(true);
+    try {
+      const answersReview = Object.entries(gradingAnswers).map(([idxStr, isCorrect]) => ({
+        index: Number(idxStr),
+        isCorrect: Boolean(isCorrect),
+      }));
+
+      await api.reviewQuizSubmission(
+        reviewingEnrollment.learningProgress._id,
+        currentSubmission._id,
+        {
+          answersReview,
+          adminFeedback,
+          status: overrideStatus,
+        }
+      );
+
+      await loadEnrollments();
+      alert(`Quiz review saved! Submission marked as ${overrideStatus || 'reviewed'}.`);
+      setReviewingEnrollment(null);
+    } catch (err: any) {
+      alert(err.message || 'Could not save quiz review.');
+    } finally {
+      setReviewBusy(false);
     }
   };
 
@@ -380,8 +422,8 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                       <h4 className="font-bold text-slate-900 dark:text-white text-sm mt-1">{course.title || 'Course Lesson'}</h4>
                     </div>
 
-                    {/* Student Learning Process Card (Progress, Quiz Score) */}
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-xs space-y-1.5">
+                    {/* Student Learning Process Card (Progress, Quiz Score, Submissions) */}
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-xs space-y-2">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-slate-500 dark:text-slate-400 font-medium">Learning Progress:</span>
                         {item.learningProgress ? (
@@ -403,6 +445,46 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                           <span className="font-mono font-bold text-amber-600 dark:text-amber-300">
                             {item.learningProgress.quizScore} / {item.learningProgress.quizTotal || 0}
                           </span>
+                        </div>
+                      )}
+
+                      {/* Quiz Submissions & Review Trigger */}
+                      {item.learningProgress?.quizSubmissions && item.learningProgress.quizSubmissions.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">Quiz Submissions:</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-300">
+                              {item.learningProgress.quizSubmissions.length} submitted
+                            </span>
+                          </div>
+
+                          {item.learningProgress.quizSubmissions.some((s) => s.status === 'pending_review') && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+                              <span>Written answers pending review!</span>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReviewingEnrollment(item);
+                              setSelectedSubmissionIdx(0);
+                              const firstSub = item.learningProgress?.quizSubmissions?.[0];
+                              if (firstSub) {
+                                const initialGrading: { [index: number]: boolean } = {};
+                                (firstSub.answers || []).forEach((a, idx) => {
+                                  initialGrading[idx] = Boolean(a.isCorrect);
+                                });
+                                setGradingAnswers(initialGrading);
+                                setAdminFeedback(firstSub.adminFeedback || '');
+                              }
+                            }}
+                            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-[11px] font-bold transition cursor-pointer"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                            <span>Review Quiz Submissions ({item.learningProgress.quizSubmissions.length})</span>
+                          </button>
                         </div>
                       )}
 
@@ -656,6 +738,306 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
           </div>
         </div>
       )}
+
+      {/* MODAL 3: Quiz Review & Open-Ended Answers Grading */}
+      {reviewingEnrollment && (() => {
+        const student = reviewingEnrollment.user || {};
+        const course = reviewingEnrollment.course || {};
+        const submissions = reviewingEnrollment.learningProgress?.quizSubmissions || [];
+        const currentSub = submissions[selectedSubmissionIdx] || submissions[0];
+
+        if (!currentSub) return null;
+
+        const totalQ = currentSub.totalQuestions || (currentSub.answers || []).length || 1;
+        const correctCount = Object.values(gradingAnswers).filter(Boolean).length;
+        const currentPct = Math.round((correctCount / totalQ) * 100);
+        const passReq = currentSub.passPercentage || 50;
+        const meetsPass = currentPct >= passReq;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between gap-3 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <span>Quiz Submissions & Written Review</span>
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Student: <span className="text-white font-semibold">{student.name}</span>{' '}
+                    ({student.indexNumber || 'No Index'}) · Course:{' '}
+                    <span className="text-cyan-300 font-semibold">{course.title}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewingEnrollment(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Submissions Switcher Tabs if multiple */}
+              {submissions.length > 1 && (
+                <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-950 border-b border-slate-800 overflow-x-auto shrink-0">
+                  <span className="text-xs text-slate-400 shrink-0 font-medium">Select Quiz:</span>
+                  {submissions.map((sub, sIdx) => (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSubmissionIdx(sIdx);
+                        const initial: { [index: number]: boolean } = {};
+                        (sub.answers || []).forEach((a, idx) => {
+                          initial[idx] = Boolean(a.isCorrect);
+                        });
+                        setGradingAnswers(initial);
+                        setAdminFeedback(sub.adminFeedback || '');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
+                        selectedSubmissionIdx === sIdx
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      <span>{sub.blockTitle || `Quiz ${sIdx + 1}`}</span>
+                      <span className="ml-1.5 text-[10px] opacity-80 uppercase">({sub.status})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Submission Overview Status Banner */}
+              <div className="px-5 py-3 bg-slate-950/40 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">Quiz Block:</span>
+                    <h4 className="text-white font-bold text-sm">{currentSub.blockTitle || 'Curriculum Quiz'}</h4>
+                  </div>
+                  <div className="h-6 w-px bg-slate-800 hidden sm:block"></div>
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">Current Status:</span>
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        currentSub.status === 'passed'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : currentSub.status === 'pending_review'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}
+                    >
+                      {currentSub.status === 'passed' ? '✓ Passed' : currentSub.status === 'pending_review' ? '⏳ Review Pending' : '✗ Needs Revision'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Pass Requirement:</span>
+                    <span className="text-cyan-300 font-bold">{passReq}%</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Graded Score:</span>
+                    <span className={`font-bold ${meetsPass ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {correctCount} / {totalQ} ({currentPct}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Questions and Student Responses */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                {(currentSub.answers || []).map((ans, aIdx) => {
+                  const isCorrect = gradingAnswers[aIdx] ?? Boolean(ans.isCorrect);
+
+                  return (
+                    <div
+                      key={aIdx}
+                      className={`p-4 rounded-xl border transition ${
+                        isCorrect
+                          ? 'bg-slate-950/60 border-slate-800'
+                          : 'bg-slate-950/80 border-slate-800'
+                      }`}
+                    >
+                      {/* Question Header */}
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 font-bold text-xs flex items-center justify-center shrink-0">
+                            {aIdx + 1}
+                          </span>
+                          <span className="font-bold text-white text-xs sm:text-sm">{ans.questionText}</span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold shrink-0 ${
+                            ans.questionType === 'text'
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/50'
+                              : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'
+                          }`}
+                        >
+                          {ans.questionType === 'text' ? 'Written Question' : 'Multiple Choice'}
+                        </span>
+                      </div>
+
+                      {/* Question Diagram / Image if attached */}
+                      {ans.imageUrl && (
+                        <div className="my-3 max-w-md rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1.5">
+                          <img
+                            src={ans.imageUrl}
+                            alt={`Question ${aIdx + 1} Diagram`}
+                            className="w-full max-h-60 object-contain rounded-lg"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+
+                      {/* Student's Answer */}
+                      {ans.questionType === 'text' ? (
+                        <div className="mt-2 space-y-2">
+                          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                            <span className="text-[11px] font-bold text-cyan-400 block uppercase tracking-wider">
+                              Student's Written Response:
+                            </span>
+                            <p className="text-slate-100 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
+                              {ans.textAnswer || <span className="text-slate-500 italic">No written response provided</span>}
+                            </p>
+                          </div>
+
+                          {ans.explanation && (
+                            <div className="p-2.5 rounded-lg bg-slate-900/40 border border-slate-800/60 text-xs text-slate-400">
+                              <span className="font-semibold text-slate-300 block mb-0.5">Reference Solution / Answer Key:</span>
+                              <p className="whitespace-pre-wrap">{ans.explanation}</p>
+                            </div>
+                          )}
+
+                          {/* Teacher Grading Controls for Written Answer */}
+                          <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs text-slate-400 font-medium">Instructor Evaluation:</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setGradingAnswers((prev) => ({ ...prev, [aIdx]: true }))}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                  isCorrect
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400'
+                                    : 'bg-slate-800 hover:bg-slate-750 text-slate-400 border border-slate-700/60'
+                                }`}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Mark Correct (+1)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setGradingAnswers((prev) => ({ ...prev, [aIdx]: false }))}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                  !isCorrect
+                                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400'
+                                    : 'bg-slate-800 hover:bg-slate-750 text-slate-400 border border-slate-700/60'
+                                }`}
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Mark Incorrect (0)</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 space-y-1.5 text-xs">
+                          <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                              <span className="text-slate-400 mr-2">Selected:</span>
+                              <span className="text-white font-semibold">
+                                {ans.options && ans.selectedIndex != null ? ans.options[ans.selectedIndex] : 'No choice selected'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 mr-2">Correct Choice:</span>
+                              <span className="text-emerald-400 font-semibold">
+                                {ans.options && ans.correctOptionIndex != null ? ans.options[ans.correctOptionIndex] : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[11px] text-slate-400">
+                              Auto-grade: {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setGradingAnswers((prev) => ({ ...prev, [aIdx]: !isCorrect }))}
+                                className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                              >
+                                {isCorrect ? 'Override as Incorrect' : 'Override as Correct'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Teacher Feedback input */}
+                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Instructor Feedback / Advice (Visible to student)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={adminFeedback}
+                    onChange={(e) => setAdminFeedback(e.target.value)}
+                    placeholder="Provide constructive feedback, notes on written answers, or guidance for next steps..."
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer with Actions */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex items-center justify-between flex-wrap gap-3 shrink-0">
+                <div className="text-xs">
+                  <span className="text-slate-400">Final Evaluated Result: </span>
+                  <span className={`font-mono font-bold ${meetsPass ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {correctCount} / {totalQ} ({currentPct}%)
+                  </span>
+                  <span className="text-slate-500 ml-1">· Required to pass: {passReq}%</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={reviewBusy}
+                    onClick={() => setReviewingEnrollment(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewBusy}
+                    onClick={() => handleSaveQuizReview('failed')}
+                    className="px-4 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition cursor-pointer border border-rose-500/50"
+                  >
+                    Mark as Needs Revision
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewBusy}
+                    onClick={() => handleSaveQuizReview('passed')}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Approve as Passed & Unlock</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

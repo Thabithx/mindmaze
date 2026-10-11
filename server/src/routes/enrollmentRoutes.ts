@@ -233,10 +233,13 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
         ...e,
         learningProgress: progress
           ? {
+              _id: progress._id,
               completed: Boolean(progress.completed),
+              completedBlocks: progress.completedBlocks || [],
               quizScore: progress.quizScore,
               quizTotal: progress.quizTotal,
               lastOpenedAt: progress.lastOpenedAt,
+              quizSubmissions: progress.quizSubmissions || [],
             }
           : null,
       };
@@ -360,5 +363,84 @@ router.delete('/admin/:id', protect, contentManagerOnly, async (req: AuthRequest
     res.status(500).json({ message: 'Failed to delete enrollment.' });
   }
 });
+
+// 7. Admin: Review / Grade a student's quiz submission (Text answers & passing status)
+router.put(
+  '/admin/progress/:progressId/submissions/:submissionId/review',
+  protect,
+  contentManagerOnly,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { progressId, submissionId } = req.params;
+      const { answersReview, adminFeedback, overrideStatus } = req.body;
+
+      if (!mongoose.isValidObjectId(progressId) || !mongoose.isValidObjectId(submissionId)) {
+        res.status(400).json({ message: 'Invalid progress or submission ID.' });
+        return;
+      }
+
+      const progress = await CourseProgress.findById(progressId);
+      if (!progress) {
+        res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      const submission: any = (progress.quizSubmissions as any)?.id(submissionId);
+      if (!submission) {
+        res.status(404).json({ message: 'Quiz submission not found.' });
+        return;
+      }
+
+      // Apply teacher grading to each question answer if provided
+      if (Array.isArray(answersReview)) {
+        answersReview.forEach((rev: { index: number; isCorrect: boolean }) => {
+          if (submission.answers && submission.answers[rev.index]) {
+            submission.answers[rev.index].isCorrect = Boolean(rev.isCorrect);
+            submission.answers[rev.index].adminGraded = true;
+          }
+        });
+      }
+
+      // Calculate total score based on all correct answers
+      const newScore = submission.answers.filter((a: any) => a.isCorrect).length;
+      submission.score = newScore;
+      submission.percentage =
+        submission.totalQuestions > 0 ? Math.round((newScore / submission.totalQuestions) * 100) : 0;
+      submission.reviewedBy = req.user!._id;
+      submission.reviewedAt = new Date();
+      if (typeof adminFeedback === 'string') submission.adminFeedback = adminFeedback.trim();
+
+      if (overrideStatus === 'passed' || overrideStatus === 'failed') {
+        submission.status = overrideStatus;
+      } else {
+        submission.status = submission.percentage >= submission.passPercentage ? 'passed' : 'failed';
+      }
+
+      // Update completedBlocks if passed/failed
+      const completedBlocks = new Set<string>(progress.completedBlocks || []);
+      const effectiveKey = submission.blockKey;
+      if (submission.status === 'passed' && effectiveKey) {
+        completedBlocks.add(effectiveKey);
+      } else if (submission.status === 'failed' && effectiveKey) {
+        completedBlocks.delete(effectiveKey);
+      }
+      progress.completedBlocks = Array.from(completedBlocks);
+      progress.quizScore = newScore;
+      progress.needsRevision = submission.status === 'failed';
+
+      await progress.save();
+
+      res.json({
+        success: true,
+        message: `Quiz submission marked as ${submission.status}.`,
+        submission,
+        progress,
+      });
+    } catch (err: any) {
+      console.error('[Quiz Review Error]:', err);
+      res.status(500).json({ message: err?.message || 'Could not update quiz review.' });
+    }
+  }
+);
 
 export default router;

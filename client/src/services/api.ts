@@ -158,7 +158,16 @@ export const api = {
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
   getCourseProgress: () => apiFetch('/courses/progress'),
   saveCourseProgress: (id: string, body: {completed?:boolean; completedBlocks?: string[]}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
-  submitCourseQuiz: (id: string, answers: number[], revision: number) => apiFetch('/courses/'+id+'/quiz',{method:'POST',body:JSON.stringify({answers,revision})}),
+  submitCourseQuiz: (id: string, answers: any[], revision?: number, blockKey?: string) =>
+    apiFetch('/courses/' + id + '/quiz', {
+      method: 'POST',
+      body: JSON.stringify({ answers, revision, blockKey }),
+    }),
+  uploadQuizQuestionImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('imageFile', file);
+    return apiFetch('/courses/admin/quiz-image', { method: 'POST', body: formData });
+  },
   getCourses: (stream?: string, subject?: string) => {
     const query = new URLSearchParams();
     if (stream) query.append('stream', stream);
@@ -229,4 +238,13 @@ export const api = {
       body: JSON.stringify({ status, adminNotes }),
     }),
   deleteEnrollment: (id: string) => apiFetch(`/enrollments/admin/${id}`, { method: 'DELETE' }),
+  reviewQuizSubmission: (
+    progressId: string,
+    submissionId: string,
+    payload: { answersReview?: any[]; adminFeedback?: string; overrideStatus?: string }
+  ) =>
+    apiFetch(`/enrollments/admin/progress/${progressId}/submissions/${submissionId}/review`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 };

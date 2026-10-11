@@ -2,6 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IQuizQuestion {
   questionText: string;
+  questionType?: 'mcq' | 'text';
+  imageUrl?: string;
+  imagePublicId?: string;
   options: string[];
   correctOptionIndex: number;
   explanation: string;
@@ -27,6 +30,7 @@ export interface ICurriculumBlock {
   size?: number;
   // Quiz block
   quizQuestions?: IQuizQuestion[];
+  passPercentage?: number;
   // Order
   order: number;
 }
@@ -66,8 +70,11 @@ export interface ICourse extends Document {
 
 const QuizQuestionSchema = new Schema({
   questionText: { type: String, required: true },
-  options: [{ type: String, required: true }],
-  correctOptionIndex: { type: Number, required: true, default: 0 },
+  questionType: { type: String, enum: ['mcq', 'text'], default: 'mcq' },
+  imageUrl: { type: String, default: '' },
+  imagePublicId: { type: String, default: '' },
+  options: [{ type: String }],
+  correctOptionIndex: { type: Number, default: 0 },
   explanation: { type: String, default: '' },
 }, { _id: true });
 
@@ -107,6 +114,7 @@ const CourseSchema = new Schema<ICourse>(
         pdfFileName: { type: String, default: '' },
         size: { type: Number, default: 0 },
         quizQuestions: [QuizQuestionSchema],
+        passPercentage: { type: Number, default: 50 },
         order: { type: Number, default: 0 },
       },
     ],

@@ -8,7 +8,11 @@ export interface LessonVideo {
 }
 
 export interface CurriculumQuizQuestion {
+  _id?: string;
   questionText: string;
+  questionType?: 'mcq' | 'text';
+  imageUrl?: string;
+  imagePublicId?: string;
   options: string[];
   correctOptionIndex: number;
   explanation?: string;
@@ -39,6 +43,7 @@ export interface CurriculumBlock {
   pendingFile?: File;
   // Quiz block
   quizQuestions?: CurriculumQuizQuestion[];
+  passPercentage?: number;
   // Ordering
   order: number;
 }
@@ -72,6 +77,36 @@ export interface Lesson {
   relatedPapers?: { _id: string; title: string; pdfPath: string }[];
 }
 
+export interface QuizSubmissionAnswer {
+  questionText: string;
+  questionType: 'mcq' | 'text';
+  imageUrl?: string;
+  options?: string[];
+  selectedIndex?: number;
+  textAnswer?: string;
+  correctOptionIndex?: number;
+  explanation?: string;
+  isCorrect?: boolean;
+  adminGraded?: boolean;
+}
+
+export interface QuizSubmissionRecord {
+  _id?: string;
+  blockKey: string;
+  blockTitle: string;
+  submittedAt: string;
+  status: 'passed' | 'failed' | 'pending_review';
+  score: number;
+  totalQuestions: number;
+  passPercentage: number;
+  percentage: number;
+  hasOpenEnded: boolean;
+  reviewedBy?: any;
+  reviewedAt?: string;
+  adminFeedback?: string;
+  answers: QuizSubmissionAnswer[];
+}
+
 export interface CourseEnrollmentRecord {
   _id: string;
   user: any;
@@ -90,14 +125,18 @@ export interface CourseEnrollmentRecord {
   enrolledAt: string;
   createdAt: string;
   learningProgress?: {
+    _id?: string;
     completed: boolean;
+    completedBlocks?: string[];
     quizScore: number | null;
     quizTotal: number;
     lastOpenedAt: string;
+    quizSubmissions?: QuizSubmissionRecord[];
   } | null;
 }
 
 export interface Progress {
+  _id?: string;
   course: string;
   completed: boolean;
   completedBlocks?: string[];
@@ -105,6 +144,7 @@ export interface Progress {
   quizScore: number | null;
   quizTotal: number;
   needsRevision: boolean;
+  quizSubmissions?: QuizSubmissionRecord[];
 }
 
 export const subjects = ['Physics', 'Chemistry', 'Biology', 'Combined Maths', 'ICT'];
