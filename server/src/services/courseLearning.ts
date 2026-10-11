@@ -88,10 +88,12 @@ export function validateLesson(body: any) {
   if (!Array.isArray(relatedPaperIds) || relatedPaperIds.length > 30 || relatedPaperIds.some(id => typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))) throw Error('Select valid related papers.');
   const price = Math.max(0, Number(body['price'] ?? 0) || 0);
   const isFree = body['isFree'] === true || body['isFree'] === 'true' || price === 0;
+  const billingType = body['billingType'] === 'monthly' ? 'monthly' : 'one_time';
+  const monthlyFee = Math.max(0, Number(body['monthlyFee'] ?? 0) || 0);
   const bankDetails = text('bankDetails');
   const thumbnailUrl = text('thumbnailUrl');
   return {title, description, subject, stream, topic, medium, syllabus, status,
-    price, isFree, bankDetails, thumbnailUrl,
+    price, isFree, billingType, monthlyFee, bankDetails, thumbnailUrl,
     topicOrder: numeric('topicOrder',1,0,1000), lessonOrder: numeric('lessonOrder',1,0,1000), estimatedMinutes: numeric('estimatedMinutes',15,1,600),
     quiz, videos, curriculumBlocks, relatedPaperIds, videoUrl: ''};
 }

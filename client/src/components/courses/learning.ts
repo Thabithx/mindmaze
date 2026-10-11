@@ -64,6 +64,8 @@ export interface Lesson {
   revision: number;
   price?: number;
   isFree?: boolean;
+  billingType?: 'one_time' | 'monthly';
+  monthlyFee?: number;
   bankDetails?: string;
   thumbnailUrl?: string;
   videoCount: number;

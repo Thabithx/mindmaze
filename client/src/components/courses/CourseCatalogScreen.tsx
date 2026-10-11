@@ -7,7 +7,7 @@ import { Lesson, Progress, CourseEnrollmentRecord, subjects, control, button, pa
 import { LessonView } from './LessonView';
 import { AdminCourseManager } from './AdminCourseManager';
 import { CourseEnrollModal } from './CourseEnrollModal';
-import { ShieldCheck, Plus, GraduationCap, Settings, CreditCard, Lock, CheckCircle2, Clock } from 'lucide-react';
+import { ShieldCheck, Plus, GraduationCap, Settings, CreditCard, Lock, CheckCircle2, Clock, Search, X } from 'lucide-react';
 
 export const CourseCatalogScreen: React.FC = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -20,10 +20,7 @@ export const CourseCatalogScreen: React.FC = () => {
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [query, setQuery] = useState('');
-  const [allSubjects, setAllSubjects] = useState(!getStoredUser()?.stream);
-  const [medium, setMedium] = useState('');
-  const [syllabus, setSyllabus] = useState('');
-  const [kind, setKind] = useState('');
+  const [pricingFilter, setPricingFilter] = useState<'all' | 'free' | 'paid' | 'monthly'>('all');
   const [active, setActive] = useState<Lesson | null>(null);
   const [opening, setOpening] = useState(false);
   const [revisionOnly, setRevisionOnly] = useState(false);
@@ -144,20 +141,24 @@ export const CourseCatalogScreen: React.FC = () => {
     setRevisionOnly(false);
   };
 
-  const eligible = lessons.filter(
-    l =>
-      (allSubjects || mySubjects.includes(l.subject)) &&
-      (!medium || l.medium === medium) &&
-      (!syllabus || l.syllabus === syllabus) &&
-      (!kind || (kind === 'video' ? l.videoCount > 0 : kind === 'pdf' ? l.resourceCount > 0 : l.quizCount > 0))
-  );
+  const matchesPricing = (l: Lesson, filter: 'all' | 'free' | 'paid' | 'monthly') => {
+    if (filter === 'all') return true;
+    if (filter === 'free') return Boolean(l.isFree || !l.price || l.price <= 0);
+    if (filter === 'paid') return Boolean(!l.isFree && (l.price || 0) > 0 && l.billingType !== 'monthly');
+    if (filter === 'monthly') return Boolean(l.billingType === 'monthly' || enrollments[l._id]?.paymentType === 'partial');
+    return true;
+  };
 
-  const visible = eligible.filter(
+  const eligibleByPricing = lessons.filter(l => matchesPricing(l, pricingFilter));
+  const eligibleBySubject = lessons.filter(l => !subject || l.subject === subject);
+
+  const visible = lessons.filter(
     l =>
-      (query.trim()
-        ? [l.title, l.topic, l.subject, l.description].join(' ').toLowerCase().includes(query.trim().toLowerCase())
-        : (!subject || l.subject === subject) && (!topic || l.topic === topic)) &&
-      (!revisionOnly || progress[l._id]?.needsRevision)
+      (!subject || l.subject === subject) &&
+      (!topic || l.topic === topic) &&
+      matchesPricing(l, pricingFilter) &&
+      (!revisionOnly || progress[l._id]?.needsRevision) &&
+      (!query.trim() || [l.title, l.topic, l.subject, l.description].join(' ').toLowerCase().includes(query.trim().toLowerCase()))
   );
 
   const resumed = lessons
@@ -165,8 +166,8 @@ export const CourseCatalogScreen: React.FC = () => {
     .sort((a, b) => Date.parse(progress[b._id].lastOpenedAt) - Date.parse(progress[a._id].lastOpenedAt))[0];
 
   const reviseCount = lessons.filter(l => progress[l._id]?.needsRevision).length;
-  const topicNames = [...new Set(eligible.filter(l => !subject || l.subject === subject).map(l => l.topic).filter(Boolean))];
-  const pagingKey = JSON.stringify([subject, topic, query, medium, syllabus, kind, revisionOnly, allSubjects]);
+  const topicNames = [...new Set(lessons.filter(l => !subject || l.subject === subject).map(l => l.topic).filter(Boolean))];
+  const pagingKey = JSON.stringify([subject, topic, query, pricingFilter, revisionOnly]);
   const lessonsPage = usePagination(visible, pagingKey);
 
   const nextLesson = active
@@ -395,91 +396,213 @@ export const CourseCatalogScreen: React.FC = () => {
                 </section>
               )}
 
-              <div className={panel}>
-                <label className="block text-sm text-slate-300">
-                  Search all topics and lessons
+              <div className={`${panel} space-y-4`}>
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="search"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Try cell biology or mechanics"
-                    className={control + ' mt-2'}
+                    placeholder="Search courses by title, topic, subject or description..."
+                    className={control + ' pl-10'}
                   />
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label className="text-xs text-slate-400">
-                    Language
-                    <select className={control + ' mt-1'} value={medium} onChange={e => setMedium(e.target.value)}>
-                      <option value="">All languages</option>
-                      {['English', 'Sinhala', 'Tamil'].map(m => (
-                        <option key={m}>{m}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    Syllabus
-                    <select className={control + ' mt-1'} value={syllabus} onChange={e => setSyllabus(e.target.value)}>
-                      <option value="">All syllabuses</option>
-                      <option value="current">Current syllabus</option>
-                      <option value="old">Old syllabus</option>
-                    </select>
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    Material
-                    <select className={control + ' mt-1'} value={kind} onChange={e => setKind(e.target.value)}>
-                      <option value="">All materials</option>
-                      <option value="video">Video lessons</option>
-                      <option value="pdf">PDF notes</option>
-                      <option value="quiz">Practice quizzes</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <label className="text-slate-300 flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allSubjects}
-                      onChange={e => {
-                        setAllSubjects(e.target.checked);
-                        navigate();
-                      }}
-                    />
-                    Browse all subjects
-                  </label>
-                  {reviseCount > 0 && (
+                  {query && (
                     <button
-                      className="text-amber-300 cursor-pointer"
-                      onClick={() => {
-                        navigate();
-                        setAllSubjects(true);
-                        setRevisionOnly(!revisionOnly);
-                      }}
+                      onClick={() => setQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                     >
-                      {revisionOnly ? 'Show all lessons' : `Needs revision (${reviseCount})`}
-                    </button>
-                  )}
-                  {(query || medium || syllabus || kind || revisionOnly) && (
-                    <button
-                      className="text-cyan-300 cursor-pointer"
-                      onClick={() => {
-                        setQuery('');
-                        setMedium('');
-                        setSyllabus('');
-                        setKind('');
-                        setRevisionOnly(false);
-                      }}
-                    >
-                      Clear filters
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
+
+                {/* Subject Filter Pills */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Subject
+                    </span>
+                    {subject && (
+                      <button
+                        onClick={() => { setSubject(''); setTopic(''); }}
+                        className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                      >
+                        Reset subject
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSubject(''); setTopic(''); }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        !subject
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-md shadow-cyan-500/25'
+                          : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <span>All Subjects</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20">
+                        {eligibleByPricing.length}
+                      </span>
+                    </button>
+                    {subjects.map(s => {
+                      const count = eligibleByPricing.filter(l => l.subject === s).length;
+                      const icon = {
+                        Physics: '⚡',
+                        Chemistry: '🧪',
+                        Biology: '🌿',
+                        'Combined Maths': '📐',
+                        ICT: '💻',
+                      }[s] || '📖';
+                      const isSelected = subject === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => {
+                            setSubject(isSelected ? '' : s);
+                            setTopic('');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-md shadow-cyan-500/25'
+                              : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          <span>{icon} {s}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/30' : 'bg-slate-900/80 text-slate-400'}`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Course Type / Pricing Filter Pills */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Course Type & Pricing
+                    </span>
+                    {pricingFilter !== 'all' && (
+                      <button
+                        onClick={() => setPricingFilter('all')}
+                        className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                      >
+                        Reset pricing
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPricingFilter('all')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        pricingFilter === 'all'
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                          : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <span>🌟 All Types</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20">
+                        {eligibleBySubject.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingFilter(pricingFilter === 'free' ? 'all' : 'free')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        pricingFilter === 'free'
+                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-black'
+                          : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                      <span>Free Courses</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${pricingFilter === 'free' ? 'bg-black/30' : 'bg-slate-900/80 text-emerald-400'}`}>
+                        {eligibleBySubject.filter(l => l.isFree || !l.price || l.price <= 0).length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingFilter(pricingFilter === 'paid' ? 'all' : 'paid')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        pricingFilter === 'paid'
+                          ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 font-black'
+                          : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Paid Courses (Full)</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${pricingFilter === 'paid' ? 'bg-black/30' : 'bg-slate-900/80 text-amber-400'}`}>
+                        {eligibleBySubject.filter(l => !l.isFree && (l.price || 0) > 0 && l.billingType !== 'monthly').length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingFilter(pricingFilter === 'monthly' ? 'all' : 'monthly')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        pricingFilter === 'monthly'
+                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 font-black'
+                          : 'bg-slate-800/90 hover:bg-slate-700/80 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Monthly Paid</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${pricingFilter === 'monthly' ? 'bg-black/30' : 'bg-slate-900/80 text-purple-400'}`}>
+                        {eligibleBySubject.filter(l => l.billingType === 'monthly' || enrollments[l._id]?.paymentType === 'partial').length}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-filters / Actions Bar */}
+                {(query || subject || topic || pricingFilter !== 'all' || revisionOnly || reviseCount > 0) && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800 text-xs">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {reviseCount > 0 && (
+                        <button
+                          type="button"
+                          className={`cursor-pointer px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5 ${
+                            revisionOnly
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                              : 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+                          }`}
+                          onClick={() => setRevisionOnly(!revisionOnly)}
+                        >
+                          <span>Needs revision ({reviseCount})</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {(query || subject || topic || pricingFilter !== 'all' || revisionOnly) && (
+                      <button
+                        type="button"
+                        className="text-cyan-400 hover:text-cyan-300 cursor-pointer font-semibold flex items-center gap-1"
+                        onClick={() => {
+                          setQuery('');
+                          setSubject('');
+                          setTopic('');
+                          setPricingFilter('all');
+                          setRevisionOnly(false);
+                        }}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Clear all filters</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {loading ? (
-                <p role="status" className="text-slate-400">Loading lessons…</p>
+                <p role="status" className="text-slate-400">Loading courses…</p>
               ) : (
                 <>
-                  {(subject || query || revisionOnly) && (
+                  {lessonsPage.pagination.totalPages > 1 && (
                     <Pagination
                       {...lessonsPage.pagination}
                       label="Courses"
@@ -487,21 +610,32 @@ export const CourseCatalogScreen: React.FC = () => {
                   )}
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h2 className="text-xl font-bold text-white">
-                      {revisionOnly
-                        ? 'Needs revision'
-                        : query
-                        ? `Search results (${visible.length})`
-                        : subject
-                        ? `${subject} Courses & Lessons`
-                        : 'Choose a Subject'}
-                    </h2>
+                    <div>
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        {revisionOnly
+                          ? 'Needs revision'
+                          : query
+                          ? `Search results (${visible.length})`
+                          : subject
+                          ? `${subject} Courses`
+                          : pricingFilter === 'free'
+                          ? 'Free Courses'
+                          : pricingFilter === 'paid'
+                          ? 'Paid Courses'
+                          : pricingFilter === 'monthly'
+                          ? 'Monthly Paid Courses'
+                          : 'All Courses'}
+                      </h2>
+                      {topic && (
+                        <p className="text-xs text-cyan-300 mt-0.5">
+                          Filtered by topic: <span className="font-bold">{topic}</span>
+                        </p>
+                      )}
+                    </div>
 
-                    {subject && (
-                      <span className="text-xs font-semibold text-slate-400">
-                        {visible.length} {visible.length === 1 ? 'course' : 'courses'} available
-                      </span>
-                    )}
+                    <span className="text-xs font-semibold text-slate-400">
+                      {visible.length} {visible.length === 1 ? 'course' : 'courses'} found
+                    </span>
                   </div>
 
                   {/* Topic Filter Pills when a subject is active and has multiple topics */}
@@ -516,7 +650,7 @@ export const CourseCatalogScreen: React.FC = () => {
                             : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
                         }`}
                       >
-                        All ({eligible.filter((l) => l.subject === subject).length})
+                        All ({lessons.filter((l) => l.subject === subject && matchesPricing(l, pricingFilter)).length})
                       </button>
                       {topicNames.map((t) => (
                         <button
@@ -528,7 +662,7 @@ export const CourseCatalogScreen: React.FC = () => {
                               : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
                           }`}
                         >
-                          {t} ({eligible.filter((l) => l.subject === subject && l.topic === t).length})
+                          {t} ({lessons.filter((l) => l.subject === subject && l.topic === t && matchesPricing(l, pricingFilter)).length})
                         </button>
                       ))}
                     </div>
@@ -536,12 +670,26 @@ export const CourseCatalogScreen: React.FC = () => {
 
                   {visible.length === 0 ? (
                     <div className={panel}>
-                      <p className="text-slate-300 font-semibold">No lessons found here yet.</p>
-                      <p className="text-sm text-slate-400">Try another subject or clear the filters.</p>
+                      <p className="text-slate-300 font-semibold">No courses match your selected filters.</p>
+                      <p className="text-sm text-slate-400">Try changing the subject, pricing filter, or search keywords.</p>
+                      <div className="pt-2">
+                        <button
+                          onClick={() => {
+                            setQuery('');
+                            setSubject('');
+                            setTopic('');
+                            setPricingFilter('all');
+                            setRevisionOnly(false);
+                          }}
+                          className={button + ' text-xs py-2 px-3'}
+                        >
+                          Reset Filters
+                        </button>
+                      </div>
                       {isAdmin && (
                         <div className="pt-4 border-t border-slate-700/60 mt-2">
                           <p className="text-xs text-indigo-300 mb-2.5 font-medium">
-                            You are signed in as an Administrator. You can create your first course and lesson now:
+                            You are signed in as an Administrator. You can create a new course now:
                           </p>
                           <button
                             onClick={() => setMode('admin')}
@@ -554,34 +702,9 @@ export const CourseCatalogScreen: React.FC = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {!subject && !query && !revisionOnly
-                        ? subjects
-                            .filter(s => visible.some(l => l.subject === s))
-                            .map(s => {
-                              const items = visible.filter(l => l.subject === s);
-                              return (
-                                <button
-                                  key={s}
-                                  onClick={() => setSubject(s)}
-                                  className={panel + ' text-left hover:border-cyan-400/60 cursor-pointer transition'}
-                                >
-                                  <span className="text-2xl">
-                                    {{
-                                      Physics: '⚡',
-                                      Chemistry: '🧪',
-                                      Biology: '🌿',
-                                      'Combined Maths': '📐',
-                                      ICT: '💻',
-                                    }[s]}
-                                  </span>
-                                  <h3 className="font-bold text-lg text-white">{s}</h3>
-                                  <p className="text-sm text-slate-400">{items.length} courses</p>
-                                  {progressBar(items)}
-                                </button>
-                              );
-                            })
-                        : lessonsPage.items.map(l => (
+                    <>
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {lessonsPage.items.map(l => (
                             <button
                               key={l._id}
                               disabled={opening}
@@ -610,10 +733,16 @@ export const CourseCatalogScreen: React.FC = () => {
                                       className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                                         l.isFree || !l.price
                                           ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                          : l.billingType === 'monthly'
+                                          ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
                                           : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                                       }`}
                                     >
-                                      {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
+                                      {l.isFree || !l.price
+                                        ? 'FREE'
+                                        : l.billingType === 'monthly'
+                                        ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
+                                        : `Rs. ${(l.price || 0).toLocaleString()}`}
                                     </span>
 
                                     {(() => {
@@ -736,7 +865,11 @@ export const CourseCatalogScreen: React.FC = () => {
                                       <div className="flex items-center justify-between w-full">
                                         <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
                                           <Lock className="w-3.5 h-3.5 text-amber-400" />
-                                          <span>Rs. {(l.price || 0).toLocaleString()}</span>
+                                          <span>
+                                            {l.billingType === 'monthly'
+                                              ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
+                                              : `Rs. ${(l.price || 0).toLocaleString()}`}
+                                          </span>
                                         </span>
                                         <span className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30">
                                           Enroll Now →
@@ -754,8 +887,18 @@ export const CourseCatalogScreen: React.FC = () => {
                               </div>
                             </button>
                           ))}
-                    </div>
-                  )}
+                        </div>
+
+                        {lessonsPage.pagination.totalPages > 1 && (
+                          <div className="pt-2">
+                            <Pagination
+                              {...lessonsPage.pagination}
+                              label="Courses"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
                 </>
               )}
             </>

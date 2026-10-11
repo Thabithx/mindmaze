@@ -50,6 +50,8 @@ export interface ICourse extends Document {
   revision: number;
   price: number;
   isFree: boolean;
+  billingType?: 'one_time' | 'monthly';
+  monthlyFee?: number;
   bankDetails?: string;
   videos: {title: string; url: string; description?: string}[];
   resources: any[];
@@ -94,6 +96,8 @@ const CourseSchema = new Schema<ICourse>(
     revision: { type: Number, default: 0 },
     price: { type: Number, default: 0, min: 0 },
     isFree: { type: Boolean, default: true },
+    billingType: { type: String, enum: ['one_time', 'monthly'], default: 'one_time' },
+    monthlyFee: { type: Number, default: 0, min: 0 },
     bankDetails: { type: String, default: '' },
     videos: [{ title: String, url: String, description: { type: String, default: '' } }],
     resources: [{ pdfProvider: String, pdfUrl: String, pdfPublicId: String, pdfFileName: String, size: Number }],

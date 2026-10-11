@@ -72,6 +72,8 @@ const initialForm = () => ({
   status: 'published' as 'draft' | 'published',
   price: 0,
   isFree: true,
+  billingType: 'one_time' as 'one_time' | 'monthly',
+  monthlyFee: 0,
   bankDetails: DEFAULT_BANK_DETAILS,
 });
 
@@ -180,6 +182,8 @@ export const AdminCourseManager: React.FC = () => {
       status: (lesson.status as 'draft' | 'published') || 'published',
       price: lesson.price ?? 0,
       isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
+      billingType: lesson.billingType || 'one_time',
+      monthlyFee: lesson.monthlyFee ?? (lesson.billingType === 'monthly' ? lesson.price : 0),
       bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
     });
 
@@ -957,10 +961,10 @@ export const AdminCourseManager: React.FC = () => {
                     <CreditCard className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-bold uppercase tracking-wider text-white">Course Pricing & Access</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, isFree: true, price: 0 }))}
+                      onClick={() => setForm((f) => ({ ...f, isFree: true, price: 0, billingType: 'one_time', monthlyFee: 0 }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
                         form.isFree || form.price === 0
                           ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
@@ -971,14 +975,25 @@ export const AdminCourseManager: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, isFree: false, price: f.price || 1500 }))}
+                      onClick={() => setForm((f) => ({ ...f, isFree: false, price: f.price || 1500, billingType: 'one_time' }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        !form.isFree && form.price > 0
+                        !form.isFree && form.price > 0 && form.billingType !== 'monthly'
                           ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
                           : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                       }`}
                     >
-                      Paid Course (Bank Slip)
+                      💳 Paid Course (Full Fee)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, isFree: false, billingType: 'monthly', monthlyFee: f.monthlyFee || f.price || 1500, price: f.price || 1500 }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        !form.isFree && form.billingType === 'monthly'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      📅 Monthly Paid Course
                     </button>
                   </div>
                 </div>
@@ -987,7 +1002,7 @@ export const AdminCourseManager: React.FC = () => {
                   <div className="grid sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 animate-in fade-in duration-150">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">
-                        Course Fee (LKR) <span className="text-rose-400">*</span>
+                        {form.billingType === 'monthly' ? 'Monthly Fee (LKR / mo)' : 'Course Fee (LKR)'} <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
@@ -997,10 +1012,15 @@ export const AdminCourseManager: React.FC = () => {
                           required={!form.isFree}
                           placeholder="e.g. 2500"
                           className={`${control} pl-10 font-bold`}
-                          value={form.price}
+                          value={form.billingType === 'monthly' ? (form.monthlyFee || form.price) : form.price}
                           onChange={(e) => {
                             const val = Math.max(0, Number(e.target.value));
-                            setForm((f) => ({ ...f, price: val, isFree: val === 0 }));
+                            setForm((f) => ({
+                              ...f,
+                              price: val,
+                              monthlyFee: f.billingType === 'monthly' ? val : f.monthlyFee,
+                              isFree: val === 0,
+                            }));
                           }}
                         />
                       </div>
@@ -2257,10 +2277,16 @@ export const AdminCourseManager: React.FC = () => {
                       className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                         l.isFree || !l.price
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
+                          : l.billingType === 'monthly'
+                          ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30'
                           : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
                       }`}
                     >
-                      {l.isFree || !l.price ? 'FREE' : `Rs. ${(l.price || 0).toLocaleString()}`}
+                      {l.isFree || !l.price
+                        ? 'FREE'
+                        : l.billingType === 'monthly'
+                        ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
+                        : `Rs. ${(l.price || 0).toLocaleString()}`}
                     </span>
                   </div>
                   <h4 className="font-bold text-slate-900 dark:text-white text-sm">{l.title}</h4>
