@@ -71,12 +71,147 @@ export function LessonView({
     return (progress?.completedBlocks || []).includes(key);
   };
 
-  const totalBlocks = lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0
-    ? lesson.curriculumBlocks.length
+  // Check if a live class has expired (5 hours after scheduledTime)
+  const isLiveClassExpired = (scheduledTime?: string): boolean => {
+    if (!scheduledTime) return false;
+    const time = Date.parse(scheduledTime);
+    if (isNaN(time)) return false;
+    const fiveHoursMs = 5 * 60 * 60 * 1000;
+    return Date.now() > time + fiveHoursMs;
+  };
+
+  const formatScheduleTime = (val?: string): string => {
+    if (!val) return '';
+    const parsed = Date.parse(val);
+    if (!isNaN(parsed)) {
+      const d = new Date(parsed);
+      return d.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+    return val;
+  };
+
+  // Main sequential curriculum: excludes live classes which live in the dedicated right sidebar
+  const activeCurriculumBlocks = (lesson.curriculumBlocks || []).filter(b => b.type !== 'live_class');
+
+  // Live classes for the right sidebar (unexpired, within 5 hours of schedule)
+  const liveClasses = (lesson.curriculumBlocks || [])
+    .map((b, originalIndex) => ({ ...b, originalIndex }))
+    .filter(b => b.type === 'live_class' && !isLiveClassExpired(b.scheduledTime));
+
+  // Check if a curriculum block is sequentially unlocked
+  const isBlockUnlocked = (idx: number): boolean => {
+    if (preview) return true;
+    if (progress?.completed) return true;
+
+    const block = activeCurriculumBlocks[idx];
+    if (!block) return true;
+
+    // If already marked as done, always accessible for review
+    if (isBlockDone(block, idx)) return true;
+
+    // Check all previous blocks in the sequential curriculum
+    for (let i = 0; i < idx; i++) {
+      const prev = activeCurriculumBlocks[i];
+      if (prev && !isBlockDone(prev, i)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // Find the preceding incomplete block that is keeping block `idx` locked
+  const getBlockingBlock = (idx: number): { index: number; block: CurriculumBlock } | null => {
+    for (let i = 0; i < idx; i++) {
+      const prev = activeCurriculumBlocks[i];
+      if (prev && !isBlockDone(prev, i)) {
+        return { index: i, block: prev };
+      }
+    }
+    return null;
+  };
+
+  const scrollToStep = (stepIdx: number) => {
+    const el = document.getElementById(`learning-step-${stepIdx}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Determine if a downloadable resource/note is unlocked based on curriculum progression
+  const getResourceBlockInfo = (r: any, rIdx: number) => {
+    if (preview || progress?.completed) {
+      return { isUnlocked: true, blocking: null, blockIndex: -1 };
+    }
+
+    if (!activeCurriculumBlocks.length) {
+      return { isUnlocked: true, blocking: null, blockIndex: -1 };
+    }
+
+    // 1. Try to match by path or URL
+    let targetIndex = activeCurriculumBlocks.findIndex(
+      b => b.type === 'document' && (
+        (b.pdfUrl && r.path && (b.pdfUrl === r.path || b.pdfUrl.includes(r.path) || r.path.includes(b.pdfUrl))) ||
+        (b.path && r.path && (b.path === r.path || b.path.includes(r.path) || r.path.includes(b.path)))
+      )
+    );
+
+    // 2. Try to match by title
+    if (targetIndex < 0 && r.title) {
+      targetIndex = activeCurriculumBlocks.findIndex(
+        b => b.type === 'document' && (
+          (b.title && b.title.trim().toLowerCase() === r.title.trim().toLowerCase()) ||
+          (b.pdfFileName && b.pdfFileName.trim().toLowerCase() === r.title.trim().toLowerCase())
+        )
+      );
+    }
+
+    // 3. Match by ordinal position among all 'document' blocks
+    if (targetIndex < 0) {
+      const docBlockIndices = activeCurriculumBlocks
+        .map((b, idx) => ({ b, idx }))
+        .filter(item => item.b.type === 'document')
+        .map(item => item.idx);
+      if (docBlockIndices[rIdx] !== undefined) {
+        targetIndex = docBlockIndices[rIdx];
+      }
+    }
+
+    // 4. Fallback: first document block if available
+    if (targetIndex < 0) {
+      const firstDocIdx = activeCurriculumBlocks.findIndex(b => b.type === 'document');
+      if (firstDocIdx >= 0) {
+        targetIndex = firstDocIdx;
+      }
+    }
+
+    // If there are still no document blocks in curriculum at all
+    if (targetIndex < 0) {
+      return { isUnlocked: true, blocking: null, blockIndex: -1 };
+    }
+
+    const unlocked = isBlockUnlocked(targetIndex);
+    const blocking = !unlocked ? getBlockingBlock(targetIndex) : null;
+    return {
+      isUnlocked: unlocked,
+      blocking,
+      blockIndex: targetIndex,
+    };
+  };
+
+  const totalBlocks = activeCurriculumBlocks.length > 0
+    ? activeCurriculumBlocks.length
     : Math.max(1, (lesson.videos?.length || 0) + (lesson.description ? 1 : 0) + (lesson.quiz?.length ? 1 : 0));
 
-  const completedCount = lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0
-    ? lesson.curriculumBlocks.filter((b, idx) => isBlockDone(b, idx)).length
+  const completedCount = activeCurriculumBlocks.length > 0
+    ? activeCurriculumBlocks.filter((b, idx) => isBlockDone(b, idx)).length
     : ((lesson.videos || []).filter((_, i) => isLegacyDone(`video-${i}`)).length +
        (lesson.description && isLegacyDone('description') ? 1 : 0) +
        (lesson.quiz?.length && isLegacyDone('quiz') ? 1 : 0));
@@ -243,7 +378,7 @@ export function LessonView({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-6 min-w-0">
           {/* Coursera-style Sequential Curriculum Timeline OR Legacy View */}
-          {lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0 ? (
+          {activeCurriculumBlocks.length > 0 ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div className="flex items-center gap-2">
@@ -251,19 +386,21 @@ export function LessonView({
                   <h3 className="text-lg font-bold text-white">Course Curriculum & Schedule</h3>
                 </div>
                 <span className="text-xs font-semibold text-slate-400">
-                  {lesson.curriculumBlocks.length} Learning Steps
+                  {activeCurriculumBlocks.length} Learning Steps
                 </span>
               </div>
 
               <div className="space-y-6">
-                {lesson.curriculumBlocks.map((block, idx) => {
+                {activeCurriculumBlocks.map((block, idx) => {
                   const blockKey = getBlockKey(block, idx);
                   const blockId = `block-${idx}`;
                   const isPlaying = activeMedia === blockId;
                   const done = isBlockDone(block, idx);
+                  const unlocked = isBlockUnlocked(idx);
+                  const blocking = !unlocked ? getBlockingBlock(idx) : null;
 
                   return (
-                    <div key={idx} className="space-y-2">
+                    <div key={idx} id={`learning-step-${idx}`} className="space-y-2 scroll-mt-24">
                       {/* Step header / indicator */}
                       <div className="flex items-center justify-between gap-2 text-xs font-bold pl-1">
                         <div className="flex items-center gap-2">
@@ -271,12 +408,14 @@ export function LessonView({
                             className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center font-black transition-all ${
                               done
                                 ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/40 ring-2 ring-emerald-500/20'
+                                : !unlocked
+                                ? 'bg-slate-900 border border-slate-700/80 text-amber-400'
                                 : 'bg-slate-800 border border-slate-700 text-slate-200'
                             }`}
                           >
-                            {done ? '✓' : idx + 1}
+                            {done ? '✓' : !unlocked ? <Lock className="w-3 h-3 text-amber-400" /> : idx + 1}
                           </span>
-                          <span className="uppercase tracking-wider text-slate-400">
+                          <span className={`uppercase tracking-wider ${!unlocked ? 'text-slate-500' : 'text-slate-400'}`}>
                             {block.type === 'live_class'
                               ? 'Live Class Session'
                               : block.type === 'video'
@@ -288,16 +427,77 @@ export function LessonView({
                               : 'Lesson Overview & Guide'}
                           </span>
                         </div>
-                        {done && (
+                        {done ? (
                           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Completed ✓</span>
                           </span>
-                        )}
+                        ) : !unlocked ? (
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Locked · Complete Step {blocking ? blocking.index + 1 : 'Previous'} First</span>
+                          </span>
+                        ) : null}
                       </div>
 
-                      {/* BLOCK: DESCRIPTION / GUIDE */}
-                      {block.type === 'description' && (
+                      {!unlocked ? (
+                        <section className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 sm:p-6 backdrop-blur-md">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <Lock className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-white font-bold text-base">
+                                    {block.title || (
+                                      block.type === 'video'
+                                        ? 'Video Lecture'
+                                        : block.type === 'document'
+                                        ? 'Study Notes & Document'
+                                        : block.type === 'quiz'
+                                        ? 'Practice Quiz'
+                                        : 'Lesson Section'
+                                    )}
+                                  </h4>
+                                  <span className="text-[9px] px-2 py-0.5 rounded font-black tracking-wider uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                    Locked
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                  {blocking ? (
+                                    <>
+                                      Please complete Step {blocking.index + 1}:{' '}
+                                      <span className="text-cyan-300 font-semibold">
+                                        "{blocking.block.title || (blocking.block.type === 'video' ? 'Video Lecture' : blocking.block.type === 'document' ? 'Study Notes' : blocking.block.type === 'quiz' ? 'Quiz' : 'Lesson Overview')}"
+                                      </span>{' '}
+                                      first to unlock this section.
+                                    </>
+                                  ) : (
+                                    'Please complete the previous learning steps in order to unlock this content.'
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            {blocking && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  document.getElementById(`learning-step-${blocking.index}`)?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className="shrink-0 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow"
+                              >
+                                <span>Go to Step {blocking.index + 1}</span>
+                                <span>↑</span>
+                              </button>
+                            )}
+                          </div>
+                        </section>
+                      ) : (
+                        <>
+                          {/* BLOCK: DESCRIPTION / GUIDE */}
+                          {block.type === 'description' && (
                         <section className={panel}>
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-2 text-indigo-400 font-bold text-base">
@@ -323,116 +523,6 @@ export function LessonView({
                         </section>
                       )}
 
-                      {/* BLOCK: LIVE CLASS */}
-                      {block.type === 'live_class' && (
-                        <section className={`${panel} border-rose-500/30 ring-1 ring-rose-500/10`}>
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              {done ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                  <CheckCircle2 className="w-3 h-3" /> Session Completed
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                                  <Radio className="w-3 h-3 animate-pulse" /> Live Class
-                                </span>
-                              )}
-
-                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
-                                {block.meetingPlatform || 'Live Classroom'}
-                              </span>
-                            </div>
-
-                            {block.scheduledTime && (
-                              <div className="flex items-center gap-1.5 text-xs text-rose-300 font-semibold bg-rose-950/40 px-3 py-1 rounded-lg border border-rose-800/40">
-                                <Clock className="w-3.5 h-3.5" />
-                                <span>{block.scheduledTime}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <h4 className="text-xl font-bold text-white">{block.title}</h4>
-                            {block.description && (
-                              <p className="text-sm text-slate-300 mt-1 whitespace-pre-line leading-relaxed">
-                                {block.description}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* If upcoming & has link, show Join Button */}
-                          {!block.isCompleted && block.liveLink && (
-                            <div className="pt-2">
-                              <a
-                                href={block.liveLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:brightness-110 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition cursor-pointer"
-                              >
-                                <Radio className="w-4 h-4 animate-pulse" />
-                                <span>Join Live Classroom on {block.meetingPlatform || 'Online'}</span>
-                                <ExternalLink className="w-4 h-4 ml-1" />
-                              </a>
-                            </div>
-                          )}
-
-                          {/* If session has recording, show Clean Player */}
-                          {(block.recordingEmbedUrl || block.recordingUrl) && (
-                            <div className="mt-4 space-y-2 pt-3 border-t border-white/5">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Play className="w-4 h-4 text-cyan-400" />
-                                  <h5 className="font-bold text-white text-sm">Class Recording (Rewatch)</h5>
-                                </div>
-                                <span className="text-[11px] text-slate-400">Stream protected</span>
-                              </div>
-
-                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
-                                {isPlaying ? (
-                                  <CleanVideoPlayer
-                                    url={block.recordingEmbedUrl || block.recordingUrl || ''}
-                                    title={`${block.title} (Live Recording)`}
-                                    studentName={currentUser?.name || 'Mind Maze Student'}
-                                    indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
-                                    onEnded={() => {
-                                      if (!done) {
-                                        toggleBlockCompletion(blockKey);
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <button
-                                    className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer"
-                                    onClick={() => setActiveMedia(blockId)}
-                                  >
-                                    <div className="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 shadow-lg shadow-rose-500/10">
-                                      <Play className="w-6 h-6 ml-0.5 fill-rose-400" />
-                                    </div>
-                                    <span className="text-sm font-medium text-white">Watch Session Recording</span>
-                                    <span className="text-xs text-slate-400">Recorded live class video</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs text-slate-400">Attended or watched this live session?</span>
-                            <button
-                              onClick={() => toggleBlockCompletion(blockKey)}
-                              disabled={busy || (!signedIn && !preview)}
-                              className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500/40'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{done ? 'Session Attended ✓' : 'Mark as Attended'}</span>
-                            </button>
-                          </div>
-                        </section>
-                      )}
 
                       {/* BLOCK: VIDEO LESSON */}
                       {block.type === 'video' && (
@@ -720,7 +810,9 @@ export function LessonView({
                           </div>
                         </section>
                       )}
-                    </div>
+                    </>
+                  )}
+                </div>
                   );
                 })}
               </div>
@@ -734,6 +826,30 @@ export function LessonView({
                     const targetUrl = video.embedUrl || video.url || '';
                     const embed = youtubeEmbed(targetUrl);
                     const hasValidId = Boolean(extractYouTubeId(targetUrl));
+                    const isVideoUnlocked = preview || progress?.completed || i === 0 || isLegacyDone(`video-${i - 1}`);
+
+                    if (!isVideoUnlocked) {
+                      return (
+                        <section key={i} className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 sm:p-6 backdrop-blur-md">
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                              <Lock className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-white font-bold text-base">{video.title || `Video Part ${i + 1}`}</h4>
+                                <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  Locked
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400 mt-1">
+                                Complete Video Part {i} first to unlock this video lecture.
+                              </p>
+                            </div>
+                          </div>
+                        </section>
+                      );
+                    }
 
                     return (
                       <section
@@ -956,11 +1072,24 @@ export function LessonView({
           {/* Clean Next Lesson navigation */}
           {onNext && (
             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-              <span className="text-xs text-slate-400">Ready for the next lesson?</span>
+              <div>
+                <span className="text-xs text-slate-400 block">Ready for the next lesson?</span>
+                {progressPct < 100 && !progress?.completed && !preview && (
+                  <span className="text-[11px] text-amber-300 font-medium">Complete all sections above to proceed</span>
+                )}
+              </div>
               <button
                 onClick={onNext}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition cursor-pointer"
+                disabled={progressPct < 100 && !progress?.completed && !preview}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition ${
+                  progressPct === 100 || progress?.completed || preview
+                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 cursor-pointer'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
+                }`}
               >
+                {progressPct < 100 && !progress?.completed && !preview ? (
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                ) : null}
                 <span>Next Lesson →</span>
               </button>
             </div>
@@ -969,38 +1098,221 @@ export function LessonView({
 
         {/* Aside: Downloadable Study Notes & Papers with Watermark info */}
         <aside className="space-y-5">
-          <section className={panel}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-bold flex items-center gap-2">
-                <FileText className="w-4 h-4 text-cyan-400" />
-                Lesson Notes (PDF)
-              </h3>
-            </div>
+          <section className={`${panel} space-y-3`}>
+            {(() => {
+              const totalRes = lesson.resources?.length || 0;
+              const unlockedResCount = (lesson.resources || []).filter(
+                (r, idx) => getResourceBlockInfo(r, idx).isUnlocked
+              ).length;
+              const allNotesLocked = totalRes > 0 && unlockedResCount === 0;
 
-            {lesson.resources?.length ? (
-              <div className="space-y-2.5">
-                {lesson.resources.map(r => (
-                  <a
-                    key={r.id}
-                    className="block rounded-xl bg-slate-800/90 hover:bg-slate-750 border border-slate-700/60 p-3 text-sm text-cyan-300 hover:text-cyan-200 transition group"
-                    href={api.courseResourceUrl(r.path)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium group-hover:underline">{r.title}</span>
-                      <span className="text-xs text-cyan-400 font-semibold">Download ↗</span>
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-white font-bold flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-cyan-400" />
+                      <span>Lesson Notes (PDF)</span>
+                    </h3>
+                    {totalRes > 0 && (
+                      allNotesLocked ? (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>Locked</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-slate-400">
+                          {unlockedResCount}/{totalRes} Unlocked
+                        </span>
+                      )
+                    )}
+                  </div>
+
+                  {allNotesLocked && (
+                    <div className="rounded-xl bg-amber-950/40 border border-amber-500/30 p-2.5 text-xs text-amber-300 flex items-start gap-2">
+                      <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400" />
+                      <span>Complete earlier learning steps to unlock notes for download.</span>
                     </div>
-                    <span className="block text-xs text-slate-400 mt-1">
-                      PDF document {r.size ? `· ${(r.size / 1024 / 1024).toFixed(1)} MiB` : ''}
-                    </span>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">No notes attached yet.</p>
-            )}
+                  )}
+
+                  {lesson.resources?.length ? (
+                    <div className="space-y-2.5">
+                      {lesson.resources.map((r, rIdx) => {
+                        const { isUnlocked, blocking, blockIndex } = getResourceBlockInfo(r, rIdx);
+
+                        if (!isUnlocked) {
+                          return (
+                            <div
+                              key={r.id || rIdx}
+                              onClick={() => blocking && scrollToStep(blocking.index)}
+                              className="rounded-xl bg-slate-900/80 border border-slate-800/80 p-3 space-y-2 cursor-pointer group hover:border-amber-500/40 transition select-none"
+                              title={blocking ? `Locked. Complete Step ${blocking.index + 1} first.` : 'Locked'}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                  <span className="font-medium text-xs text-slate-300 truncate group-hover:text-amber-200 transition">
+                                    {r.title}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-1">
+                                  <Lock className="w-2.5 h-2.5" />
+                                  <span>Locked</span>
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-white/5">
+                                <span>
+                                  {blocking
+                                    ? `Unlocks at Step ${blockIndex >= 0 ? blockIndex + 1 : 'next'}`
+                                    : 'Complete previous step'}
+                                </span>
+                                <span className="text-amber-400/90 font-semibold group-hover:underline flex items-center gap-1">
+                                  Go to Step {blocking ? blocking.index + 1 : ''} →
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <a
+                            key={r.id || rIdx}
+                            className="block rounded-xl bg-slate-800/90 hover:bg-slate-750 border border-slate-700/60 p-3 text-sm text-cyan-300 hover:text-cyan-200 transition group"
+                            href={api.courseResourceUrl(r.path)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium group-hover:underline flex items-center gap-2 truncate">
+                                <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                <span className="truncate">{r.title}</span>
+                              </span>
+                              <span className="text-xs text-cyan-400 font-semibold shrink-0 ml-2">Download ↗</span>
+                            </div>
+                            <span className="block text-xs text-slate-400 mt-1 pl-5.5">
+                              PDF document {r.size ? `· ${(r.size / 1024 / 1024).toFixed(1)} MiB` : ''}
+                            </span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">No notes attached yet.</p>
+                  )}
+                </>
+              );
+            })()}
           </section>
+
+          {/* Live Classes Section (Right side under Lesson Notes) */}
+          {liveClasses.length > 0 && (
+            <section className={`${panel} border-rose-500/30 ring-1 ring-rose-500/10 space-y-3.5`}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-rose-400 animate-pulse" />
+                  <span>Live Class Classroom</span>
+                </h3>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  Live
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {liveClasses.map((lc, idx) => {
+                  const isDone = isBlockDone(lc, lc.originalIndex);
+                  const isPlaying = activeMedia === `live-${lc.originalIndex}`;
+                  const targetRecording = lc.recordingEmbedUrl || lc.recordingUrl;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-3 hover:border-rose-500/40 transition"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                          {lc.meetingPlatform || 'Zoom / Online'}
+                        </span>
+
+                        {lc.scheduledTime && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-rose-300 font-semibold bg-rose-950/40 px-2.5 py-0.5 rounded-md border border-rose-800/40">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatScheduleTime(lc.scheduledTime)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-white text-sm leading-snug">{lc.title || 'Live Class Session'}</h4>
+                        {lc.description && (
+                          <p className="text-xs text-slate-300 mt-1 line-clamp-3 leading-relaxed whitespace-pre-line">
+                            {lc.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {!lc.isCompleted && lc.liveLink && (
+                        <a
+                          href={lc.liveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition cursor-pointer"
+                        >
+                          <Radio className="w-3.5 h-3.5 animate-pulse" />
+                          <span>Join Live Classroom</span>
+                          <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                        </a>
+                      )}
+
+                      {targetRecording && (
+                        <div className="space-y-2 pt-2 border-t border-white/5">
+                          <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1">
+                            <Play className="w-3 h-3" /> Class Recording
+                          </span>
+                          <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-950 border border-slate-800 select-none">
+                            {isPlaying ? (
+                              <CleanVideoPlayer
+                                url={targetRecording}
+                                title={`${lc.title} (Recording)`}
+                                studentName={currentUser?.name || 'Mind Maze Student'}
+                                indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
+                              />
+                            ) : (
+                              <button
+                                className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:from-slate-850 hover:to-slate-900 transition cursor-pointer text-xs"
+                                onClick={() => setActiveMedia(`live-${lc.originalIndex}`)}
+                              >
+                                <div className="w-9 h-9 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 shadow">
+                                  <Play className="w-4 h-4 ml-0.5 fill-rose-400" />
+                                </div>
+                                <span>Watch Recording</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400">Attended live?</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleBlockCompletion(getBlockKey(lc, lc.originalIndex))}
+                          disabled={busy || (!signedIn && !preview)}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition flex items-center gap-1 cursor-pointer ${
+                            isDone
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{isDone ? 'Attended ✓' : 'Mark Attended'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {!!lesson.relatedPapers?.length && (
             <section className={panel}>
@@ -1025,8 +1337,17 @@ export function LessonView({
           )}
 
           {onNext && (
-            <button className={`${button} w-full`} onClick={onNext}>
-              Next lesson →
+            <button
+              className={`${button} w-full flex items-center justify-center gap-1.5 ${
+                progressPct < 100 && !progress?.completed && !preview ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
+              disabled={progressPct < 100 && !progress?.completed && !preview}
+              onClick={onNext}
+            >
+              {progressPct < 100 && !progress?.completed && !preview ? (
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+              ) : null}
+              <span>Next lesson →</span>
             </button>
           )}
         </aside>

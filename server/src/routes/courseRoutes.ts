@@ -44,7 +44,26 @@ function formatSecureVideo(title: string, url: string, admin: boolean, descripti
   };
 }
 
+export function cleanupExpiredLiveClasses(c: any): boolean {
+  if (!c || !c.curriculumBlocks || !Array.isArray(c.curriculumBlocks)) return false;
+  const now = Date.now();
+  const fiveHoursMs = 5 * 60 * 60 * 1000;
+  const originalLen = c.curriculumBlocks.length;
+
+  c.curriculumBlocks = c.curriculumBlocks.filter((b: any) => {
+    if (b.type !== 'live_class') return true;
+    if (!b.scheduledTime) return true;
+    const time = Date.parse(b.scheduledTime);
+    if (isNaN(time)) return true;
+    // Auto-delete if more than 5 hours have passed since scheduledTime
+    return (now - time) <= fiveHoursMs;
+  });
+
+  return c.curriculumBlocks.length !== originalLen;
+}
+
 const present=(c:any,admin=false)=>{
+  cleanupExpiredLiveClasses(c);
   const rawVideos = [...(c.videoUrl?[{title:'Video lesson',url:c.videoUrl,description:''}]:[]), ...(c.videos||[])];
   return {
     ...summary(c),
@@ -146,6 +165,9 @@ router.get('/:id/blocks/:blockId/download',async(req,res)=>{
 });
 router.get('/:id',async(req,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
+  if(cleanupExpiredLiveClasses(c)){
+    Course.updateOne({_id:c._id},{$set:{curriculumBlocks:c.curriculumBlocks}}).catch(()=>{});
+  }
   const papers=await PastPaper.find({_id:{$in:c.relatedPaperIds||[]}}).select('title year subject type').lean();
   res.json({course:{...present(c),relatedPapers:papers.map(p=>({...p,pdfPath:`/past-papers/${p._id}/download`}))}});
 }catch(e){fail(res,e);}});
@@ -241,6 +263,9 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
       if(!keep.includes('legacy'))removed.push(existing);
       await Promise.all(removed.map(r=>removePdf(r).catch(()=>{})));
     }
+    if (Array.isArray(details.curriculumBlocks)) {
+      cleanupExpiredLiveClasses(details);
+    }
     res.status(updating?200:201).json({course:present(course,true)});
   }catch(e:any){
     console.error('[saveLesson error]:', e);
@@ -260,4 +285,19 @@ router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
   await CourseProgress.deleteMany({course:c._id});res.json({message:'Lesson removed.'});
 }catch(e){fail(res,e);}});
+
+// Background worker: automatically delete live classes 5 hours after scheduled time
+setInterval(async () => {
+  try {
+    const courses = await Course.find({ 'curriculumBlocks.type': 'live_class' });
+    for (const c of courses) {
+      if (cleanupExpiredLiveClasses(c)) {
+        await Course.updateOne({ _id: c._id }, { $set: { curriculumBlocks: c.curriculumBlocks } });
+      }
+    }
+  } catch (err) {
+    console.error('[Live Class Cleanup Interval Error]:', err);
+  }
+}, 30 * 60 * 1000);
+
 export default router;

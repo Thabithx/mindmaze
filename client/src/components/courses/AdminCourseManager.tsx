@@ -1378,13 +1378,14 @@ export const AdminCourseManager: React.FC = () => {
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Scheduled Date & Time (Optional)
+                                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                                  <span>Scheduled Date & Time</span>
+                                  <span className="text-[10px] text-amber-400 font-medium">Auto-deletes 5h after this time</span>
                                 </label>
                                 <input
+                                  type="datetime-local"
                                   className={control}
-                                  placeholder="e.g. Friday 7:30 PM (or YYYY-MM-DD HH:mm)"
-                                  value={block.scheduledTime || ''}
+                                  value={block.scheduledTime ? (block.scheduledTime.length >= 16 ? block.scheduledTime.slice(0, 16) : block.scheduledTime) : ''}
                                   onChange={(e) => updateBlock(idx, { scheduledTime: e.target.value })}
                                 />
                               </div>
