@@ -247,4 +247,6 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  getStudentDetailedProgress: (userId: string) =>
+    apiFetch(`/enrollments/admin/student/${userId}/progress`),
 };

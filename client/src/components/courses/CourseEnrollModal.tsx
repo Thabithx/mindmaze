@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
-import { Lesson } from './learning';
+import { Lesson, CourseEnrollmentRecord } from './learning';
 import {
   CreditCard,
   Upload,
@@ -14,6 +14,8 @@ import {
   Loader2,
   X,
   Building,
+  RefreshCw,
+  PieChart,
 } from 'lucide-react';
 
 interface CourseEnrollModalProps {
@@ -21,6 +23,7 @@ interface CourseEnrollModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (status: 'approved' | 'pending') => void;
+  existingEnrollment?: CourseEnrollmentRecord | null;
 }
 
 export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
@@ -28,11 +31,21 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  existingEnrollment,
 }) => {
   const isFree = course.isFree || !course.price || course.price <= 0;
+  const isReapplying = existingEnrollment?.status === 'rejected';
+
+  const [paymentType, setPaymentType] = useState<'full' | 'partial'>(
+    existingEnrollment?.paymentType === 'partial' ? 'partial' : 'full'
+  );
+  const [amountPaid, setAmountPaid] = useState<string>(() => {
+    if (existingEnrollment?.amountPaid) return String(existingEnrollment.amountPaid);
+    return course.price ? String(course.price) : '';
+  });
   const [slipFile, setSlipFile] = useState<File | null>(null);
-  const [bankReference, setBankReference] = useState('');
-  const [notes, setNotes] = useState('');
+  const [bankReference, setBankReference] = useState(existingEnrollment?.bankReference || '');
+  const [notes, setNotes] = useState(existingEnrollment?.notes || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -68,6 +81,14 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
       return;
     }
 
+    if (!isFree && paymentType === 'partial') {
+      const parsed = Number(amountPaid);
+      if (isNaN(parsed) || parsed <= 0) {
+        setError('Please enter a valid partial payment amount in Rupees.');
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       if (isFree) {
@@ -78,6 +99,8 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
         // Paid enrollment with slip upload
         const formData = new FormData();
         formData.append('slipFile', slipFile!);
+        formData.append('paymentType', paymentType);
+        formData.append('amountPaid', paymentType === 'partial' ? amountPaid : String(course.price || 0));
         if (bankReference.trim()) formData.append('bankReference', bankReference.trim());
         if (notes.trim()) formData.append('notes', notes.trim());
 
@@ -118,6 +141,23 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
 
         {/* Modal Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
+          {/* Rejection Alert Banner if Student is Re-applying */}
+          {isReapplying && (
+            <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-bold text-rose-300">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Previous Enrollment Request Declined</span>
+              </div>
+              <p className="text-slate-200 leading-relaxed bg-black/30 p-2.5 rounded-lg border border-rose-500/20">
+                <strong className="text-white">Admin Note:</strong>{' '}
+                {existingEnrollment?.adminNotes || 'Payment slip could not be verified. Please check the deposit details and re-upload.'}
+              </p>
+              <p className="text-[11px] text-amber-300 font-medium">
+                💡 You can upload a new or corrected bank deposit slip below to re-submit your enrollment for approval.
+              </p>
+            </div>
+          )}
+
           {/* Fee / Price Banner */}
           <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
             <div>
@@ -148,13 +188,102 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
                 <CheckCircle2 className="w-4 h-4" />
                 <span>This course is completely free for all Mind Maze students!</span>
               </p>
-              <p className="text-slate-300">
-                Click the button below to enroll instantly. You will unlock all videos, PDF study notes, and quizzes immediately.
+              <p className="text-slate-300 leading-relaxed">
+                Click the <strong>Enroll for Free Now</strong> button below to enroll immediately. You will be registered and gain instant access to all videos, PDF notes, and practice quizzes.
               </p>
             </div>
           ) : (
             /* If Course is PAID */
             <>
+              {/* Payment Methods (Fully Paid vs Partially Paid) */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Select Payment Option:</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentType('full');
+                      setAmountPaid(String(course.price || 0));
+                    }}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      paymentType === 'full'
+                        ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500/30'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Full Payment</span>
+                      {paymentType === 'full' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    </div>
+                    <span className="text-xs font-mono font-bold text-emerald-400">
+                      Rs. {(course.price || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Complete course fee</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentType('partial');
+                      if (!amountPaid || amountPaid === String(course.price)) {
+                        setAmountPaid(String(Math.round((course.price || 0) / 2)));
+                      }
+                    }}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      paymentType === 'partial'
+                        ? 'bg-amber-600/20 border-amber-500 ring-1 ring-amber-500/30'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Partial Payment</span>
+                      {paymentType === 'partial' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                    </div>
+                    <span className="text-xs font-mono font-bold text-amber-300">Installment / Advance</span>
+                    <span className="text-[10px] text-slate-400">Pay part now, rest later</span>
+                  </button>
+                </div>
+
+                {/* Partial Amount Input */}
+                {paymentType === 'partial' && (
+                  <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-amber-200">
+                        Amount Paid in this Slip (Rs.) <span className="text-rose-400">*</span>
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        Total Fee: Rs. {(course.price || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-400">
+                        Rs.
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        max={course.price || undefined}
+                        required
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(e.target.value)}
+                        placeholder="e.g. 2500"
+                        className="w-full rounded-xl border border-amber-500/50 bg-slate-950 pl-10 pr-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Remaining balance:{' '}
+                      <strong className="text-amber-300 font-mono">
+                        Rs. {Math.max(0, (course.price || 0) - (Number(amountPaid) || 0)).toLocaleString()}
+                      </strong>{' '}
+                      to be settled later.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Bank Details Box */}
               <div className="rounded-xl border border-indigo-500/30 bg-slate-950/80 p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -278,7 +407,13 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{isFree ? 'Enroll for Free Now' : 'Submit Bank Slip & Enroll'}</span>
+                  <span>
+                    {isFree
+                      ? 'Enroll for Free Now'
+                      : isReapplying
+                      ? 'Re-submit Bank Slip & Re-apply'
+                      : 'Submit Bank Slip & Enroll'}
+                  </span>
                 </>
               )}
             </button>

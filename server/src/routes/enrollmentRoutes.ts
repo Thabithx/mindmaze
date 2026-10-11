@@ -79,6 +79,8 @@ router.post(
             $set: {
               status: 'approved',
               amount: 0,
+              amountPaid: 0,
+              paymentType: 'free',
               isFree: true,
               enrolledAt: new Date(),
               adminNotes: 'Auto-enrolled in free course',
@@ -122,12 +124,23 @@ router.post(
       const bankReference = typeof req.body.bankReference === 'string' ? req.body.bankReference.trim() : '';
       const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
 
+      const rawPaymentType = typeof req.body.paymentType === 'string' ? req.body.paymentType.toLowerCase().trim() : 'full';
+      const paymentType = rawPaymentType === 'partial' ? 'partial' : 'full';
+      const coursePrice = course.price || 0;
+      let amountPaid = coursePrice;
+      if (paymentType === 'partial') {
+        const parsed = Number(req.body.amountPaid);
+        amountPaid = !isNaN(parsed) && parsed > 0 ? parsed : coursePrice;
+      }
+
       const enrollment = await CourseEnrollment.findOneAndUpdate(
         { user: userId, course: courseId },
         {
           $set: {
             status: 'pending',
-            amount: course.price || 0,
+            amount: coursePrice,
+            amountPaid,
+            paymentType,
             isFree: false,
             slipUrl,
             slipPublicId,
@@ -135,7 +148,7 @@ router.post(
             bankReference,
             notes,
             enrolledAt: new Date(),
-            adminNotes: '',
+            adminNotes: '', // clears old rejection reason so student starts fresh
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -289,7 +302,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
 router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, paymentType, amountPaid } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
       res.status(400).json({ message: 'Invalid enrollment ID.' });
@@ -309,6 +322,14 @@ router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthReq
 
     if (typeof adminNotes === 'string') {
       update.adminNotes = adminNotes.trim();
+    }
+
+    if (paymentType === 'full' || paymentType === 'partial' || paymentType === 'free') {
+      update.paymentType = paymentType;
+    }
+
+    if (typeof amountPaid === 'number' && !isNaN(amountPaid) && amountPaid >= 0) {
+      update.amountPaid = amountPaid;
     }
 
     const updated = await CourseEnrollment.findByIdAndUpdate(id, { $set: update }, { new: true })
@@ -442,5 +463,144 @@ router.put(
     }
   }
 );
+
+// 8. Admin: Get comprehensive learning progress & enrolled courses for a specific student
+router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId)) {
+      res.status(400).json({ message: 'Invalid student ID.' });
+      return;
+    }
+
+    const student = await User.findById(userId, 'name email indexNumber mobileNumber whatsappNumber phoneNumber phone role stream createdAt').lean();
+    if (!student) {
+      res.status(404).json({ message: 'Student user not found.' });
+      return;
+    }
+
+    // Fetch all course enrollments for this student
+    const enrollments = await CourseEnrollment.find({ user: userId })
+      .populate('course', 'title subject stream topic price isFree status curriculumBlocks videoCount estimatedMinutes')
+      .populate('reviewedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Fetch all course progress records for this student
+    const progressRecords = await CourseProgress.find({ user: userId }).lean();
+    const progressMap = new Map<string, any>();
+    for (const p of progressRecords) {
+      progressMap.set(String(p.course), p);
+    }
+
+    const allQuizPercentages: number[] = [];
+
+    const detailedCourses = enrollments.map((enr: any) => {
+      const course = enr.course || {};
+      const courseIdStr = String(course._id || enr.course);
+      const prog = progressMap.get(courseIdStr);
+
+      const completedBlockSet = new Set<string>((prog?.completedBlocks || []).map((b: any) => String(b)));
+      const blocks: any[] = Array.isArray(course.curriculumBlocks) ? course.curriculumBlocks : [];
+
+      // Calculate video metrics
+      const videoBlocks = blocks.filter((b) => b.type === 'video');
+      const watchedVideos: any[] = [];
+      const remainingVideos: any[] = [];
+
+      videoBlocks.forEach((vb, idx) => {
+        const blockId = String(vb._id || `block_${idx}`);
+        const isCompleted = completedBlockSet.has(blockId) || completedBlockSet.has(vb.url || '') || completedBlockSet.has(String(idx));
+        const videoSummary = {
+          _id: vb._id,
+          title: vb.title || `Video ${idx + 1}`,
+          url: vb.url,
+          isCompleted,
+        };
+        if (isCompleted) watchedVideos.push(videoSummary);
+        else remainingVideos.push(videoSummary);
+      });
+
+      // Calculate document / guide metrics
+      const docBlocks = blocks.filter((b) => b.type === 'document' || b.type === 'description');
+      const docsProgress = docBlocks.map((db, idx) => {
+        const blockId = String(db._id || `doc_${idx}`);
+        const isCompleted = completedBlockSet.has(blockId) || completedBlockSet.has(db.pdfUrl || '') || completedBlockSet.has(String(idx));
+        return {
+          _id: db._id,
+          type: db.type,
+          title: db.title || db.pdfFileName || `Document ${idx + 1}`,
+          isCompleted,
+        };
+      });
+
+      // Quiz submissions
+      const quizSubmissions = prog?.quizSubmissions || [];
+      quizSubmissions.forEach((qs: any) => {
+        if (typeof qs.percentage === 'number') {
+          allQuizPercentages.push(qs.percentage);
+        }
+      });
+
+      const totalSteps = blocks.length || ((course.videoCount || 0) + (course.description ? 1 : 0) + (course.quizCount > 0 ? 1 : 0));
+      const completedStepsCount = completedBlockSet.size;
+      const progressPercent = totalSteps > 0 ? Math.min(100, Math.round((completedStepsCount / totalSteps) * 100)) : (prog?.completed ? 100 : 0);
+
+      return {
+        enrollmentId: enr._id,
+        courseId: courseIdStr,
+        title: course.title || 'Untitled Course',
+        subject: course.subject || 'General',
+        stream: course.stream || '',
+        topic: course.topic || '',
+        price: course.price || 0,
+        isFree: enr.isFree,
+        paymentType: enr.paymentType || (enr.isFree ? 'free' : 'full'),
+        amountPaid: enr.amountPaid != null ? enr.amountPaid : enr.amount,
+        status: enr.status,
+        enrolledAt: enr.enrolledAt || enr.createdAt,
+        slipUrl: enr.slipUrl,
+        slipFileName: enr.slipFileName,
+        bankReference: enr.bankReference,
+        notes: enr.notes,
+        adminNotes: enr.adminNotes,
+        // Detailed Progress Metrics:
+        progressPercent,
+        isCourseCompleted: Boolean(prog?.completed),
+        lastOpenedAt: prog?.lastOpenedAt || null,
+        totalSteps,
+        completedStepsCount,
+        videos: {
+          total: videoBlocks.length,
+          watchedCount: watchedVideos.length,
+          remainingCount: remainingVideos.length,
+          watched: watchedVideos,
+          remaining: remainingVideos,
+        },
+        documents: docsProgress,
+        quizSubmissions,
+      };
+    });
+
+    const averageQuizScore = allQuizPercentages.length > 0
+      ? Math.round(allQuizPercentages.reduce((a, b) => a + b, 0) / allQuizPercentages.length)
+      : null;
+
+    res.json({
+      student,
+      courses: detailedCourses,
+      summary: {
+        totalEnrolled: enrollments.length,
+        approvedCourses: enrollments.filter((e) => e.status === 'approved').length,
+        pendingCourses: enrollments.filter((e) => e.status === 'pending').length,
+        completedCourses: detailedCourses.filter((c) => c.isCourseCompleted).length,
+        averageQuizScore,
+      },
+    });
+  } catch (err: any) {
+    console.error('[Admin Student Progress Error]:', err);
+    res.status(500).json({ message: err?.message || 'Could not fetch student progress.' });
+  }
+});
 
 export default router;

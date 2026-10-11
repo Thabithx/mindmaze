@@ -1,12 +1,15 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'rejected';
+export type PaymentType = 'full' | 'partial' | 'free';
 
 export interface ICourseEnrollment extends Document {
   user: mongoose.Types.ObjectId;
   course: mongoose.Types.ObjectId;
   status: EnrollmentStatus;
+  paymentType: PaymentType;
   amount: number;
+  amountPaid: number;
   isFree: boolean;
   slipUrl: string;
   slipPublicId: string;
@@ -30,7 +33,13 @@ const CourseEnrollmentSchema = new Schema<ICourseEnrollment>(
       enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
+    paymentType: {
+      type: String,
+      enum: ['full', 'partial', 'free'],
+      default: 'full',
+    },
     amount: { type: Number, default: 0, min: 0 },
+    amountPaid: { type: Number, default: 0, min: 0 },
     isFree: { type: Boolean, default: false },
     slipUrl: { type: String, default: '' },
     slipPublicId: { type: String, default: '' },

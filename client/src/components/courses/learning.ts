@@ -112,7 +112,9 @@ export interface CourseEnrollmentRecord {
   user: any;
   course: any;
   status: 'pending' | 'approved' | 'rejected';
+  paymentType?: 'full' | 'partial' | 'free';
   amount: number;
+  amountPaid?: number;
   isFree: boolean;
   slipUrl?: string;
   slipPublicId?: string;

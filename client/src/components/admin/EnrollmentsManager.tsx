@@ -26,6 +26,9 @@ import {
   Filter,
   HelpCircle,
   Check,
+  Video,
+  BookOpen,
+  Loader2,
 } from 'lucide-react';
 
 interface EnrollmentsManagerProps {
@@ -63,6 +66,28 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
   const [gradingAnswers, setGradingAnswers] = useState<{ [index: number]: boolean }>({});
   const [adminFeedback, setAdminFeedback] = useState<string>('');
   const [reviewBusy, setReviewBusy] = useState<boolean>(false);
+
+  // Student Learning Profile Modal
+  const [inspectingUserId, setInspectingUserId] = useState<string | null>(null);
+  const [studentProfileData, setStudentProfileData] = useState<any | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(false);
+  const [selectedCourseIdx, setSelectedCourseIdx] = useState<number>(0);
+
+  const openStudentProfile = async (userId: string) => {
+    if (!userId) return;
+    setInspectingUserId(userId);
+    setLoadingProfile(true);
+    try {
+      const res = await api.getStudentDetailedProgress(userId);
+      setStudentProfileData(res);
+      setSelectedCourseIdx(0);
+    } catch (err: any) {
+      alert(err.message || 'Could not load student detailed progress.');
+      setInspectingUserId(null);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const loadEnrollments = async () => {
     setLoading(true);
@@ -407,6 +432,17 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                           </span>
                         )}
                       </div>
+
+                      <div className="pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openStudentProfile(user._id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          <span>Student Progress Profile →</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -499,9 +535,17 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                   {/* Column 3: Payment & Bank Slip Info */}
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Fee:</span>
-                      <span className="font-bold text-slate-900 dark:text-white font-mono">
-                        {item.isFree || item.amount === 0 ? 'FREE' : `Rs. ${(item.amount || 0).toLocaleString()}`}
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Payment Mode:</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-mono text-right">
+                        {item.isFree || item.amount === 0 ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">FREE COURSE</span>
+                        ) : item.paymentType === 'partial' ? (
+                          <span className="text-amber-600 dark:text-amber-300">
+                            Rs. {(item.amountPaid || 0).toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">(Partial of Rs. {(item.amount || 0).toLocaleString()})</span>
+                          </span>
+                        ) : (
+                          <span className="text-cyan-600 dark:text-cyan-300">Rs. {(item.amount || 0).toLocaleString()} (Full)</span>
+                        )}
                       </span>
                     </div>
 
@@ -1038,6 +1082,388 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
           </div>
         );
       })()}
+
+      {/* MODAL 4: Student Comprehensive Learning Profile & Progress Inspector */}
+      {inspectingUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white leading-tight">
+                    {studentProfileData?.student?.name || 'Student Profile'}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
+                    <span className="font-mono text-cyan-300 font-bold">
+                      {studentProfileData?.student?.indexNumber || 'No Index'}
+                    </span>
+                    <span>·</span>
+                    <span>{studentProfileData?.student?.stream || 'A/L'}</span>
+                    <span>·</span>
+                    <span>{studentProfileData?.student?.email}</span>
+                    {(studentProfileData?.student?.whatsappNumber || studentProfileData?.student?.mobileNumber) && (
+                      <>
+                        <span>·</span>
+                        <span className="text-emerald-400 flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          <span>{studentProfileData?.student?.whatsappNumber || studentProfileData?.student?.mobileNumber}</span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectingUserId(null);
+                  setStudentProfileData(null);
+                }}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            {loadingProfile ? (
+              <div className="py-24 text-center text-slate-400 space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-400" />
+                <p className="text-xs font-semibold">Loading student courses and learning progress...</p>
+              </div>
+            ) : !studentProfileData?.courses || studentProfileData.courses.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 space-y-2">
+                <p className="text-sm font-semibold text-white">No Course Enrollments Found</p>
+                <p className="text-xs text-slate-500">This student has not yet enrolled in any courses.</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* Summary KPIs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Total Courses Joined</span>
+                    <p className="text-xl font-black text-white mt-0.5">{studentProfileData.summary?.totalEnrolled || 0}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Approved Courses</span>
+                    <p className="text-xl font-black text-emerald-400 mt-0.5">{studentProfileData.summary?.approvedCourses || 0}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Completed Courses</span>
+                    <p className="text-xl font-black text-cyan-300 mt-0.5">{studentProfileData.summary?.completedCourses || 0}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Overall Quiz Average</span>
+                    <p className="text-xl font-black text-amber-300 mt-0.5">
+                      {studentProfileData.summary?.averageQuizScore != null
+                        ? `${studentProfileData.summary.averageQuizScore}%`
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Course Tabs Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Select Enrolled Course to Inspect:</span>
+                  </label>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {studentProfileData.courses.map((c: any, idx: number) => (
+                      <button
+                        key={c.enrollmentId || idx}
+                        type="button"
+                        onClick={() => setSelectedCourseIdx(idx)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+                          selectedCourseIdx === idx
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                            : 'bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        <span>{c.title}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                            c.status === 'approved'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : c.status === 'pending'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : 'bg-rose-500/20 text-rose-300'
+                          }`}
+                        >
+                          {c.status}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active Course Detailed Card */}
+                {(() => {
+                  const currentCourse = studentProfileData.courses[selectedCourseIdx] || studentProfileData.courses[0];
+                  if (!currentCourse) return null;
+
+                  return (
+                    <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-5">
+                      {/* Course Header & Payment Details */}
+                      <div className="flex items-start justify-between flex-wrap gap-3 pb-4 border-b border-slate-800/80">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/40">
+                              {currentCourse.subject}
+                            </span>
+                            {currentCourse.topic && (
+                              <span className="text-xs text-slate-400">{currentCourse.topic}</span>
+                            )}
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                                currentCourse.status === 'approved'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : currentCourse.status === 'pending'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              }`}
+                            >
+                              {currentCourse.status}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-bold text-white">{currentCourse.title}</h4>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Enrolled on {new Date(currentCourse.enrolledAt).toLocaleDateString()}
+                          </p>
+                        </div>
+
+                        {/* Payment Details & Slip Button */}
+                        <div className="flex flex-col items-end gap-2 text-xs">
+                          <div className="text-right">
+                            <span className="text-slate-400 block text-[11px]">Payment Mode:</span>
+                            {currentCourse.isFree ? (
+                              <span className="text-emerald-400 font-bold">FREE COURSE</span>
+                            ) : currentCourse.paymentType === 'partial' ? (
+                              <span className="text-amber-300 font-bold font-mono">
+                                Rs. {(currentCourse.amountPaid || 0).toLocaleString()} (Partially Paid of Rs. {(currentCourse.price || 0).toLocaleString()})
+                              </span>
+                            ) : (
+                              <span className="text-cyan-300 font-bold font-mono">
+                                Rs. {(currentCourse.price || 0).toLocaleString()} (Fully Paid)
+                              </span>
+                            )}
+                          </div>
+
+                          {currentCourse.slipUrl && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedSlip({
+                                  url: currentCourse.slipUrl,
+                                  fileName: currentCourse.slipFileName,
+                                  student: studentProfileData.student?.name || 'Student',
+                                })
+                              }
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-xs cursor-pointer transition"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Bank Slip</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-300">Curriculum Progress</span>
+                          <span className="font-mono font-bold text-cyan-300">
+                            {currentCourse.progressPercent}% ({currentCourse.completedStepsCount}/{currentCourse.totalSteps} steps)
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-900 border border-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
+                            style={{ width: `${currentCourse.progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Detailed Breakdown: Videos */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <Video className="w-4 h-4 text-cyan-400" />
+                            <span>Video Lectures ({currentCourse.videos.watchedCount}/{currentCourse.videos.total} Watched)</span>
+                          </h5>
+                        </div>
+
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          {currentCourse.videos.watched.map((v: any, vIdx: number) => (
+                            <div
+                              key={v._id || `w_${vIdx}`}
+                              className="p-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between text-xs"
+                            >
+                              <span className="font-medium text-emerald-200 truncate pr-2">{v.title}</span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                                ✓ Watched
+                              </span>
+                            </div>
+                          ))}
+                          {currentCourse.videos.remaining.map((v: any, vIdx: number) => (
+                            <div
+                              key={v._id || `r_${vIdx}`}
+                              className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
+                            >
+                              <span className="font-medium text-slate-400 truncate pr-2">{v.title}</span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 shrink-0">
+                                ⏳ Remaining
+                              </span>
+                            </div>
+                          ))}
+                          {currentCourse.videos.total === 0 && (
+                            <p className="text-xs text-slate-500 italic col-span-2">No video lectures in this course.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Detailed Breakdown: Documents & Reading Guides */}
+                      {currentCourse.documents && currentCourse.documents.length > 0 && (
+                        <div className="space-y-2.5">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-emerald-400" />
+                            <span>PDF Notes & Reading Guides ({currentCourse.documents.filter((d: any) => d.isCompleted).length}/{currentCourse.documents.length} Completed)</span>
+                          </h5>
+                          <div className="grid sm:grid-cols-2 gap-2">
+                            {currentCourse.documents.map((d: any, dIdx: number) => (
+                              <div
+                                key={d._id || dIdx}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                                  d.isCompleted
+                                    ? 'bg-emerald-950/20 border-emerald-500/30'
+                                    : 'bg-slate-900 border-slate-800'
+                                }`}
+                              >
+                                <span className={`font-medium truncate pr-2 ${d.isCompleted ? 'text-emerald-200' : 'text-slate-400'}`}>
+                                  {d.title}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                    d.isCompleted
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                      : 'bg-slate-800 text-slate-400'
+                                  }`}
+                                >
+                                  {d.isCompleted ? '✓ Read' : '⏳ Pending'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Detailed Breakdown: Quizzes & MCQs */}
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                          <HelpCircle className="w-4 h-4 text-amber-400" />
+                          <span>Quiz Submissions & Answers ({currentCourse.quizSubmissions?.length || 0})</span>
+                        </h5>
+
+                        {(!currentCourse.quizSubmissions || currentCourse.quizSubmissions.length === 0) ? (
+                          <p className="text-xs text-slate-500 italic">No quiz submissions recorded for this course yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {currentCourse.quizSubmissions.map((sub: any, sIdx: number) => (
+                              <div
+                                key={sub._id || sIdx}
+                                className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3"
+                              >
+                                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                                  <div>
+                                    <span className="text-xs font-bold text-white">
+                                      {sub.blockTitle || `Quiz Submission ${sIdx + 1}`}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 ml-2">
+                                      {new Date(sub.submittedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-amber-300">
+                                      Score: {sub.score} / {sub.totalQuestions} ({sub.percentage}%)
+                                    </span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                        sub.status === 'passed'
+                                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                          : sub.status === 'failed'
+                                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                      }`}
+                                    >
+                                      {sub.status}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Answers breakdown */}
+                                <div className="space-y-2">
+                                  {(sub.answers || []).map((ans: any, aIdx: number) => (
+                                    <div
+                                      key={aIdx}
+                                      className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs space-y-1"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <p className="font-semibold text-slate-200">
+                                          Q{aIdx + 1}: {ans.questionText}
+                                        </p>
+                                        <span
+                                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold shrink-0 ${
+                                            ans.isCorrect
+                                              ? 'bg-emerald-500/20 text-emerald-300'
+                                              : 'bg-rose-500/20 text-rose-300'
+                                          }`}
+                                        >
+                                          {ans.isCorrect ? '✓ Correct' : '✕ Incorrect'}
+                                        </span>
+                                      </div>
+                                      <div className="text-[11px] space-y-0.5">
+                                        <p className="text-slate-400">
+                                          Student's Answer:{' '}
+                                          <span className="text-white font-medium">
+                                            {ans.questionType === 'text'
+                                              ? ans.textAnswer || '(No text answer entered)'
+                                              : ans.options && ans.selectedIndex != null
+                                              ? ans.options[ans.selectedIndex]
+                                              : `Option index: ${ans.selectedIndex}`}
+                                          </span>
+                                        </p>
+                                        {ans.questionType !== 'text' && ans.correctOptionIndex != null && ans.options && (
+                                          <p className="text-emerald-400">
+                                            Correct Answer: {ans.options[ans.correctOptionIndex]}
+                                          </p>
+                                        )}
+                                        {ans.explanation && (
+                                          <p className="text-slate-500 italic">
+                                            Explanation: {ans.explanation}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

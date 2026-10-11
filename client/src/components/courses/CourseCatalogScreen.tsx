@@ -95,8 +95,15 @@ export const CourseCatalogScreen: React.FC = () => {
     const enrollment = enrollments[id];
     const isPaid = lesson && !lesson.isFree && (lesson.price || 0) > 0;
 
-    // If paid course and student not admin, check if approved:
+    // If student is not admin:
+    // If paid course and not approved -> open enroll modal:
     if (isPaid && !isAdmin && (!enrollment || enrollment.status !== 'approved')) {
+      if (lesson) setEnrollModalTarget(lesson);
+      return;
+    }
+
+    // If free course and student not enrolled yet -> open enroll modal so student enrolls:
+    if (!isPaid && !isAdmin && (!enrollment || enrollment.status !== 'approved')) {
       if (lesson) setEnrollModalTarget(lesson);
       return;
     }
@@ -663,41 +670,87 @@ export const CourseCatalogScreen: React.FC = () => {
                               </div>
 
                               <div className="flex items-center justify-between pt-4 mt-2 border-t border-white/5 w-full">
-                                <p
-                                  className={`text-sm font-semibold flex items-center gap-1.5 ${
-                                    progress[l._id]?.completed
-                                      ? 'text-emerald-300'
-                                      : (progress[l._id]?.completedBlocks?.length || 0) > 0
-                                      ? 'text-cyan-300'
-                                      : 'text-indigo-300'
-                                  }`}
-                                >
-                                  {progress[l._id]?.completed ? (
-                                    <>
-                                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                      <span>Completed & Watched ✓</span>
-                                    </>
-                                  ) : (progress[l._id]?.completedBlocks?.length || 0) > 0 ? (
-                                    <>
-                                      <span className="text-cyan-300 font-bold">
-                                        {progress[l._id]?.completedBlocks?.length}/{l.curriculumBlocks?.length || l.videoCount || 1} sections done
-                                      </span>
-                                      <span>· Continue →</span>
-                                    </>
-                                  ) : progress[l._id] ? (
-                                    'In progress →'
-                                  ) : !l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved') ? (
-                                    'Enroll to unlock →'
-                                  ) : (
-                                    'Start lesson →'
-                                  )}
-                                </p>
-                                {!l.isFree && !isAdmin && (!enrollments[l._id] || enrollments[l._id]?.status !== 'approved') && (
-                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
-                                    <Lock className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Bank Slip Required</span>
-                                  </span>
-                                )}
+                                {(() => {
+                                  const enr = enrollments[l._id];
+                                  const isEnrolledApproved = enr?.status === 'approved' || isAdmin;
+                                  const isPending = enr?.status === 'pending';
+                                  const isDeclined = enr?.status === 'rejected';
+
+                                  if (progress[l._id]?.completed) {
+                                    return (
+                                      <p className="text-sm font-semibold flex items-center gap-1.5 text-emerald-300">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                        <span>Completed ✓</span>
+                                      </p>
+                                    );
+                                  }
+
+                                  if ((progress[l._id]?.completedBlocks?.length || 0) > 0) {
+                                    return (
+                                      <p className="text-sm font-semibold flex items-center gap-1.5 text-cyan-300">
+                                        <span className="font-bold">
+                                          {progress[l._id]?.completedBlocks?.length}/{l.curriculumBlocks?.length || l.videoCount || 1} sections done
+                                        </span>
+                                        <span>· Continue →</span>
+                                      </p>
+                                    );
+                                  }
+
+                                  if (!isEnrolledApproved) {
+                                    if (isDeclined) {
+                                      return (
+                                        <div className="flex items-center justify-between w-full">
+                                          <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
+                                            ✕ Declined · Check Reason
+                                          </span>
+                                          <span className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30">
+                                            Re-apply →
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+                                    if (isPending) {
+                                      return (
+                                        <div className="flex items-center justify-between w-full">
+                                          <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5 animate-pulse">
+                                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                            <span>Slip Pending Review</span>
+                                          </span>
+                                          <span className="text-[11px] text-slate-400 font-medium">Under Verification</span>
+                                        </div>
+                                      );
+                                    }
+                                    // Not enrolled yet
+                                    if (l.isFree || !l.price) {
+                                      return (
+                                        <div className="flex items-center justify-between w-full">
+                                          <span className="text-xs font-semibold text-slate-400">Free Course</span>
+                                          <span className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/30 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            <span>Enroll for Free →</span>
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div className="flex items-center justify-between w-full">
+                                        <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                          <Lock className="w-3.5 h-3.5 text-amber-400" />
+                                          <span>Rs. {(l.price || 0).toLocaleString()}</span>
+                                        </span>
+                                        <span className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30">
+                                          Enroll Now →
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <p className="text-sm font-semibold text-indigo-300 flex items-center gap-1">
+                                      <span>Start lesson →</span>
+                                    </p>
+                                  );
+                                })()}
                               </div>
                             </button>
                           ))}
@@ -715,6 +768,7 @@ export const CourseCatalogScreen: React.FC = () => {
         <CourseEnrollModal
           course={enrollModalTarget}
           isOpen={Boolean(enrollModalTarget)}
+          existingEnrollment={enrollments[enrollModalTarget._id]}
           onClose={() => setEnrollModalTarget(null)}
           onSuccess={async (status) => {
             const target = enrollModalTarget;
