@@ -102,6 +102,7 @@ export function LessonView({
   // Check if a curriculum block is sequentially unlocked
   const isBlockUnlocked = (idx: number): boolean => {
     if (preview) return true;
+    if (lesson.enforceSequentialProgression === false) return true;
     if (progress?.completed) return true;
 
     const block = activeCurriculumBlocks[idx];
@@ -455,7 +456,10 @@ export function LessonView({
             <h3 className="text-lg font-bold text-white">Course Curriculum & Schedule</h3>
           </div>
           <span className="text-xs font-semibold text-slate-400">
-            {activeCurriculumBlocks.length} Learning Steps (Unlock Sequentially)
+            {activeCurriculumBlocks.length} Learning Steps{' '}
+            {lesson.enforceSequentialProgression !== false
+              ? '(Unlock Sequentially)'
+              : '(Free Exploration · All Unlocked)'}
           </span>
         </div>
 
@@ -464,7 +468,6 @@ export function LessonView({
             const blockKey = getBlockKey(block, idx);
             const done = isBlockDone(block, idx);
             const unlocked = isBlockUnlocked(idx);
-            const blocking = !unlocked ? getBlockingBlock(idx) : null;
             const isCurrentStep = activeStepIdx === idx;
 
             return (
@@ -502,7 +505,7 @@ export function LessonView({
                   ) : !unlocked ? (
                     <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
                       <Lock className="w-2.5 h-2.5 text-amber-400" />
-                      <span>Locked · Complete Step {blocking ? blocking.index + 1 : 'Previous'} First</span>
+                      <span>Locked · Complete Step {idx} First</span>
                     </span>
                   ) : null}
                 </div>
@@ -518,20 +521,18 @@ export function LessonView({
                         <div>
                           <h4 className="text-white font-bold text-base">{block.title || 'Curriculum Step'}</h4>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            Complete Step {blocking ? blocking.index + 1 : 'previous'} first to unlock this section.
+                            Complete Step {idx} first to unlock this section.
                           </p>
                         </div>
                       </div>
 
-                      {blocking && (
-                        <button
-                          type="button"
-                          onClick={() => scrollToStep(blocking.index)}
-                          className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-900 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition hover:text-white"
-                        >
-                          Go to Step {blocking.index + 1} ↑
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => scrollToStep(idx - 1)}
+                        className="shrink-0 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                      >
+                        <span>Complete Step {idx} ↑</span>
+                      </button>
                     </div>
                   </section>
                 ) : (

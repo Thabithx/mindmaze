@@ -55,6 +55,7 @@ export interface ICourse extends Document {
   isMonthlyProgram?: boolean;
   parentCourseId?: mongoose.Types.ObjectId;
   targetMonth?: string;
+  enforceSequentialProgression?: boolean;
   validityPeriod?: '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime';
   validityMonths?: number;
   price: number;
@@ -107,6 +108,7 @@ const CourseSchema = new Schema<ICourse>(
     isMonthlyProgram: { type: Boolean, default: false },
     parentCourseId: { type: Schema.Types.ObjectId, ref: 'Course', default: null },
     targetMonth: { type: String, default: '', trim: true },
+    enforceSequentialProgression: { type: Boolean, default: true },
     validityPeriod: { type: String, enum: ['1_month', '3_months', '6_months', '1_year', 'lifetime'], default: 'lifetime' },
     validityMonths: { type: Number, default: 0, min: 0 },
     price: { type: Number, default: 0, min: 0 },

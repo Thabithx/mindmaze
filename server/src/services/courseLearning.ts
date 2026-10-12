@@ -98,8 +98,11 @@ export function validateLesson(body: any) {
   const parentCourseId = text('parentCourseId') || undefined;
   const bankDetails = text('bankDetails');
   const thumbnailUrl = text('thumbnailUrl');
+  const enforceSequentialProgression = body['enforceSequentialProgression'] === undefined
+    ? true
+    : (body['enforceSequentialProgression'] === true || body['enforceSequentialProgression'] === 'true');
   return {title, description, subject, stream, topic, medium, syllabus, status,
-    price, isFree, billingType, monthlyFee, courseType, isMonthlyProgram, parentCourseId, targetMonth, validityPeriod, validityMonths, bankDetails, thumbnailUrl,
+    price, isFree, billingType, monthlyFee, courseType, isMonthlyProgram, parentCourseId, targetMonth, enforceSequentialProgression, validityPeriod, validityMonths, bankDetails, thumbnailUrl,
     topicOrder: numeric('topicOrder',1,0,1000), lessonOrder: numeric('lessonOrder',1,0,1000), estimatedMinutes: numeric('estimatedMinutes',15,1,600),
     quiz, videos, curriculumBlocks, relatedPaperIds, videoUrl: ''};
 }

@@ -84,6 +84,7 @@ const initialMonthlyClassForm = (parent?: Lesson | null) => ({
   validityPeriod: '1_month' as '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime',
   validityMonths: 1,
   parentCourseId: parent?._id || '',
+  enforceSequentialProgression: parent?.enforceSequentialProgression ?? true,
   bankDetails: parent?.bankDetails || DEFAULT_BANK_DETAILS,
   estimatedMinutes: 60,
   topic: '',
@@ -282,6 +283,7 @@ export const AdminCourseManager: React.FC = () => {
       validityPeriod: course.validityPeriod || '1_month',
       validityMonths: course.validityMonths || 1,
       parentCourseId: selectedMainCourse?._id || '',
+      enforceSequentialProgression: course.enforceSequentialProgression ?? true,
       bankDetails: course.bankDetails || selectedMainCourse?.bankDetails || DEFAULT_BANK_DETAILS,
       estimatedMinutes: course.estimatedMinutes || 60,
       topic: course.topic || '',
@@ -374,6 +376,7 @@ export const AdminCourseManager: React.FC = () => {
       body.append('bankDetails', monthlyForm.bankDetails);
       body.append('topic', monthlyForm.targetMonth.trim() || selectedMainCourse.title);
       body.append('estimatedMinutes', String(monthlyForm.estimatedMinutes));
+      body.append('enforceSequentialProgression', String(monthlyForm.enforceSequentialProgression));
 
       if (monthlyCoverFile) {
         body.append('thumbnail', monthlyCoverFile);
@@ -1228,6 +1231,40 @@ export const AdminCourseManager: React.FC = () => {
                       <span>+ Practice Quiz</span>
                     </button>
                   </div>
+                </div>
+
+                {/* Progression Locking Setting */}
+                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex-wrap gap-3">
+                  <div className="space-y-1 max-w-xl">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Lock className={`w-4 h-4 ${monthlyForm.enforceSequentialProgression ? 'text-amber-400' : 'text-slate-500'}`} />
+                      <span className="text-xs font-bold text-white">Sequential Step Progression Locking</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        monthlyForm.enforceSequentialProgression
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
+                        {monthlyForm.enforceSequentialProgression ? 'Sequential Locking Enabled' : 'Free Exploration (All Unlocked)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      {monthlyForm.enforceSequentialProgression
+                        ? 'Students must complete Step 1 to unlock Step 2, complete Step 2 to unlock Step 3, etc.'
+                        : 'Free Exploration: Students can access any video, notes, or quiz in any order without locking.'}
+                    </p>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer select-none hover:border-slate-700 transition">
+                    <input
+                      type="checkbox"
+                      checked={monthlyForm.enforceSequentialProgression}
+                      onChange={(e) => setMonthlyForm((f) => ({ ...f, enforceSequentialProgression: e.target.checked }))}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-slate-200">
+                      {monthlyForm.enforceSequentialProgression ? 'Enforce Sequential Locking' : 'Free Exploration'}
+                    </span>
+                  </label>
                 </div>
 
                 {curriculumBlocks.filter((b) => b.type !== 'live_class').length === 0 ? (

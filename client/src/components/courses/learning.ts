@@ -69,6 +69,7 @@ export interface Lesson {
   isMonthlyProgram?: boolean;
   parentCourseId?: string;
   targetMonth?: string;
+  enforceSequentialProgression?: boolean;
   validityPeriod?: '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime';
   validityMonths?: number;
   price?: number;
