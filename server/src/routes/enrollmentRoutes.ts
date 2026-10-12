@@ -258,7 +258,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
     // Fetch enrollments
     const enrollments = await CourseEnrollment.find(filter)
       .populate('user', 'name email indexNumber mobileNumber whatsappNumber phoneNumber phone role stream')
-      .populate('course', 'title subject stream topic price isFree status')
+      .populate('course', 'title subject stream topic price isFree status thumbnailUrl courseType monthlyFee billingType targetMonth parentCourseId isMonthlyProgram')
       .populate('reviewedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
@@ -315,6 +315,12 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
       });
     }
 
+    // Fetch courses created by this admin for the Course Cards Overview
+    const myCourses = await Course.find(
+      { createdBy: req.user!._id },
+      'title subject stream topic price isFree status thumbnailUrl courseType monthlyFee billingType targetMonth parentCourseId isMonthlyProgram createdAt'
+    ).sort({ createdAt: -1 }).lean();
+
     // Calculate aggregated statistics scoped to this admin's courses
     const allEnrollmentsForStats = await CourseEnrollment.find({ course: { $in: adminCourseIds } }).lean();
     const stats = {
@@ -329,6 +335,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
 
     res.json({
       enrollments: finalEnrollments,
+      courses: myCourses,
       stats,
     });
   } catch (err: any) {

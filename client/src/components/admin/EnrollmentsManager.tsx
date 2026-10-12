@@ -30,6 +30,8 @@ import {
   BookOpen,
   Loader2,
   FileSpreadsheet,
+  ArrowLeft,
+  Layers,
 } from 'lucide-react';
 
 interface EnrollmentsManagerProps {
@@ -38,6 +40,8 @@ interface EnrollmentsManagerProps {
 
 export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNavigateToCourse }) => {
   const [enrollments, setEnrollments] = useState<CourseEnrollmentRecord[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -115,6 +119,13 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
         ...(search ? { q: search } : {}),
       });
       setEnrollments(res.enrollments || []);
+      if (res.courses) {
+        setCourses(res.courses);
+        if (selectedCourse) {
+          const fresh = res.courses.find((c: any) => String(c._id) === String(selectedCourse._id));
+          if (fresh) setSelectedCourse(fresh);
+        }
+      }
       if (res.stats) setStats(res.stats);
     } catch (err: any) {
       setError(err.message || 'Failed to load enrollment records.');
@@ -255,9 +266,54 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
     }
   };
 
+  // Aggregated per-course metrics
+  const courseStats = useMemo(() => {
+    const map = new Map<string, { total: number; pending: number; approved: number; rejected: number; pendingPapers: number; revenue: number }>();
+    enrollments.forEach((e) => {
+      const cId = String(e.course?._id || e.course);
+      if (!map.has(cId)) {
+        map.set(cId, { total: 0, pending: 0, approved: 0, rejected: 0, pendingPapers: 0, revenue: 0 });
+      }
+      const s = map.get(cId)!;
+      s.total += 1;
+      if (e.status === 'pending') s.pending += 1;
+      if (e.status === 'approved') {
+        s.approved += 1;
+        if (!e.isFree) s.revenue += (e.amount || 0);
+      }
+      if (e.status === 'rejected') s.rejected += 1;
+
+      const paperSubs = e.learningProgress?.paperSubmissions || [];
+      if (paperSubs.some((p: any) => p.status === 'pending_review' || p.status === 'pending')) {
+        s.pendingPapers += 1;
+      }
+    });
+    return map;
+  }, [enrollments]);
+
+  // Selected course stats
+  const selectedCourseStats = useMemo(() => {
+    if (!selectedCourse) return stats;
+    const s = courseStats.get(String(selectedCourse._id)) || { total: 0, pending: 0, approved: 0, rejected: 0, pendingPapers: 0, revenue: 0 };
+    return {
+      total: s.total,
+      pending: s.pending,
+      approved: s.approved,
+      rejected: s.rejected,
+      totalRevenue: s.revenue,
+    };
+  }, [selectedCourse, courseStats, stats]);
+
+  // If inside a selected course, filter to that course
+  const courseEnrollments = useMemo(() => {
+    if (!selectedCourse) return enrollments;
+    return enrollments.filter((e) => String(e.course?._id || e.course) === String(selectedCourse._id));
+  }, [enrollments, selectedCourse]);
+
   // Filtered in memory for instant responsiveness
   const filtered = useMemo(() => {
-    return enrollments.filter((e) => {
+    const base = selectedCourse ? courseEnrollments : enrollments;
+    return base.filter((e) => {
       if (statusFilter !== 'all' && e.status !== statusFilter) return false;
       if (subjectFilter && e.course?.subject !== subjectFilter) return false;
       if (!search.trim()) return true;
@@ -269,514 +325,950 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
         (u.email && u.email.toLowerCase().includes(s)) ||
         (u.indexNumber && u.indexNumber.toLowerCase().includes(s)) ||
         (c.title && c.title.toLowerCase().includes(s)) ||
+        (c.topic && c.topic.toLowerCase().includes(s)) ||
         (e.bankReference && e.bankReference.toLowerCase().includes(s))
       );
     });
-  }, [enrollments, statusFilter, subjectFilter, search]);
+  }, [enrollments, courseEnrollments, selectedCourse, statusFilter, subjectFilter, search]);
+
+  // Filtered courses for Stage 1
+  const filteredCourses = useMemo(() => {
+    if (!search.trim()) return courses;
+    const s = search.toLowerCase();
+    return courses.filter((c) =>
+      (c.title && c.title.toLowerCase().includes(s)) ||
+      (c.subject && c.subject.toLowerCase().includes(s)) ||
+      (c.topic && c.topic.toLowerCase().includes(s))
+    );
+  }, [courses, search]);
+
+  // Helper: Render Course Card (Stage 1)
+  const renderCourseCard = (course: any) => {
+    const cStat = courseStats.get(String(course._id)) || { total: 0, pending: 0, approved: 0, rejected: 0, pendingPapers: 0, revenue: 0 };
+    const priceDisplay = course.isFree
+      ? 'FREE'
+      : course.billingType === 'monthly'
+      ? `Rs. ${(course.monthlyFee || 0).toLocaleString()}/mo`
+      : `Rs. ${(course.price || 0).toLocaleString()}`;
+
+    return (
+      <div
+        key={course._id}
+        onClick={() => {
+          setSelectedCourse(course);
+          setSearch('');
+          setStatusFilter('all');
+        }}
+        className="group rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500/60 dark:hover:border-indigo-500/60 bg-white dark:bg-slate-900/80 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col overflow-hidden"
+      >
+        {/* Thumbnail or Fallback Header */}
+        <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-950 overflow-hidden border-b border-slate-100 dark:border-slate-800">
+          {course.thumbnailUrl ? (
+            <img
+              src={course.thumbnailUrl}
+              alt={course.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-cyan-500/10 dark:from-indigo-900/30 dark:via-purple-900/20 dark:to-cyan-900/20">
+              <GraduationCap className="w-14 h-14 text-indigo-400 dark:text-indigo-500 group-hover:scale-110 transition-transform duration-300" />
+            </div>
+          )}
+
+          {/* Badges Overlay */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900/80 backdrop-blur-md text-white border border-white/10 shadow-sm">
+                {course.subject || 'Course'}
+              </span>
+              {course.stream && (
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-950/80 backdrop-blur-md text-indigo-200 border border-indigo-400/20 shadow-sm">
+                  {course.stream}
+                </span>
+              )}
+            </div>
+            <span
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-black tracking-tight backdrop-blur-md shadow-sm border ${
+                course.isFree
+                  ? 'bg-emerald-500/90 text-white border-emerald-400/30'
+                  : 'bg-indigo-600/90 text-white border-indigo-400/30'
+              }`}
+            >
+              {priceDisplay}
+            </span>
+          </div>
+
+          {/* Floating Pending Alerts if any */}
+          {(cStat.pending > 0 || cStat.pendingPapers > 0) && (
+            <div className="absolute bottom-2.5 left-3 right-3 flex items-center gap-2 pointer-events-none flex-wrap">
+              {cStat.pending > 0 && (
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/90 text-amber-950 border border-amber-300 flex items-center gap-1 shadow-md animate-pulse">
+                  <Clock className="w-3 h-3" />
+                  <span>{cStat.pending} Slip{cStat.pending > 1 ? 's' : ''} Pending</span>
+                </span>
+              )}
+              {cStat.pendingPapers > 0 && (
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-purple-500/90 text-white border border-purple-300 flex items-center gap-1 shadow-md animate-pulse">
+                  <Award className="w-3 h-3" />
+                  <span>{cStat.pendingPapers} Paper{cStat.pendingPapers > 1 ? 's' : ''} to Grade</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Card Content */}
+        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+              {course.title}
+            </h3>
+            {course.topic && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">{course.topic}</p>
+            )}
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800/80">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Students</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{cStat.total}</p>
+            </div>
+
+            <div className={`p-2.5 rounded-xl border ${
+              cStat.pending > 0
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200/70 dark:border-slate-800/80 text-slate-900 dark:text-white'
+            }`}>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Slips</p>
+              <p className={`text-lg font-black mt-0.5 ${cStat.pending > 0 ? 'text-amber-600 dark:text-amber-300 font-bold' : ''}`}>
+                {cStat.pending}
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800/80">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Approved</p>
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{cStat.approved}</p>
+            </div>
+
+            <div className={`p-2.5 rounded-xl border ${
+              cStat.pendingPapers > 0
+                ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300'
+                : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200/70 dark:border-slate-800/80 text-slate-900 dark:text-white'
+            }`}>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Papers to Grade</p>
+              <p className={`text-lg font-black mt-0.5 ${cStat.pendingPapers > 0 ? 'text-purple-600 dark:text-purple-300' : ''}`}>
+                {cStat.pendingPapers}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer Link */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500">
+            <span>Manage Enrolled Students</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper: Render Enrollment Card
+  const renderEnrollmentCard = (item: CourseEnrollmentRecord, showCourseShortcut = false) => {
+    const user = item.user || {};
+    const course = item.course || {};
+    const isPending = item.status === 'pending';
+    const isApproved = item.status === 'approved';
+    const isRejected = item.status === 'rejected';
+    const isBusy = actionBusy === item._id;
+
+    return (
+      <div
+        key={item._id}
+        className={`p-5 rounded-2xl border transition-all duration-200 ${
+          isPending
+            ? 'bg-amber-50/80 dark:bg-amber-950/15 border-amber-300 dark:border-amber-500/40 shadow-md shadow-amber-500/5 dark:shadow-amber-950/20'
+            : isApproved
+            ? 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm'
+            : 'bg-rose-50/80 dark:bg-rose-950/10 border-rose-300 dark:border-rose-500/30'
+        }`}
+      >
+        <div className="grid lg:grid-cols-[1.2fr_1.2fr_1fr_auto] gap-5 items-start">
+          {/* Column 1: Student Information */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-600/30 border border-indigo-300 dark:border-indigo-400/40 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs shrink-0">
+                {user.name ? user.name.slice(0, 1).toUpperCase() : 'S'}
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight">{user.name || 'Unknown Student'}</h4>
+                <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-300 font-bold">
+                  {user.indexNumber || 'No Index'}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 pl-10">
+              <p className="truncate">✉ {user.email || 'No email'}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {user.whatsappNumber || user.mobileNumber || user.phone ? (
+                  <span className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300 font-medium">
+                    <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>{user.whatsappNumber || user.mobileNumber || user.phone}</span>
+                  </span>
+                ) : null}
+                {user.stream && (
+                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium">
+                    {user.stream}
+                  </span>
+                )}
+              </div>
+
+              <div className="pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => openStudentProfile(user._id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Student Progress Profile →</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 2: Course & Learning Process */}
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800/40">
+                  {course.subject || 'Subject'}
+                </span>
+                {course.topic && <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{course.topic}</span>}
+              </div>
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm mt-1">{course.title || 'Course Lesson'}</h4>
+              {showCourseShortcut && course._id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCourse(course);
+                    setSearch('');
+                    setStatusFilter('all');
+                  }}
+                  className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold border border-indigo-200 dark:border-indigo-700/50 transition cursor-pointer"
+                >
+                  <Layers className="w-3 h-3 text-indigo-500" />
+                  <span>Manage all in this course →</span>
+                </button>
+              )}
+            </div>
+
+            {/* Student Learning Process Card (Progress, Quiz Score, Submissions) */}
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-xs space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Learning Progress:</span>
+                {item.learningProgress ? (
+                  <span
+                    className={`font-bold ${
+                      item.learningProgress.completed ? 'text-emerald-600 dark:text-emerald-400' : 'text-cyan-600 dark:text-cyan-300'
+                    }`}
+                  >
+                    {item.learningProgress.completed ? '✓ Completed' : 'In Progress'}
+                  </span>
+                ) : (
+                  <span className="text-slate-400 dark:text-slate-500">Not started yet</span>
+                )}
+              </div>
+
+              {item.learningProgress?.quizScore != null && (
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Quiz Score:</span>
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-300">
+                    {item.learningProgress.quizScore} / {item.learningProgress.quizTotal || 0}
+                  </span>
+                </div>
+              )}
+
+              {/* Quiz Submissions & Review Trigger */}
+              {item.learningProgress?.quizSubmissions && item.learningProgress.quizSubmissions.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Quiz Submissions:</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                      {item.learningProgress.quizSubmissions.length} submitted
+                    </span>
+                  </div>
+
+                  {item.learningProgress.quizSubmissions.some((s) => s.status === 'pending_review') && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
+                      <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+                      <span>Written answers pending review!</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewingEnrollment(item);
+                      setSelectedSubmissionIdx(0);
+                      const firstSub = item.learningProgress?.quizSubmissions?.[0];
+                      if (firstSub) {
+                        const initialGrading: { [index: number]: boolean } = {};
+                        (firstSub.answers || []).forEach((a, idx) => {
+                          initialGrading[idx] = Boolean(a.isCorrect);
+                        });
+                        setGradingAnswers(initialGrading);
+                        setAdminFeedback(firstSub.adminFeedback || '');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-[11px] font-bold transition cursor-pointer"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Review Quiz Submissions ({item.learningProgress.quizSubmissions.length})</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Paper Submissions & Review Trigger */}
+              {item.learningProgress?.paperSubmissions && item.learningProgress.paperSubmissions.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Paper Submissions:</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                      {item.learningProgress.paperSubmissions.length} submitted
+                    </span>
+                  </div>
+
+                  {item.learningProgress.paperSubmissions.some((s) => s.status === 'pending_review' || s.status === 'pending') && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
+                      <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+                      <span>Answer papers pending grading!</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => openPaperReview(item)}
+                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-[11px] font-bold transition cursor-pointer"
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    <span>Grade Paper Submissions ({item.learningProgress.paperSubmissions.length})</span>
+                  </button>
+                </div>
+              )}
+
+              {item.learningProgress?.lastOpenedAt && (
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                  Last active: {new Date(item.learningProgress.lastOpenedAt).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Column 3: Payment & Bank Slip Info */}
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Payment Mode:</span>
+              <span className="font-bold text-slate-900 dark:text-white font-mono text-right">
+                {item.isFree || item.amount === 0 ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">FREE COURSE</span>
+                ) : item.paymentType === 'partial' ? (
+                  <span className="text-amber-600 dark:text-amber-300">
+                    Rs. {(item.amountPaid || 0).toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">(Partial of Rs. {(item.amount || 0).toLocaleString()})</span>
+                  </span>
+                ) : (
+                  <span className="text-cyan-600 dark:text-cyan-300">Rs. {(item.amount || 0).toLocaleString()} (Full)</span>
+                )}
+              </span>
+            </div>
+
+            {item.bankReference && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Deposit Ref:</span>
+                <span className="font-mono text-cyan-600 dark:text-cyan-300 font-bold">{item.bankReference}</span>
+              </div>
+            )}
+
+            {item.notes && (
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950/40 text-[11px] text-slate-700 dark:text-slate-300 italic border border-slate-200 dark:border-slate-800">
+                "{item.notes}"
+              </div>
+            )}
+
+            {/* Slip preview trigger */}
+            {item.slipUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedSlip({
+                    enrollmentId: item._id,
+                    url: item.slipUrl!,
+                    fileName: item.slipFileName,
+                    student: user.name || 'Student',
+                    studentIndex: user.indexNumber,
+                  })
+                }
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>View Bank Slip ({item.slipFileName?.endsWith('.pdf') ? 'PDF' : 'Image'})</span>
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 block">No slip required (Free enrollment)</span>
+            )}
+
+            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+              Enrolled: {new Date(item.enrolledAt || item.createdAt).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Column 4: Verification Status & Actions */}
+          <div className="flex flex-col items-end gap-3 shrink-0">
+            {/* Status Badge */}
+            <div>
+              {isPending && (
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm shadow-amber-500/20">
+                  <Clock className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Pending Verification</span>
+                </span>
+              )}
+              {isApproved && (
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Approved & Active</span>
+                </span>
+              )}
+              {isRejected && (
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5">
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Declined</span>
+                </span>
+              )}
+            </div>
+
+            {item.adminNotes && (
+              <p className="text-[11px] text-slate-400 max-w-[200px] text-right italic">
+                Note: {item.adminNotes}
+              </p>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 mt-auto">
+              {isPending && (
+                <>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleApprove(item)}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Approve</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => {
+                      setRejectingItem(item);
+                      setRejectionNote('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </>
+              )}
+
+              {isApproved && (
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setRejectingItem(item);
+                    setRejectionNote('');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 text-xs transition cursor-pointer"
+                >
+                  Revoke Access
+                </button>
+              )}
+
+              {isRejected && (
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => handleApprove(item)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-xs font-bold border border-emerald-500/30 transition cursor-pointer"
+                >
+                  Re-approve
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleDelete(item._id)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                title="Delete record"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="learning-area enrollments-surface space-y-6 animate-in fade-in duration-300">
-      {/* Top Header */}
-      <div className="enrollments-header rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 backdrop-blur-md p-6 shadow-sm dark:shadow-xl flex items-center justify-between flex-wrap gap-4 transition">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 dark:border-emerald-500/40">
-              Admin & Content Studio
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Payment Verification Desk</span>
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-            <CreditCard className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            <span>Course Enrollments & Payments</span>
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            Inspect bank transfer slips uploaded by students, verify payments, approve course access, and monitor student learning progress.
-          </p>
-        </div>
-
-        <button
-          onClick={loadEnrollments}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Data</span>
-        </button>
-      </div>
-
-      {/* KPI Stats Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Enrollments */}
-        <div className="enrollments-stat-card p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-            <GraduationCap className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="stat-total-label text-xs font-semibold text-slate-500 dark:text-slate-400">Total Enrollments</p>
-            <p className="stat-total-val text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</p>
-          </div>
-        </div>
-
-        {/* Pending Verifications */}
-        <div className="enrollments-stat-pending p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 shadow-sm dark:shadow-lg flex items-center gap-4 relative overflow-hidden transition">
-          {stats.pending > 0 && (
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-          )}
-          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="stat-pending-label text-xs font-semibold text-amber-800 dark:text-amber-200">Pending Slip Reviews</p>
-            <p className="stat-pending-val text-2xl font-black text-amber-600 dark:text-amber-300 mt-0.5">{stats.pending}</p>
-          </div>
-        </div>
-
-        {/* Approved Active */}
-        <div className="enrollments-stat-approved p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="stat-approved-label text-xs font-semibold text-emerald-800 dark:text-emerald-200">Active / Approved</p>
-            <p className="stat-approved-val text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.approved}</p>
-          </div>
-        </div>
-
-        {/* Total Paid Revenue */}
-        <div className="enrollments-stat-card p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
-          <div className="w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-300 shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="stat-revenue-label text-xs font-semibold text-slate-500 dark:text-slate-400">Total Paid Revenue</p>
-            <p className="stat-revenue-val text-2xl font-black text-cyan-600 dark:text-cyan-300 mt-0.5">Rs. {stats.totalRevenue.toLocaleString()}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="enrollments-filter-box p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-md space-y-3 transition">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Status Pills */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" />
-              <span>Status:</span>
-            </span>
-            {(
-              [
-                { id: 'all', label: 'All Records', count: stats.total },
-                { id: 'pending', label: 'Pending Verification', count: stats.pending, alert: stats.pending > 0 },
-                { id: 'approved', label: 'Approved', count: stats.approved },
-                { id: 'rejected', label: 'Declined', count: stats.rejected },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-700/60'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    tab.alert
-                      ? 'bg-amber-400 text-slate-950 font-black animate-pulse'
-                      : statusFilter === tab.id
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 dark:bg-black/30 text-slate-600 dark:text-slate-400 font-semibold'
-                  }`}
-                >
-                  {tab.count}
+      {/* =========================================================================
+          STAGE 1: ALL COURSES OVERVIEW (When no course is selected)
+         ========================================================================= */}
+      {!selectedCourse ? (
+        <>
+          {/* Top Header */}
+          <div className="enrollments-header rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 backdrop-blur-md p-6 shadow-sm dark:shadow-xl flex items-center justify-between flex-wrap gap-4 transition">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 dark:border-emerald-500/40">
+                  Admin & Content Studio
                 </span>
-              </button>
-            ))}
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Payment Verification Desk</span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
+                <CreditCard className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                <span>Course Enrollments & Payments</span>
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                Select one of your created courses below to inspect enrolled students, verify bank slips, and evaluate answer papers.
+              </p>
+            </div>
+
+            <button
+              onClick={loadEnrollments}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh Data</span>
+            </button>
           </div>
 
-          {/* Search Box */}
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-              <input
-                type="search"
-                placeholder="Search student, index, course..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-              />
+          {/* Overall KPI Stats Overview Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Enrollments */}
+            <div className="enrollments-stat-card p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="stat-total-label text-xs font-semibold text-slate-500 dark:text-slate-400">Total Enrollments</p>
+                <p className="stat-total-val text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</p>
+              </div>
             </div>
-            <button
-              type="submit"
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer shadow-sm shadow-indigo-600/20"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
-          <span>{error}</span>
-        </div>
-      )}
+            {/* Pending Verifications */}
+            <div className="enrollments-stat-pending p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 shadow-sm dark:shadow-lg flex items-center gap-4 relative overflow-hidden transition">
+              {stats.pending > 0 && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+              )}
+              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="stat-pending-label text-xs font-semibold text-amber-800 dark:text-amber-200">Pending Slip Reviews</p>
+                <p className="stat-pending-val text-2xl font-black text-amber-600 dark:text-amber-300 mt-0.5">{stats.pending}</p>
+              </div>
+            </div>
 
-      {/* Enrollments Listing */}
-      {loading ? (
-        <div className="py-20 text-center text-slate-500 dark:text-slate-400 space-y-3">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-indigo-500 dark:text-indigo-400" />
-          <p className="text-sm font-semibold">Loading enrollment records...</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="enrollments-empty-box p-12 text-center rounded-2xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 transition">
-          <CreditCard className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">No enrollment records found</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            {search || statusFilter !== 'all'
-              ? 'Try adjusting your search criteria or clearing filters to see all enrollments.'
-              : 'When students request course enrollments or upload bank deposit slips, they will appear here.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((item) => {
-            const user = item.user || {};
-            const course = item.course || {};
-            const isPending = item.status === 'pending';
-            const isApproved = item.status === 'approved';
-            const isRejected = item.status === 'rejected';
-            const isBusy = actionBusy === item._id;
+            {/* Approved Active */}
+            <div className="enrollments-stat-approved p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="stat-approved-label text-xs font-semibold text-emerald-800 dark:text-emerald-200">Active / Approved</p>
+                <p className="stat-approved-val text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.approved}</p>
+              </div>
+            </div>
 
-            return (
-              <div
-                key={item._id}
-                className={`p-5 rounded-2xl border transition-all duration-200 ${
-                  isPending
-                    ? 'bg-amber-50/80 dark:bg-amber-950/15 border-amber-300 dark:border-amber-500/40 shadow-md shadow-amber-500/5 dark:shadow-amber-950/20'
-                    : isApproved
-                    ? 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm'
-                    : 'bg-rose-50/80 dark:bg-rose-950/10 border-rose-300 dark:border-rose-500/30'
-                }`}
-              >
-                <div className="grid lg:grid-cols-[1.2fr_1.2fr_1fr_auto] gap-5 items-start">
-                  {/* Column 1: Student Information */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-600/30 border border-indigo-300 dark:border-indigo-400/40 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs shrink-0">
-                        {user.name ? user.name.slice(0, 1).toUpperCase() : 'S'}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight">{user.name || 'Unknown Student'}</h4>
-                        <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-300 font-bold">
-                          {user.indexNumber || 'No Index'}
-                        </span>
-                      </div>
-                    </div>
+            {/* Total Paid Revenue */}
+            <div className="enrollments-stat-card p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-lg flex items-center gap-4 transition">
+              <div className="w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-300 shrink-0">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="stat-revenue-label text-xs font-semibold text-slate-500 dark:text-slate-400">Total Paid Revenue</p>
+                <p className="stat-revenue-val text-2xl font-black text-cyan-600 dark:text-cyan-300 mt-0.5">Rs. {stats.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
 
-                    <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 pl-10">
-                      <p className="truncate">✉ {user.email || 'No email'}</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {user.whatsappNumber || user.mobileNumber || user.phone ? (
-                          <span className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300 font-medium">
-                            <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>{user.whatsappNumber || user.mobileNumber || user.phone}</span>
-                          </span>
-                        ) : null}
-                        {user.stream && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium">
-                            {user.stream}
-                          </span>
-                        )}
-                      </div>
+          {/* Stage 1 Global Search Bar */}
+          <div className="enrollments-filter-box p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-indigo-500" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Global Search across all your courses:
+                </span>
+              </div>
+              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-80">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type="search"
+                    placeholder="Search by student name, index, or course..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </form>
+            </div>
+          </div>
 
-                      <div className="pt-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openStudentProfile(user._id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
-                        >
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          <span>Student Progress Profile →</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
 
-                  {/* Column 2: Course & Learning Process */}
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800/40">
-                          {course.subject || 'Subject'}
-                        </span>
-                        {course.topic && <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{course.topic}</span>}
-                      </div>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm mt-1">{course.title || 'Course Lesson'}</h4>
-                    </div>
+          {/* Content Loading State */}
+          {loading ? (
+            <div className="py-20 text-center text-slate-500 dark:text-slate-400 space-y-3">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-indigo-500 dark:text-indigo-400" />
+              <p className="text-sm font-semibold">Loading courses and enrollments...</p>
+            </div>
+          ) : search.trim() ? (
+            /* Search Mode: Show matching courses & matching student records across courses */
+            <div className="space-y-6">
+              <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Search className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                    Search results for "{search}"
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    ({filteredCourses.length} matching courses, {filtered.length} matching student records)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
 
-                    {/* Student Learning Process Card (Progress, Quiz Score, Submissions) */}
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-xs space-y-2">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 dark:text-slate-400 font-medium">Learning Progress:</span>
-                        {item.learningProgress ? (
-                          <span
-                            className={`font-bold ${
-                              item.learningProgress.completed ? 'text-emerald-600 dark:text-emerald-400' : 'text-cyan-600 dark:text-cyan-300'
-                            }`}
-                          >
-                            {item.learningProgress.completed ? '✓ Completed' : 'In Progress'}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 dark:text-slate-500">Not started yet</span>
-                        )}
-                      </div>
-
-                      {item.learningProgress?.quizScore != null && (
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 dark:text-slate-400 font-medium">Quiz Score:</span>
-                          <span className="font-mono font-bold text-amber-600 dark:text-amber-300">
-                            {item.learningProgress.quizScore} / {item.learningProgress.quizTotal || 0}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Quiz Submissions & Review Trigger */}
-                      {item.learningProgress?.quizSubmissions && item.learningProgress.quizSubmissions.length > 0 && (
-                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 dark:text-slate-400 font-medium">Quiz Submissions:</span>
-                            <span className="font-bold text-slate-700 dark:text-slate-300">
-                              {item.learningProgress.quizSubmissions.length} submitted
-                            </span>
-                          </div>
-
-                          {item.learningProgress.quizSubmissions.some((s) => s.status === 'pending_review') && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
-                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
-                              <span>Written answers pending review!</span>
-                            </div>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReviewingEnrollment(item);
-                              setSelectedSubmissionIdx(0);
-                              const firstSub = item.learningProgress?.quizSubmissions?.[0];
-                              if (firstSub) {
-                                const initialGrading: { [index: number]: boolean } = {};
-                                (firstSub.answers || []).forEach((a, idx) => {
-                                  initialGrading[idx] = Boolean(a.isCorrect);
-                                });
-                                setGradingAnswers(initialGrading);
-                                setAdminFeedback(firstSub.adminFeedback || '');
-                              }
-                            }}
-                            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-[11px] font-bold transition cursor-pointer"
-                          >
-                            <HelpCircle className="w-3.5 h-3.5" />
-                            <span>Review Quiz Submissions ({item.learningProgress.quizSubmissions.length})</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Paper Submissions & Review Trigger */}
-                      {item.learningProgress?.paperSubmissions && item.learningProgress.paperSubmissions.length > 0 && (
-                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 dark:text-slate-400 font-medium">Paper Submissions:</span>
-                            <span className="font-bold text-slate-700 dark:text-slate-300">
-                              {item.learningProgress.paperSubmissions.length} submitted
-                            </span>
-                          </div>
-
-                          {item.learningProgress.paperSubmissions.some((s) => s.status === 'pending') && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
-                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
-                              <span>Answer papers pending grading!</span>
-                            </div>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => openPaperReview(item)}
-                            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-[11px] font-bold transition cursor-pointer"
-                          >
-                            <Award className="w-3.5 h-3.5" />
-                            <span>Grade Paper Submissions ({item.learningProgress.paperSubmissions.length})</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {item.learningProgress?.lastOpenedAt && (
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                          Last active: {new Date(item.learningProgress.lastOpenedAt).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Column 3: Payment & Bank Slip Info */}
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Payment Mode:</span>
-                      <span className="font-bold text-slate-900 dark:text-white font-mono text-right">
-                        {item.isFree || item.amount === 0 ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">FREE COURSE</span>
-                        ) : item.paymentType === 'partial' ? (
-                          <span className="text-amber-600 dark:text-amber-300">
-                            Rs. {(item.amountPaid || 0).toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">(Partial of Rs. {(item.amount || 0).toLocaleString()})</span>
-                          </span>
-                        ) : (
-                          <span className="text-cyan-600 dark:text-cyan-300">Rs. {(item.amount || 0).toLocaleString()} (Full)</span>
-                        )}
-                      </span>
-                    </div>
-
-                    {item.bankReference && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500 dark:text-slate-400 font-medium">Deposit Ref:</span>
-                        <span className="font-mono text-cyan-600 dark:text-cyan-300 font-bold">{item.bankReference}</span>
-                      </div>
-                    )}
-
-                    {item.notes && (
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950/40 text-[11px] text-slate-700 dark:text-slate-300 italic border border-slate-200 dark:border-slate-800">
-                        "{item.notes}"
-                      </div>
-                    )}
-
-                    {/* Slip preview trigger */}
-                    {item.slipUrl ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedSlip({
-                            enrollmentId: item._id,
-                            url: item.slipUrl!,
-                            fileName: item.slipFileName,
-                            student: user.name || 'Student',
-                            studentIndex: user.indexNumber,
-                          })
-                        }
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Bank Slip ({item.slipFileName?.endsWith('.pdf') ? 'PDF' : 'Image'})</span>
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 dark:text-slate-500 block">No slip required (Free enrollment)</span>
-                    )}
-
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                      Enrolled: {new Date(item.enrolledAt || item.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-
-                  {/* Column 4: Verification Status & Actions */}
-                  <div className="flex flex-col items-end gap-3 shrink-0">
-                    {/* Status Badge */}
-                    <div>
-                      {isPending && (
-                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm shadow-amber-500/20">
-                          <Clock className="w-3.5 h-3.5 animate-pulse" />
-                          <span>Pending Verification</span>
-                        </span>
-                      )}
-                      {isApproved && (
-                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Approved & Active</span>
-                        </span>
-                      )}
-                      {isRejected && (
-                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5">
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Declined</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {item.adminNotes && (
-                      <p className="text-[11px] text-slate-400 max-w-[200px] text-right italic">
-                        Note: {item.adminNotes}
-                      </p>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 mt-auto">
-                      {isPending && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleApprove(item)}
-                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-1 disabled:opacity-50"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => {
-                              setRejectingItem(item);
-                              setRejectionNote('');
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      )}
-
-                      {isApproved && (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => {
-                            setRejectingItem(item);
-                            setRejectionNote('');
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 text-xs transition cursor-pointer"
-                        >
-                          Revoke Access
-                        </button>
-                      )}
-
-                      {isRejected && (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleApprove(item)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-xs font-bold border border-emerald-500/30 transition cursor-pointer"
-                        >
-                          Re-approve
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item._id)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-                        title="Delete record"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
+              {filteredCourses.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-500" />
+                    <span>Matching Courses ({filteredCourses.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {filteredCourses.map(renderCourseCard)}
                   </div>
                 </div>
+              )}
+
+              {filtered.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-indigo-500" />
+                    <span>Matching Student Enrollments across courses ({filtered.length})</span>
+                  </h3>
+                  <div className="space-y-4">
+                    {filtered.map((item) => renderEnrollmentCard(item, true))}
+                  </div>
+                </div>
+              )}
+
+              {filteredCourses.length === 0 && filtered.length === 0 && (
+                <div className="enrollments-empty-box p-12 text-center rounded-2xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 transition">
+                  <Search className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">No matches found for "{search}"</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                    Try searching for another student name, index number, or course title.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Normal Stage 1 View: Course Cards Grid */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Your Created Courses ({courses.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Click any course card below to view enrolled students, verify bank slips, and evaluate papers.
+                  </p>
+                </div>
               </div>
-            );
-          })}
-        </div>
+
+              {courses.length === 0 ? (
+                <div className="enrollments-empty-box p-12 text-center rounded-2xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 transition">
+                  <GraduationCap className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">No courses created yet</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                    Once you create courses in the Courses Studio and students enroll or submit payments, your courses will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {courses.map(renderCourseCard)}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        /* =========================================================================
+            STAGE 2: SINGLE COURSE ENROLLMENTS & STUDENTS (When selectedCourse is set)
+           ========================================================================= */
+        <>
+          {/* Navigation & Breadcrumb */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCourse(null);
+                setSearch('');
+                setStatusFilter('all');
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 text-xs font-bold transition cursor-pointer shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4 text-indigo-500" />
+              <span>← Back to All Courses</span>
+            </button>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-semibold">All Courses</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+              <span className="font-bold text-slate-900 dark:text-white truncate max-w-xs">{selectedCourse.title}</span>
+            </div>
+          </div>
+
+          {/* Selected Course Banner */}
+          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-xl flex items-center justify-between flex-wrap gap-6">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                {selectedCourse.thumbnailUrl ? (
+                  <img src={selectedCourse.thumbnailUrl} alt={selectedCourse.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-indigo-500/10 text-indigo-500">
+                    <GraduationCap className="w-10 h-10" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+                    {selectedCourse.subject || 'Subject'}
+                  </span>
+                  {selectedCourse.stream && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      {selectedCourse.stream}
+                    </span>
+                  )}
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {selectedCourse.isFree
+                      ? 'FREE COURSE'
+                      : selectedCourse.billingType === 'monthly'
+                      ? `Rs. ${(selectedCourse.monthlyFee || 0).toLocaleString()} / month`
+                      : `Rs. ${(selectedCourse.price || 0).toLocaleString()}`}
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white truncate">
+                  {selectedCourse.title}
+                </h2>
+                {selectedCourse.topic && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{selectedCourse.topic}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {onNavigateToCourse && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToCourse(selectedCourse._id)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Open Course Studio</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={loadEnrollments}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Course-Specific KPI Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Course Students</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{selectedCourseStats.total}</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 shadow-sm flex items-center gap-4 relative overflow-hidden">
+              {selectedCourseStats.pending > 0 && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+              )}
+              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Pending Slips</p>
+                <p className="text-2xl font-black text-amber-600 dark:text-amber-300 mt-0.5">{selectedCourseStats.pending}</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">Active Approved</p>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{selectedCourseStats.approved}</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-300 shrink-0">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Course Revenue</p>
+                <p className="text-2xl font-black text-cyan-600 dark:text-cyan-300 mt-0.5">Rs. {selectedCourseStats.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Scoped Filter and Search Bar for Selected Course */}
+          <div className="enrollments-filter-box p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-md space-y-3 transition">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              {/* Status Pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Status:</span>
+                </span>
+                {(
+                  [
+                    { id: 'all', label: 'All Records', count: selectedCourseStats.total },
+                    { id: 'pending', label: 'Pending Verification', count: selectedCourseStats.pending, alert: selectedCourseStats.pending > 0 },
+                    { id: 'approved', label: 'Approved', count: selectedCourseStats.approved },
+                    { id: 'rejected', label: 'Declined', count: selectedCourseStats.rejected },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                      statusFilter === tab.id
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-700/60'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                        tab.alert
+                          ? 'bg-amber-400 text-slate-950 font-black animate-pulse'
+                          : statusFilter === tab.id
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 dark:bg-black/30 text-slate-600 dark:text-slate-400 font-semibold'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Scoped Search Box */}
+              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-72">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type="search"
+                    placeholder={`Search student name or index in ${selectedCourse.title}...`}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer shadow-sm shadow-indigo-600/20"
+                >
+                  Search
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Enrollments Listing for this course */}
+          {loading ? (
+            <div className="py-20 text-center text-slate-500 dark:text-slate-400 space-y-3">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-indigo-500 dark:text-indigo-400" />
+              <p className="text-sm font-semibold">Loading student records...</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="enrollments-empty-box p-12 text-center rounded-2xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 transition">
+              <CreditCard className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">No enrollment records found</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                {search || statusFilter !== 'all'
+                  ? 'Try adjusting your search query or clearing filters to see all enrolled students.'
+                  : 'No students have enrolled or submitted payment slips for this course yet.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filtered.map((item) => renderEnrollmentCard(item, false))}
+            </div>
+          )}
+        </>
       )}
 
       {/* MODAL 1: Bank Deposit Slip Full Preview */}
