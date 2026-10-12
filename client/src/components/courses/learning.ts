@@ -41,6 +41,7 @@ export interface CurriculumBlock {
   // Document block
   pdfUrl?: string;
   pdfFileName?: string;
+  pdfPath?: string;
   size?: number;
   path?: string;
   pendingFile?: File;

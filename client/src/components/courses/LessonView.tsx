@@ -625,109 +625,119 @@ export function LessonView({
                         </div>
 
                         {/* Companion PDF Document (if attached to this video) */}
-                        {Boolean(block.pdfUrl || block.recordingPdfUrl || block.pdfFileName || block.recordingPdfFileName) && (
-                          <div className="rounded-xl border border-emerald-500/30 bg-slate-950/80 p-4 space-y-3">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-emerald-400" />
-                                <span className="text-xs font-bold text-white">
-                                  {block.pdfFileName || block.recordingPdfFileName || 'Video Companion Notes (PDF)'}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <a
-                                  href={api.courseResourceUrl(block.pdfUrl || block.recordingPdfUrl || `/courses/${lesson._id}/download`)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  <span>Open PDF</span>
-                                </a>
-                                {signedIn && (
+                        {Boolean(block.pdfUrl || block.recordingPdfUrl || block.pdfFileName || block.recordingPdfFileName) && (() => {
+                          const companionPath =
+                            block.pdfPath ||
+                            (block._id ? `/courses/${lesson._id}/blocks/${block._id}/download` : (block.path || `/courses/${lesson._id}/download`));
+                          return (
+                            <div className="rounded-xl border border-emerald-500/30 bg-slate-950/80 p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-xs font-bold text-white">
+                                    {block.pdfFileName || block.recordingPdfFileName || 'Video Companion Notes (PDF)'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
                                   <a
-                                    href={api.courseResourceUrl(block.pdfUrl || block.recordingPdfUrl || `/courses/${lesson._id}/download`)}
+                                    href={api.courseResourceUrl(companionPath, { inline: true })}
                                     target="_blank"
-                                    rel="noreferrer"
-                                    download
-                                    className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 shadow-sm"
                                   >
-                                    <Download className="w-3.5 h-3.5" />
-                                    <span>Download</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Open PDF</span>
                                   </a>
-                                )}
+                                  {signedIn && (
+                                    <a
+                                      href={api.courseResourceUrl(companionPath, { download: true })}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download
+                                      className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                      <span>Download</span>
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="w-full h-64 sm:h-80 rounded-lg overflow-hidden border border-emerald-500/20 bg-slate-950">
+                                <iframe
+                                  src={`${api.courseResourceUrl(companionPath, { inline: true })}#toolbar=0`}
+                                  title={block.title || 'Document'}
+                                  className="w-full h-full border-0"
+                                />
                               </div>
                             </div>
-                            <div className="w-full h-64 sm:h-80 rounded-lg overflow-hidden border border-emerald-500/20 bg-slate-950">
-                              <iframe
-                                src={`${api.courseResourceUrl(block.pdfUrl || block.recordingPdfUrl || `/courses/${lesson._id}/download`)}#toolbar=0`}
-                                title={block.title || 'Document'}
-                                className="w-full h-full border-0"
-                              />
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </section>
                     )}
 
                     {/* DOCUMENT / NOTES STEP */}
-                    {block.type === 'document' && (
-                      <section className={`${panel} border-emerald-500/30 space-y-4`}>
-                        <div className="flex items-center justify-between flex-wrap gap-3 border-b border-white/5 pb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
-                              <FileText className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-white text-base">
-                                  {block.title || block.pdfFileName || 'Study Notes & Handout'}
-                                </h4>
-                                <span className="text-xs text-slate-400">(Step {idx + 1} of {totalBlocks})</span>
+                    {block.type === 'document' && (() => {
+                      const docPath =
+                        block.pdfPath ||
+                        block.path ||
+                        (block._id ? `/courses/${lesson._id}/blocks/${block._id}/download` : `/courses/${lesson._id}/download`);
+                      return (
+                        <section className={`${panel} border-emerald-500/30 space-y-4`}>
+                          <div className="flex items-center justify-between flex-wrap gap-3 border-b border-white/5 pb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                                <FileText className="w-5 h-5" />
                               </div>
-                              <p className="text-xs text-slate-400">PDF Study Material</p>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-bold text-white text-base">
+                                    {block.title || block.pdfFileName || 'Study Notes & Handout'}
+                                  </h4>
+                                  <span className="text-xs text-slate-400">(Step {idx + 1} of {totalBlocks})</span>
+                                </div>
+                                <p className="text-xs text-slate-400">PDF Study Material</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {signedIn && (
+                                <a
+                                  href={api.courseResourceUrl(docPath, { download: true })}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download
+                                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download PDF</span>
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => toggleBlockCompletion(blockKey)}
+                                disabled={busy}
+                                className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 cursor-pointer ${
+                                  done
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                    : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
+                                }`}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{done ? 'Read ✓' : 'Mark as Read'}</span>
+                              </button>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {signedIn && (
-                              <a
-                                href={api.courseResourceUrl(
-                                  block.path || block.pdfUrl || `/courses/${lesson._id}/download`
-                                )}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Download PDF</span>
-                              </a>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => toggleBlockCompletion(blockKey)}
-                              disabled={busy}
-                              className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{done ? 'Read ✓' : 'Mark as Read'}</span>
-                            </button>
+                          <div className="w-full h-[55vh] rounded-xl overflow-hidden border border-slate-800 bg-white">
+                            <iframe
+                              src={api.courseResourceUrl(docPath, { inline: true })}
+                              title={block.title || 'Document'}
+                              className="w-full h-full border-0"
+                            />
                           </div>
-                        </div>
-
-                        <div className="w-full h-[55vh] rounded-xl overflow-hidden border border-slate-800 bg-white">
-                          <iframe
-                            src={api.courseResourceUrl(block.path || block.pdfUrl || `/courses/${lesson._id}/download`)}
-                            title={block.title || 'Document'}
-                            className="w-full h-full border-0"
-                          />
-                        </div>
-                      </section>
-                    )}
+                        </section>
+                      );
+                    })()}
 
                     {/* PRACTICE QUIZ STEP */}
                     {block.type === 'quiz' && (() => {

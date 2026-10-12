@@ -169,14 +169,24 @@ export const api = {
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
-  courseResourceUrl: (path: string) => {
+  courseResourceUrl: (path: string, options?: { inline?: boolean; download?: boolean }) => {
     if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const token = getAuthToken();
-    const base = API_BASE + path;
-    if (!token) return base;
-    const sep = path.includes('?') ? '&' : '?';
-    return `${base}${sep}token=${encodeURIComponent(token)}`;
+    let finalPath = path;
+    const isRemote = finalPath.startsWith('http://') || finalPath.startsWith('https://');
+    if (!isRemote) {
+      const sep = finalPath.includes('?') ? '&' : '?';
+      if (options?.inline) {
+        finalPath = `${finalPath}${sep}inline=1`;
+      } else if (options?.download) {
+        finalPath = `${finalPath}${sep}download=1`;
+      }
+      const token = getAuthToken();
+      const base = API_BASE + (finalPath.startsWith('/') ? finalPath : '/' + finalPath);
+      if (!token) return base;
+      const sepToken = base.includes('?') ? '&' : '?';
+      return `${base}${sepToken}token=${encodeURIComponent(token)}`;
+    }
+    return finalPath;
   },
   getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),

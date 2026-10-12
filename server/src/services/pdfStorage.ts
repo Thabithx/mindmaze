@@ -86,7 +86,12 @@ export async function removePdf(course: any) {
   else await cloudinary.uploader.destroy(course.pdfPublicId, { resource_type: course.pdfProvider || (course.pdfUrl?.includes('/image/') ? 'image' : 'raw') });
 }
 
-export async function downloadPdf(course: any, res: Response, watermark?: WatermarkDetails | null) {
+export async function downloadPdf(
+  course: any,
+  res: Response,
+  watermark?: WatermarkDetails | null,
+  inline?: boolean
+) {
   if (course.pdfProvider === 'local') {
     const localFilePath = path.join(directory(), path.basename(course.pdfPublicId));
     try {
@@ -94,14 +99,18 @@ export async function downloadPdf(course: any, res: Response, watermark?: Waterm
       const finalBuffer = await watermarkPdf(rawBuffer, watermark);
 
       const downloadName = buildAttributedFilename(course.pdfFileName || 'notes.pdf', watermark);
-      res.attachment(downloadName);
+      if (inline) {
+        res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+      } else {
+        res.attachment(downloadName);
+      }
       res.type('application/pdf');
       res.setHeader('Content-Length', finalBuffer.length);
       res.send(finalBuffer);
       return;
     } catch (err: any) {
       if (course.pdfUrl && (course.pdfUrl.startsWith('http://') || course.pdfUrl.startsWith('https://'))) {
-        await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark);
+        await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark, inline);
         return;
       }
       if (!res.headersSent) {
@@ -115,5 +124,5 @@ export async function downloadPdf(course: any, res: Response, watermark?: Waterm
     res.status(404).json({ message: 'This course has no PDF.' });
     return;
   }
-  await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark);
+  await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark, inline);
 }

@@ -24,7 +24,8 @@ export async function deliverRemotePdf(
   url: string,
   fileName: string,
   res: Response,
-  watermark?: WatermarkDetails | null
+  watermark?: WatermarkDetails | null,
+  inline?: boolean
 ) {
   let remote: globalThis.Response;
   try {
@@ -57,7 +58,11 @@ export async function deliverRemotePdf(
     const finalBuffer = await watermarkPdf(rawBuffer, watermark);
 
     const safeFileName = buildAttributedFilename(fileName || 'document.pdf', watermark);
-    res.attachment(safeFileName);
+    if (inline) {
+      res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
+    } else {
+      res.attachment(safeFileName);
+    }
     res.type('application/pdf');
     res.setHeader('Content-Length', finalBuffer.length);
     res.send(finalBuffer);

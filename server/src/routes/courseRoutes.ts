@@ -222,27 +222,37 @@ router.get('/',async(req,res)=>{try{
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 
-router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(c,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
-router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(resource,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);const isInline=req.query.inline==='1'||req.query.inline==='true';await downloadPdf(c,res,watermark,isInline);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);const isInline=req.query.inline==='1'||req.query.inline==='true';await downloadPdf(resource,res,watermark,isInline);}catch(e){if(!res.headersSent)fail(res,e);}});
 router.get('/:id/blocks/:blockId/download',async(req,res)=>{
   try{
     const c=await Course.findOne({_id:req.params.id,...publishedFilter});
     if(!c){res.status(404).json({message:'Lesson not found.'});return;}
-    const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId);
+    const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId) ||
+                (Number.isInteger(Number(req.params.blockId)) ? c?.curriculumBlocks?.[Number(req.params.blockId)] : undefined);
     if(!block || (block.type !== 'document' && !block.pdfUrl && !block.recordingPdfUrl)){
       res.status(404).json({message:'Document not found.'});
       return;
     }
     const watermark=await extractDownloadWatermark(req);
-    let target: any = block;
-    if (block.pdfUrl && block.pdfUrl.includes('/resources/')) {
-      const match = block.pdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
+    const effectivePdfUrl = block.pdfUrl || block.recordingPdfUrl || '';
+    const effectiveFileName = block.pdfFileName || block.recordingPdfFileName || 'document.pdf';
+    let target: any = {
+      ...(typeof (block as any)?.toObject === 'function' ? (block as any).toObject() : block),
+      pdfUrl: effectivePdfUrl,
+      pdfFileName: effectiveFileName,
+      pdfProvider: block.pdfProvider || (effectivePdfUrl.includes('res.cloudinary.com') ? 'cloudinary' : 'raw'),
+      pdfPublicId: block.pdfPublicId || block.recordingPdfPublicId || ''
+    };
+    if (effectivePdfUrl && effectivePdfUrl.includes('/resources/')) {
+      const match = effectivePdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
       if (match && match[1]) {
         const linked = c.resources?.find((r: any) => String(r._id) === match[1]);
         if (linked) target = linked;
       }
     }
-    await downloadPdf(target,res,watermark);
+    const isInline=req.query.inline==='1'||req.query.inline==='true';
+    await downloadPdf(target,res,watermark,isInline);
   }catch(e){if(!res.headersSent)fail(res,e);}
 });
 router.get('/:id',async(req,res)=>{try{
