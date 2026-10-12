@@ -245,8 +245,14 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
       filter.status = status;
     }
 
+    // Only show enrollments for courses created by this admin
+    const adminCourseIds = await Course.find({ createdBy: req.user!._id }).distinct('_id');
+
     if (typeof courseId === 'string' && mongoose.isValidObjectId(courseId)) {
-      filter.course = courseId;
+      const isMine = adminCourseIds.some((id: any) => String(id) === String(courseId));
+      filter.course = isMine ? courseId : { $in: [] };
+    } else {
+      filter.course = { $in: adminCourseIds };
     }
 
     // Fetch enrollments
@@ -309,8 +315,8 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
       });
     }
 
-    // Calculate aggregated statistics
-    const allEnrollmentsForStats = await CourseEnrollment.find().lean();
+    // Calculate aggregated statistics scoped to this admin's courses
+    const allEnrollmentsForStats = await CourseEnrollment.find({ course: { $in: adminCourseIds } }).lean();
     const stats = {
       total: allEnrollmentsForStats.length,
       pending: allEnrollmentsForStats.filter((e) => e.status === 'pending').length,
@@ -365,9 +371,18 @@ router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthReq
       update.amountPaid = amountPaid;
     }
 
+    const currentEnr = await CourseEnrollment.findById(id).populate('course');
+    if (!currentEnr) {
+      res.status(404).json({ message: 'Enrollment record not found.' });
+      return;
+    }
+    const courseObj: any = currentEnr.course;
+    if (courseObj && courseObj.createdBy && String(courseObj.createdBy) !== String(req.user!._id)) {
+      res.status(403).json({ message: 'You can only manage enrollments for courses created by you.' });
+      return;
+    }
+
     if (status === 'approved') {
-      const currentEnr = await CourseEnrollment.findById(id).populate('course');
-      const courseObj: any = currentEnr?.course;
       const validity = courseObj?.validityMonths ?? (courseObj?.validityPeriod === '1_month' ? 1 : courseObj?.validityPeriod === '3_months' ? 3 : courseObj?.validityPeriod === '6_months' ? 6 : courseObj?.validityPeriod === '1_year' ? 12 : 0);
       update.expiresAt = computeExpiresAt(validity);
       update.enrolledAt = new Date();
@@ -408,9 +423,15 @@ router.delete('/admin/:id', protect, contentManagerOnly, async (req: AuthRequest
       return;
     }
 
-    const enrollment = await CourseEnrollment.findById(id);
+    const enrollment = await CourseEnrollment.findById(id).populate('course');
     if (!enrollment) {
       res.status(404).json({ message: 'Enrollment not found.' });
+      return;
+    }
+
+    const courseObj: any = enrollment.course;
+    if (courseObj && courseObj.createdBy && String(courseObj.createdBy) !== String(req.user!._id)) {
+      res.status(403).json({ message: 'You can only delete enrollments for courses created by you.' });
       return;
     }
 
@@ -447,9 +468,14 @@ router.put(
         return;
       }
 
-      const progress = await CourseProgress.findById(progressId);
+      const progress = await CourseProgress.findById(progressId).populate('course', 'createdBy');
       if (!progress) {
         res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to review this submission.' });
         return;
       }
 
@@ -527,9 +553,14 @@ router.put(
         return;
       }
 
-      const progress = await CourseProgress.findById(progressId);
+      const progress = await CourseProgress.findById(progressId).populate('course', 'createdBy');
       if (!progress) {
         res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to review this submission.' });
         return;
       }
 
@@ -599,9 +630,16 @@ router.get(
         return;
       }
 
-      const progress = await CourseProgress.findOne({ 'paperSubmissions._id': submissionId }).populate('user', 'name indexNumber');
+      const progress = await CourseProgress.findOne({ 'paperSubmissions._id': submissionId })
+        .populate('user', 'name indexNumber')
+        .populate('course', 'createdBy');
       if (!progress) {
         res.status(404).json({ message: 'Submission record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to download this submission.' });
         return;
       }
 
@@ -633,15 +671,18 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
       return;
     }
 
-    // Fetch all course enrollments for this student
-    const enrollments = await CourseEnrollment.find({ user: userId })
+    // Fetch only courses created by this admin
+    const adminCourseIds = await Course.find({ createdBy: req.user!._id }).distinct('_id');
+
+    // Fetch course enrollments for this student scoped to this admin's courses
+    const enrollments = await CourseEnrollment.find({ user: userId, course: { $in: adminCourseIds } })
       .populate('course', 'title subject stream topic price isFree status curriculumBlocks videoCount estimatedMinutes')
       .populate('reviewedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Fetch all course progress records for this student
-    const progressRecords = await CourseProgress.find({ user: userId }).lean();
+    // Fetch course progress records for this student scoped to this admin's courses
+    const progressRecords = await CourseProgress.find({ user: userId, course: { $in: adminCourseIds } }).lean();
     const progressMap = new Map<string, any>();
     for (const p of progressRecords) {
       progressMap.set(String(p.course), p);
@@ -847,7 +888,17 @@ router.get(
         return;
       }
 
-      const enrollment = await CourseEnrollment.findById(id).populate('user', 'name indexNumber email');
+      const enrollment = await CourseEnrollment.findById(id)
+        .populate('user', 'name indexNumber email')
+        .populate('course', 'createdBy');
+      if (!enrollment) {
+        res.status(404).json({ message: 'Enrollment not found.' });
+        return;
+      }
+      if ((enrollment.course as any)?.createdBy && String((enrollment.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not own this course.' });
+        return;
+      }
       await handleDeliverSlip(enrollment, req, res);
     } catch (err: any) {
       console.error('[Admin Slip Delivery Error]:', err);

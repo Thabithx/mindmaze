@@ -182,19 +182,28 @@ router.post('/admin/quiz-image', protect, contentManagerOnly, imageOnlyUpload, a
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
 // Register named routes before /:id. Public queries always exclude drafts.
-router.get('/admin/topics',protect,contentManagerOnly,async(_req,res)=>{try{
-  const topics=await Course.aggregate([{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
+router.get('/admin/topics',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const topics=await Course.aggregate([{$match:{createdBy:req.user!._id}},{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
   res.json({topics});
 }catch(e){fail(res,e);}});
-router.get('/admin/list',protect,contentManagerOnly,async(req,res)=>{try{
-  const requested=readPagination(req.query),filter:any={};
+router.get('/admin/list',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const requested=readPagination(req.query),filter:any={createdBy:req.user!._id};
   for(const key of ['subject','status'])if(queryText(req.query[key]))filter[key]=queryText(req.query[key]);
   if(req.query.parentCourseId) {
     filter.parentCourseId = req.query.parentCourseId;
   } else if (req.query.mainOnly === 'true') {
     filter.$or = [{ parentCourseId: { $exists: false } }, { parentCourseId: null }];
   }
-  const search=literalSearch(req.query.q);if(search)filter.$or=['title','topic','subject'].map(key=>({[key]:search}));
+  const search=literalSearch(req.query.q);
+  if(search) {
+    const searchOr = ['title','topic','subject'].map(key=>({[key]:search}));
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+      delete filter.$or;
+    } else {
+      filter.$or = searchOr;
+    }
+  }
   const pagination=pageInfo(await Course.countDocuments(filter),requested);
   const courses=await Course.find(filter).sort({createdAt:-1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
   const withCounts = await Promise.all(courses.map(async (c) => {
@@ -515,12 +524,23 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
   try{
     const existing=updating?await Course.findById(req.params.id):null;
     if(updating&&!existing){res.status(404).json({message:'Lesson not found.'});return;}
+    if(existing && existing.createdBy && String(existing.createdBy) !== String(req.user!._id)){
+      res.status(403).json({message:'You can only edit courses created by you.'});
+      return;
+    }
     let details:any,keep:string[];
     try{
       details=validateLesson(req.body);
       keep=req.body.keepResourceIds?JSON.parse(req.body.keepResourceIds):existing?['legacy',...existing.resources.map((r:any)=>String(r._id))]:[];
       if(!Array.isArray(keep)||keep.some(id=>typeof id!=='string'))throw Error('Invalid resource selection.');
     }catch(e:any){res.status(400).json({message:e.message});return;}
+    if(details.parentCourseId) {
+      const parentCourse = await Course.findById(details.parentCourseId);
+      if(!parentCourse || (parentCourse.createdBy && String(parentCourse.createdBy) !== String(req.user!._id))){
+        res.status(403).json({message:'You can only add monthly courses inside a main course created by you.'});
+        return;
+      }
+    }
     if(existing&&Number(req.body.revision)!==(existing.revision||0)){res.status(409).json({message:'This lesson was edited elsewhere. Reload it before saving.'});return;}
     const groups=req.files as Record<string,Express.Multer.File[]>|undefined;
     const files=[...(groups?.pdfFiles||[]),...(groups?.pdfFile||[])];
@@ -618,7 +638,13 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
 };
 router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));
 router.put('/:id',protect,contentManagerOnly,parseUpload,saveLesson(true));
-router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
+router.delete('/:id',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const c=await Course.findById(req.params.id);
+  if(!c){res.status(404).json({message:'Course not found.'});return;}
+  if(c.createdBy && String(c.createdBy) !== String(req.user!._id)){
+    res.status(403).json({message:'You can only delete courses created by you.'});
+    return;
+  }
   const subCount = await Course.countDocuments({ parentCourseId: req.params.id });
   if (subCount > 0) {
     res.status(400).json({
@@ -626,10 +652,11 @@ router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
     });
     return;
   }
-  const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Course not found.'});return;}
+  await Course.findByIdAndDelete(req.params.id);
   if(c.thumbnailPublicId) await removeImage(c.thumbnailPublicId).catch(()=>{});
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
-  await CourseProgress.deleteMany({course:c._id});res.json({message:'Course removed successfully.'});
+  await CourseProgress.deleteMany({course:c._id});
+  res.json({message:'Course removed successfully.'});
 }catch(e){fail(res,e);}});
 
 // Background worker: automatically delete live classes 5 hours after scheduled time
