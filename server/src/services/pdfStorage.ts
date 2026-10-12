@@ -69,6 +69,44 @@ export async function saveImage(file: Express.Multer.File) {
   return { url: `/uploads/${key}`, publicId: key };
 }
 
+export async function saveSubmissionFile(file: Express.Multer.File) {
+  const isImage = file.mimetype?.startsWith('image/');
+  const ext = path.extname(file.originalname) || (isImage ? '.jpg' : '.pdf');
+  const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const publicId = `sub_${randomUUID()}_${safeBase}${ext}`;
+
+  if (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.UPLOAD_STORAGE !== 'local'
+  ) {
+    const resourceType = isImage ? 'image' : 'raw';
+    const result: any = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: resourceType, folder: 'mind_maze_submissions', public_id: publicId },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      stream.end(file.buffer);
+    });
+    return {
+      fileUrl: result.secure_url,
+      fileName: file.originalname,
+      publicId: result.public_id,
+      provider: resourceType,
+    };
+  }
+
+  await mkdir(directory(), { recursive: true });
+  await writeFile(path.join(directory(), publicId), file.buffer);
+  return {
+    fileUrl: '',
+    fileName: file.originalname,
+    publicId,
+    provider: 'local',
+  };
+}
+
 export async function removeImage(publicId?: string) {
   if (!publicId) return;
   try {

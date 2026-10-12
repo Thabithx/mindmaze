@@ -91,6 +91,12 @@ export const adminEnrollmentSlipUrl = (enrollmentId: string, download = false): 
   return `${API_BASE}/enrollments/admin/${encodeURIComponent(enrollmentId)}/slip?${download ? 'download=1' : 'inline=1'}${tokenParam}`;
 };
 
+export const adminSubmissionDownloadUrl = (submissionId: string): string => {
+  const token = getAuthToken();
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE}/enrollments/admin/submissions/${encodeURIComponent(submissionId)}/download${tokenParam}`;
+};
+
 export const getAttributedFileName = (baseTitle: string, defaultExt = '.pdf'): string => {
   const user = getStoredUser();
   const cleanTitle = (baseTitle || 'document').trim().replace(/[^a-zA-Z0-9_\-\.\s]/g, '_');
@@ -197,6 +203,27 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ answers, revision, blockKey }),
     }),
+  courseBlockDownloadUrl: (courseId: string, blockId: string, options?: { preview?: boolean }) => {
+    const token = getAuthToken();
+    const query = new URLSearchParams();
+    if (token) query.append('token', token);
+    if (options?.preview) query.append('preview', 'true');
+    const qs = query.toString();
+    return `${API_BASE}/courses/${encodeURIComponent(courseId)}/blocks/${encodeURIComponent(blockId)}/download${qs ? '?' + qs : ''}`;
+  },
+  courseBlockResultSheetDownloadUrl: (courseId: string, blockId: string, options?: { preview?: boolean }) => {
+    const token = getAuthToken();
+    const query = new URLSearchParams();
+    if (token) query.append('token', token);
+    if (options?.preview) query.append('preview', 'true');
+    const qs = query.toString();
+    return `${API_BASE}/courses/${encodeURIComponent(courseId)}/blocks/${encodeURIComponent(blockId)}/result-sheet/download${qs ? '?' + qs : ''}`;
+  },
+  submitCoursePaper: (courseId: string, blockId: string, formData: FormData) =>
+    apiFetch(`/courses/${courseId}/blocks/${blockId}/paper-submit`, {
+      method: 'POST',
+      body: formData,
+    }),
   uploadQuizQuestionImage: (file: File) => {
     const formData = new FormData();
     formData.append('imageFile', file);
@@ -281,6 +308,17 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  reviewPaperSubmission: (
+    progressId: string,
+    submissionId: string,
+    body: FormData | any
+  ) => {
+    const isFormData = body instanceof FormData;
+    return apiFetch(`/enrollments/admin/progress/${progressId}/papers/${submissionId}/review`, {
+      method: 'PUT',
+      body: isFormData ? body : JSON.stringify(body),
+    });
+  },
   getStudentDetailedProgress: (userId: string) =>
     apiFetch(`/enrollments/admin/student/${userId}/progress`),
 };

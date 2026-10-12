@@ -20,6 +20,10 @@ import {
   ArrowLeft,
   ChevronRight,
   Maximize2,
+  Award,
+  FileSpreadsheet,
+  Upload,
+  Send,
 } from 'lucide-react';
 
 export function LessonView({
@@ -44,6 +48,17 @@ export function LessonView({
   const [mistakesOnly, setMistakesOnly] = useState(false);
   const [completionNotice, setCompletionNotice] = useState<string | null>(null);
 
+  // Paper submission state
+  const [paperFiles, setPaperFiles] = useState<{ [blockKey: string]: File }>({});
+  const [paperNotes, setPaperNotes] = useState<{ [blockKey: string]: string }>({});
+  const [submittingPaperKey, setSubmittingPaperKey] = useState<string | null>(null);
+  const [paperSubmitMessage, setPaperSubmitMessage] = useState<{ [blockKey: string]: string }>({});
+  const [localProgress, setLocalProgress] = useState<Progress | undefined>(progress);
+
+  React.useEffect(() => {
+    setLocalProgress(progress);
+  }, [progress]);
+
   const currentUser = getStoredUser();
   const signedIn = Boolean(getAuthToken());
   const quiz = lesson.quiz || [];
@@ -66,6 +81,54 @@ export function LessonView({
   const isLegacyDone = (key: string): boolean => {
     if (progress?.completed) return true;
     return (progress?.completedBlocks || []).includes(key);
+  };
+
+  const getBlockPaperSubmission = (block: any, idx: number) => {
+    const key = getBlockKey(block, idx);
+    const fallbackKey = `block-${idx}`;
+    const allSubs = localProgress?.paperSubmissions || progress?.paperSubmissions || [];
+    return allSubs.find((s) => s.blockKey === key || s.blockKey === fallbackKey || (block._id && s.blockKey === String(block._id)));
+  };
+
+  const paperBlocks = activeCurriculumBlocks
+    .map((block, idx) => ({ block, idx }))
+    .filter(({ block }) => block.type === 'paper');
+
+  const hasPaperSection =
+    paperBlocks.length > 0 ||
+    Boolean(localProgress?.paperSubmissions?.length) ||
+    Boolean(progress?.paperSubmissions?.length);
+
+  const handleSubmitPaper = async (block: CurriculumBlock, idx: number) => {
+    const blockKey = getBlockKey(block, idx);
+    const file = paperFiles[blockKey];
+    const notes = paperNotes[blockKey] || '';
+    if (!file && !notes.trim()) {
+      alert('Please select an answer document (PDF/Image) or type your notes to submit.');
+      return;
+    }
+    try {
+      setSubmittingPaperKey(blockKey);
+      const formData = new FormData();
+      if (file) formData.append('submissionFile', file);
+      if (notes) formData.append('studentNotes', notes);
+      formData.append('blockTitle', block.title || 'Paper');
+
+      const targetId = block._id || String(idx);
+      const res = await api.submitCoursePaper(lesson._id, targetId, formData);
+      if (res.progress) {
+        setLocalProgress(res.progress);
+        onProgress(res.progress);
+      }
+      setPaperSubmitMessage((prev) => ({
+        ...prev,
+        [blockKey]: 'Paper submitted successfully! Teacher will review and update your results.',
+      }));
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit paper. Please try again.');
+    } finally {
+      setSubmittingPaperKey(null);
+    }
   };
 
   // Check if a live class has expired (5 hours after scheduledTime)
@@ -358,15 +421,16 @@ export function LessonView({
       {error && <p role="alert" className="text-rose-300">{error}</p>}
 
       {/* COURSE MAIN DESCRIPTION & LIVE CLASS LINKS (MIDDLE SECTION) */}
-      {(lesson.description || liveClasses.length > 0) && (
+      {/* COURSE MAIN DESCRIPTION & LIVE CLASS / RESULTS (MIDDLE SECTION) */}
+      {(lesson.description || liveClasses.length > 0 || hasPaperSection) && (
         <section className="space-y-4">
           <div
             className={`grid gap-6 items-start ${
-              liveClasses.length > 0 ? 'lg:grid-cols-12' : 'grid-cols-1'
+              liveClasses.length > 0 || hasPaperSection ? 'lg:grid-cols-12' : 'grid-cols-1'
             }`}
           >
             {/* LEFT: MAIN COURSE DESCRIPTION */}
-            <div className={liveClasses.length > 0 ? 'lg:col-span-7 xl:col-span-8' : 'w-full'}>
+            <div className={liveClasses.length > 0 || hasPaperSection ? 'lg:col-span-7 xl:col-span-7' : 'w-full'}>
               <div className={`${panel} border-indigo-500/30 p-5 sm:p-6 space-y-3`}>
                 <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
                   <div className="flex items-center gap-2">
@@ -392,9 +456,10 @@ export function LessonView({
               </div>
             </div>
 
-            {/* RIGHT: LIVE CLASS LINKS */}
-            {liveClasses.length > 0 && (
-              <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+            {/* RIGHT: LIVE CLASS LINKS & PAPER RESULTS SECTION (RIGHT BELOW LIVE CLASS) */}
+            <div className="lg:col-span-5 xl:col-span-5 space-y-4">
+              {/* LIVE CLASS LINKS */}
+              {liveClasses.length > 0 && (
                 <div className="rounded-2xl border border-rose-500/30 bg-slate-900/90 shadow-xl p-4 sm:p-5 space-y-3">
                   <div className="flex items-center justify-between border-b border-white/5 pb-2">
                     <h4 className="text-sm font-bold text-white flex items-center gap-2">
@@ -442,8 +507,116 @@ export function LessonView({
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* PAPER & ASSIGNMENT RESULTS SECTION (PLACED RIGHT BELOW LIVE CLASS) */}
+              {hasPaperSection && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-slate-900/90 shadow-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                          <span>Paper & Assignment Results</span>
+                        </h4>
+                        <span className="text-[10px] text-slate-400">Official Results & Marking Schemes</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Results
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {paperBlocks.map(({ block: pBlock, idx: pIdx }) => {
+                      const pKey = getBlockKey(pBlock, pIdx);
+                      const sub = getBlockPaperSubmission(pBlock, pIdx);
+                      const isGraded = sub && sub.status === 'reviewed';
+                      const isPendingGrading = sub && sub.status === 'pending';
+                      const hasResultSheet = Boolean(sub?.resultSheetUrl || pBlock.resultSheetUrl);
+
+                      return (
+                        <div
+                          key={pKey}
+                          className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-white block truncate">
+                                {pBlock.title || `Paper Step ${pIdx + 1}`}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Total: {pBlock.totalMarks || 100} Marks
+                              </span>
+                            </div>
+
+                            {/* Status Badge */}
+                            {isGraded ? (
+                              <div className="flex items-center gap-1.5">
+                                {sub.grade && (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
+                                    Grade: {sub.grade}
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
+                                  {sub.marks ?? 0} / {sub.maxMarks ?? pBlock.totalMarks ?? 100}
+                                </span>
+                              </div>
+                            ) : isPendingGrading ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                ⏳ In Review
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                Not Submitted
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Teacher Feedback Quote if graded */}
+                          {isGraded && sub.adminFeedback && (
+                            <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-[11px] text-emerald-200">
+                              <span className="font-bold text-emerald-400 block mb-0.5">Teacher Feedback:</span>
+                              <p className="italic leading-relaxed">"{sub.adminFeedback}"</p>
+                            </div>
+                          )}
+
+                          {/* Result Sheet / Marking Scheme Download Button with Watermark */}
+                          {hasResultSheet && (
+                            <a
+                              href={api.courseBlockResultSheetDownloadUrl(lesson._id, pKey)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition cursor-pointer"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                              <span>Download Official Result Sheet</span>
+                              <Download className="w-3.5 h-3.5 ml-1" />
+                            </a>
+                          )}
+
+                          {/* Jump to curriculum step if not submitted */}
+                          {!sub && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const el = document.getElementById(`learning-step-${pIdx}`);
+                                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-indigo-300 text-xs font-bold transition cursor-pointer border border-indigo-500/20"
+                            >
+                              <span>Go to Paper Submission Step ↓</span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -493,6 +666,8 @@ export function LessonView({
                         ? 'Study Notes PDF'
                         : block.type === 'quiz'
                         ? 'Practice Quiz'
+                        : block.type === 'paper'
+                        ? 'Paper / Assignment'
                         : 'Overview Guidance'}
                     </span>
                   </div>
@@ -893,6 +1068,216 @@ export function LessonView({
                         </p>
                       </section>
                     )}
+
+                    {/* PAPER / ASSIGNMENT STEP */}
+                    {block.type === 'paper' && (() => {
+                      const sub = getBlockPaperSubmission(block, idx);
+                      const isGraded = sub && sub.status === 'reviewed';
+                      const isPending = sub && sub.status === 'pending';
+                      const isSubmitting = submittingPaperKey === blockKey;
+                      const submitMsg = paperSubmitMessage[blockKey];
+
+                      return (
+                        <section className={`${panel} border-indigo-500/30 p-4 sm:p-6 space-y-6`}>
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-3 flex-wrap border-b border-white/5 pb-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center">
+                                <Award className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="text-white font-bold text-base">
+                                  {block.title || 'Paper / Assignment'}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-purple-300 font-semibold">
+                                    Total Marks: {block.totalMarks || 100}
+                                  </span>
+                                  {block.deadline && (
+                                    <span className="text-[11px] text-slate-400">
+                                      • Due: {new Date(block.deadline).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleBlockCompletion(blockKey)}
+                              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+                                done
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'
+                              }`}
+                            >
+                              {done ? 'Step Completed ✓' : 'Mark as Done'}
+                            </button>
+                          </div>
+
+                          {/* Question Paper Documents & Instructions */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                <FileText className="w-4 h-4 text-cyan-400" />
+                                <span>Question Paper & Assignment Details</span>
+                              </h5>
+                              {block.paperUrl && (
+                                <a
+                                  href={api.courseBlockDownloadUrl(lesson._id, blockKey)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download={getAttributedFileName(block.paperFileName || `${block.title || 'Paper'}_Questions`, '.pdf')}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition shadow-sm cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download Question Paper PDF</span>
+                                </a>
+                              )}
+                            </div>
+
+                            {block.description ? (
+                              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                                {block.description}
+                              </div>
+                            ) : !block.paperUrl ? (
+                              <p className="text-xs text-slate-400 italic">No specific questions entered for this paper.</p>
+                            ) : null}
+                          </div>
+
+                          {/* Submission & Results Desk */}
+                          <div className="pt-2 border-t border-white/5 space-y-4">
+                            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                              <Upload className="w-4 h-4 text-emerald-400" />
+                              <span>Your Paper Submission & Results</span>
+                            </h5>
+
+                            {/* If Graded */}
+                            {isGraded && (
+                              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                    <span>Paper Evaluated & Graded</span>
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {sub.grade && (
+                                      <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
+                                        Grade: {sub.grade}
+                                      </span>
+                                    )}
+                                    <span className="px-3 py-1 rounded-lg text-sm font-black bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 font-mono">
+                                      Marks: {sub.marks ?? 0} / {sub.maxMarks ?? block.totalMarks ?? 100}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {sub.adminFeedback && (
+                                  <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-200">
+                                    <span className="font-bold text-emerald-400 block mb-0.5">Teacher Feedback:</span>
+                                    <p className="italic leading-relaxed">"{sub.adminFeedback}"</p>
+                                  </div>
+                                )}
+
+                                {(sub.resultSheetUrl || block.resultSheetUrl) && (
+                                  <a
+                                    href={api.courseBlockResultSheetDownloadUrl(lesson._id, blockKey)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={getAttributedFileName(sub.resultSheetFileName || block.resultSheetFileName || `${block.title || 'Paper'}_Result_Sheet`, '.pdf')}
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition cursor-pointer"
+                                  >
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                    <span>Download Official Marking Scheme / Result Sheet (Watermarked)</span>
+                                    <Download className="w-3.5 h-3.5 ml-1" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* If Pending Review */}
+                            {isPending && (
+                              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2.5">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                                    <span>Answer Paper Submitted · Pending Teacher Grading</span>
+                                  </span>
+                                  <span className="text-[11px] text-slate-400">
+                                    Submitted on {new Date(sub.submittedAt).toLocaleString()}
+                                  </span>
+                                </div>
+
+                                {sub.submissionFileName && (
+                                  <div className="text-xs text-slate-300 font-mono">
+                                    Submitted file: <span className="text-cyan-300 font-semibold">{sub.submissionFileName}</span>
+                                  </div>
+                                )}
+
+                                {sub.studentNotes && (
+                                  <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 text-xs text-slate-300 italic">
+                                    "{sub.studentNotes}"
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Submission Form (Shown when not submitted or allowed to re-upload) */}
+                            {(!sub || isPending) && (
+                              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3.5">
+                                <span className="text-xs font-bold text-slate-200 block">
+                                  {isPending ? 'Update or Re-upload Answer Paper:' : 'Upload Your Answer Paper:'}
+                                </span>
+
+                                <div className="grid sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                                      Answer Document (PDF / Image / Scan)
+                                    </label>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) setPaperFiles((prev) => ({ ...prev, [blockKey]: f }));
+                                      }}
+                                      className="block w-full text-xs text-slate-400 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-600/30 file:text-indigo-200 hover:file:bg-indigo-600/50 cursor-pointer"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                                      Student Index / Notes (Optional)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={paperNotes[blockKey] || ''}
+                                      onChange={(e) => setPaperNotes((prev) => ({ ...prev, [blockKey]: e.target.value }))}
+                                      placeholder="e.g. Index 10001, completed Sections A & B"
+                                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                                    />
+                                  </div>
+                                </div>
+
+                                {submitMsg && (
+                                  <p className="text-xs text-emerald-400 font-semibold">{submitMsg}</p>
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() => handleSubmitPaper(block, idx)}
+                                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  <span>{isSubmitting ? 'Uploading Answer Paper...' : 'Submit Paper for Grading'}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </section>
+                      );
+                    })()}
                   </>
                 )}
               </div>

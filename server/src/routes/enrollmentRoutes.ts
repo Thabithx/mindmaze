@@ -9,6 +9,7 @@ import CourseProgress from '../models/CourseProgress.js';
 import User from '../models/User.js';
 import cloudinary from '../config/cloudinary.js';
 import { protect, contentManagerOnly, AuthRequest } from '../middleware/authMiddleware.js';
+import { savePdf } from '../services/pdfStorage.js';
 
 const router = Router();
 const upload = multer({
@@ -284,6 +285,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
               quizTotal: progress.quizTotal,
               lastOpenedAt: progress.lastOpenedAt,
               quizSubmissions: progress.quizSubmissions || [],
+              paperSubmissions: progress.paperSubmissions || [],
             }
           : null,
       };
@@ -509,6 +511,113 @@ router.put(
   }
 );
 
+// 7b. Admin: Review & Grade a student's paper submission (Marks, Grade, Feedback & Result Sheet)
+router.put(
+  '/admin/progress/:progressId/papers/:submissionId/review',
+  protect,
+  contentManagerOnly,
+  upload.single('resultSheetFile'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { progressId, submissionId } = req.params;
+      const { marks, maxMarks, grade, adminFeedback, status } = req.body;
+
+      if (!mongoose.isValidObjectId(progressId) || !mongoose.isValidObjectId(submissionId)) {
+        res.status(400).json({ message: 'Invalid progress or submission ID.' });
+        return;
+      }
+
+      const progress = await CourseProgress.findById(progressId);
+      if (!progress) {
+        res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      const submission: any = (progress.paperSubmissions as any)?.id(submissionId);
+      if (!submission) {
+        res.status(404).json({ message: 'Paper submission not found.' });
+        return;
+      }
+
+      if (marks !== undefined && marks !== '') {
+        submission.marks = Number(marks);
+      }
+      if (maxMarks !== undefined && maxMarks !== '') {
+        submission.maxMarks = Number(maxMarks) || 100;
+      }
+      if (typeof grade === 'string') submission.grade = grade.trim();
+      if (typeof adminFeedback === 'string') submission.adminFeedback = adminFeedback.trim();
+      submission.status = status === 'pending_review' ? 'pending_review' : 'reviewed';
+      submission.reviewedBy = req.user!._id;
+      submission.reviewedAt = new Date();
+
+      // If admin attached a Result Sheet file specifically for this paper
+      if (req.file) {
+        try {
+          const rsSaved = await savePdf(req.file);
+          submission.resultSheetUrl = rsSaved.pdfUrl;
+          submission.resultSheetFileName = rsSaved.pdfFileName || 'Result Sheet.pdf';
+          submission.resultSheetPublicId = rsSaved.pdfPublicId;
+          submission.resultSheetProvider = rsSaved.pdfProvider || 'cloudinary';
+        } catch (uploadErr: any) {
+          console.error('[Result Sheet Upload Error]:', uploadErr);
+        }
+      }
+
+      // Mark completed in completedBlocks
+      const completedBlocks = new Set<string>(progress.completedBlocks || []);
+      if (submission.blockKey) {
+        completedBlocks.add(submission.blockKey);
+      }
+      progress.completedBlocks = Array.from(completedBlocks);
+
+      await progress.save();
+
+      res.json({
+        success: true,
+        message: 'Paper submission reviewed and graded successfully.',
+        submission,
+        progress,
+      });
+    } catch (err: any) {
+      console.error('[Paper Review Error]:', err);
+      res.status(500).json({ message: err?.message || 'Could not update paper review.' });
+    }
+  }
+);
+
+// 7c. Admin: Download or view a student's submitted paper file
+router.get(
+  '/admin/submissions/:submissionId/download',
+  protect,
+  contentManagerOnly,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { submissionId } = req.params;
+      if (!mongoose.isValidObjectId(submissionId)) {
+        res.status(400).json({ message: 'Invalid submission ID.' });
+        return;
+      }
+
+      const progress = await CourseProgress.findOne({ 'paperSubmissions._id': submissionId }).populate('user', 'name indexNumber');
+      if (!progress) {
+        res.status(404).json({ message: 'Submission record not found.' });
+        return;
+      }
+
+      const submission: any = (progress.paperSubmissions as any)?.id(submissionId);
+      if (!submission || !submission.submissionUrl) {
+        res.status(404).json({ message: 'Student submission file not found.' });
+        return;
+      }
+
+      res.redirect(submission.submissionUrl);
+    } catch (err: any) {
+      res.status(500).json({ message: 'Failed to access submission.' });
+    }
+  }
+);
+
 // 8. Admin: Get comprehensive learning progress & enrolled courses for a specific student
 router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async (req: AuthRequest, res: Response) => {
   try {
@@ -624,6 +733,7 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
         },
         documents: docsProgress,
         quizSubmissions,
+        paperSubmissions: prog?.paperSubmissions || [],
       };
     });
 

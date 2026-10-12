@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { api, adminEnrollmentSlipUrl } from '../../services/api';
+import { api, adminEnrollmentSlipUrl, adminSubmissionDownloadUrl } from '../../services/api';
 import { CourseEnrollmentRecord, QuizSubmissionRecord } from '../courses/learning';
 import {
   CreditCard,
@@ -29,6 +29,7 @@ import {
   Video,
   BookOpen,
   Loader2,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface EnrollmentsManagerProps {
@@ -72,6 +73,16 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
   const [gradingAnswers, setGradingAnswers] = useState<{ [index: number]: boolean }>({});
   const [adminFeedback, setAdminFeedback] = useState<string>('');
   const [reviewBusy, setReviewBusy] = useState<boolean>(false);
+
+  // Paper Review Modal
+  const [reviewingPaperEnrollment, setReviewingPaperEnrollment] = useState<CourseEnrollmentRecord | null>(null);
+  const [selectedPaperIdx, setSelectedPaperIdx] = useState<number>(0);
+  const [paperMarks, setPaperMarks] = useState<number | string>('');
+  const [paperMaxMarks, setPaperMaxMarks] = useState<number | string>(100);
+  const [paperGrade, setPaperGrade] = useState<string>('');
+  const [paperFeedback, setPaperFeedback] = useState<string>('');
+  const [paperResultSheetFile, setPaperResultSheetFile] = useState<File | null>(null);
+  const [paperReviewBusy, setPaperReviewBusy] = useState<boolean>(false);
 
   // Student Learning Profile Modal
   const [inspectingUserId, setInspectingUserId] = useState<string | null>(null);
@@ -196,6 +207,51 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
       alert(err.message || 'Could not save quiz review.');
     } finally {
       setReviewBusy(false);
+    }
+  };
+
+  const openPaperReview = (enrollment: CourseEnrollmentRecord, defaultIdx = 0) => {
+    setReviewingPaperEnrollment(enrollment);
+    setSelectedPaperIdx(defaultIdx);
+    const sub = enrollment.learningProgress?.paperSubmissions?.[defaultIdx];
+    if (sub) {
+      setPaperMarks(sub.marks != null ? sub.marks : '');
+      setPaperMaxMarks(sub.maxMarks || 100);
+      setPaperGrade(sub.grade || '');
+      setPaperFeedback(sub.adminFeedback || '');
+      setPaperResultSheetFile(null);
+    }
+  };
+
+  const handleSavePaperReview = async (status: 'reviewed' | 'pending' = 'reviewed') => {
+    if (!reviewingPaperEnrollment || !reviewingPaperEnrollment.learningProgress?._id) return;
+    const subs = reviewingPaperEnrollment.learningProgress.paperSubmissions || [];
+    const sub = subs[selectedPaperIdx];
+    if (!sub || !sub._id) {
+      alert('Missing paper submission details.');
+      return;
+    }
+
+    setPaperReviewBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append('marks', String(paperMarks ?? ''));
+      formData.append('maxMarks', String(paperMaxMarks || 100));
+      if (paperGrade) formData.append('grade', paperGrade);
+      if (paperFeedback) formData.append('adminFeedback', paperFeedback);
+      formData.append('status', status);
+      if (paperResultSheetFile) {
+        formData.append('resultSheetFile', paperResultSheetFile);
+      }
+
+      await api.reviewPaperSubmission(reviewingPaperEnrollment.learningProgress._id, sub._id, formData);
+      alert('Paper evaluation and results updated successfully!');
+      setReviewingPaperEnrollment(null);
+      await loadEnrollments();
+    } catch (err: any) {
+      alert(err.message || 'Could not save paper review.');
+    } finally {
+      setPaperReviewBusy(false);
     }
   };
 
@@ -526,6 +582,34 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                           >
                             <HelpCircle className="w-3.5 h-3.5" />
                             <span>Review Quiz Submissions ({item.learningProgress.quizSubmissions.length})</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Paper Submissions & Review Trigger */}
+                      {item.learningProgress?.paperSubmissions && item.learningProgress.paperSubmissions.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">Paper Submissions:</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-300">
+                              {item.learningProgress.paperSubmissions.length} submitted
+                            </span>
+                          </div>
+
+                          {item.learningProgress.paperSubmissions.some((s) => s.status === 'pending') && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700/40">
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+                              <span>Answer papers pending grading!</span>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => openPaperReview(item)}
+                            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-[11px] font-bold transition cursor-pointer"
+                          >
+                            <Award className="w-3.5 h-3.5" />
+                            <span>Grade Paper Submissions ({item.learningProgress.paperSubmissions.length})</span>
                           </button>
                         </div>
                       )}
@@ -1139,6 +1223,281 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
         );
       })()}
 
+      {/* MODAL: Paper Submission Grading & Review Modal */}
+      {reviewingPaperEnrollment && (() => {
+        const studentUser = reviewingPaperEnrollment.user || {};
+        const paperSubs = reviewingPaperEnrollment.learningProgress?.paperSubmissions || [];
+        const currentPaper = paperSubs[selectedPaperIdx] || paperSubs[0];
+        if (!currentPaper) return null;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-3xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Paper & Assignment Evaluation Desk
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Student: <span className="text-cyan-300 font-semibold">{studentUser.name || 'Student'}</span>{' '}
+                      {studentUser.indexNumber && (
+                        <span className="font-mono text-amber-300">({studentUser.indexNumber})</span>
+                      )}
+                      {' • '}Course: <span className="text-slate-200">{reviewingPaperEnrollment.course?.title}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setReviewingPaperEnrollment(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Submissions Switcher Tabs if multiple */}
+              {paperSubs.length > 1 && (
+                <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-950 border-b border-slate-800 overflow-x-auto shrink-0">
+                  <span className="text-xs text-slate-400 shrink-0 font-medium">Select Paper:</span>
+                  {paperSubs.map((sub, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPaperIdx(pIdx);
+                        setPaperMarks(sub.marks != null ? sub.marks : '');
+                        setPaperMaxMarks(sub.maxMarks || 100);
+                        setPaperGrade(sub.grade || '');
+                        setPaperFeedback(sub.adminFeedback || '');
+                        setPaperResultSheetFile(null);
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
+                        selectedPaperIdx === pIdx
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      <span>{sub.blockTitle || `Paper ${pIdx + 1}`}</span>
+                      <span className="ml-1.5 text-[10px] opacity-80 uppercase">({sub.status})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Scrollable Evaluation Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                {/* Paper Block Overview */}
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">Assigned Paper:</span>
+                    <h4 className="text-white font-bold text-sm">{currentPaper.blockTitle || 'Paper Step'}</h4>
+                    <span className="text-[11px] text-slate-400">
+                      Submitted: {new Date(currentPaper.submittedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                        currentPaper.status === 'reviewed'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}
+                    >
+                      {currentPaper.status === 'reviewed' ? '✓ Graded' : '⏳ Pending Review'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Student's Uploaded Answer File */}
+                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                    Student's Submitted Answer Paper:
+                  </span>
+
+                  {currentPaper.submissionUrl ? (
+                    <div className="flex items-center justify-between flex-wrap gap-3 p-3 rounded-lg bg-slate-900 border border-slate-800">
+                      <div className="min-w-0">
+                        <span className="text-xs font-mono font-bold text-cyan-300 truncate block">
+                          {currentPaper.submissionFileName || 'Student_Answer_Paper'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          Storage: {currentPaper.submissionProvider || 'Cloudinary'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {currentPaper._id && (
+                          <a
+                            href={adminSubmissionDownloadUrl(currentPaper._id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition shadow-sm cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download Answer File</span>
+                          </a>
+                        )}
+                        <a
+                          href={currentPaper.submissionUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-750 text-xs font-bold transition cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>View Direct Link</span>
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No file attached (student submitted text notes only).</p>
+                  )}
+
+                  {currentPaper.studentNotes && (
+                    <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-200 space-y-1">
+                      <span className="font-semibold text-cyan-400 block text-[11px] uppercase tracking-wider">
+                        Student's Submission Notes:
+                      </span>
+                      <p className="whitespace-pre-wrap">{currentPaper.studentNotes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grading Controls */}
+                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                    Teacher Evaluation & Marking:
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        Awarded Marks:
+                      </label>
+                      <input
+                        type="number"
+                        value={paperMarks}
+                        onChange={(e) => setPaperMarks(e.target.value)}
+                        placeholder="e.g. 85"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        Max Marks:
+                      </label>
+                      <input
+                        type="number"
+                        value={paperMaxMarks}
+                        onChange={(e) => setPaperMaxMarks(e.target.value)}
+                        placeholder="e.g. 100"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        Grade (Optional):
+                      </label>
+                      <input
+                        type="text"
+                        value={paperGrade}
+                        onChange={(e) => setPaperGrade(e.target.value)}
+                        placeholder="e.g. A, B, Distinction"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Teacher Feedback / Comments */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                      Instructor Feedback / Corrections (Visible to student):
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={paperFeedback}
+                      onChange={(e) => setPaperFeedback(e.target.value)}
+                      placeholder="Enter feedback, strengths, errors, and advice for the student..."
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+
+                  {/* Result Sheet / Marking Scheme Attachment */}
+                  <div className="pt-2 border-t border-slate-800 space-y-2">
+                    <label className="block text-[11px] font-bold text-slate-400">
+                      Attach Official Result Sheet / Marking Scheme (PDF):
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) setPaperResultSheetFile(f);
+                      }}
+                      className="block w-full text-xs text-slate-400 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-600/30 file:text-emerald-200 hover:file:bg-emerald-600/50 cursor-pointer"
+                    />
+                    {currentPaper.resultSheetUrl && !paperResultSheetFile && (
+                      <p className="text-[11px] text-emerald-400">
+                        Current Result Sheet: {currentPaper.resultSheetFileName || 'Attached'}{' '}
+                        <a
+                          href={currentPaper.resultSheetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline ml-1"
+                        >
+                          View existing file
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex items-center justify-between flex-wrap gap-3 shrink-0">
+                <button
+                  type="button"
+                  disabled={paperReviewBusy}
+                  onClick={() => setReviewingPaperEnrollment(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={paperReviewBusy}
+                    onClick={() => handleSavePaperReview('pending')}
+                    className="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
+                  >
+                    Keep as In Review
+                  </button>
+                  <button
+                    type="button"
+                    disabled={paperReviewBusy}
+                    onClick={() => handleSavePaperReview('reviewed')}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{paperReviewBusy ? 'Saving...' : 'Save & Publish Marks'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* MODAL 4: Student Comprehensive Learning Profile & Progress Inspector */}
       {inspectingUserId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -1509,6 +1868,86 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                                     </div>
                                   ))}
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Detailed Breakdown: Paper Submissions */}
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                          <Award className="w-4 h-4 text-emerald-400" />
+                          <span>Paper Submissions & Results ({currentCourse.paperSubmissions?.length || 0})</span>
+                        </h5>
+
+                        {(!currentCourse.paperSubmissions || currentCourse.paperSubmissions.length === 0) ? (
+                          <p className="text-xs text-slate-500 italic">No paper submissions recorded for this course yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {currentCourse.paperSubmissions.map((sub: any, pIdx: number) => (
+                              <div
+                                key={sub._id || pIdx}
+                                className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3"
+                              >
+                                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                                  <div>
+                                    <span className="text-xs font-bold text-white">
+                                      {sub.blockTitle || `Paper Submission ${pIdx + 1}`}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 ml-2">
+                                      {new Date(sub.submittedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-emerald-300">
+                                      Marks: {sub.marks ?? '-'} / {sub.maxMarks ?? 100}
+                                    </span>
+                                    {sub.grade && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                                        Grade: {sub.grade}
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                        sub.status === 'reviewed'
+                                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                      }`}
+                                    >
+                                      {sub.status}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {sub.submissionFileName && (
+                                  <div className="text-xs text-slate-300">
+                                    File: <span className="font-mono text-cyan-300">{sub.submissionFileName}</span>
+                                    {sub._id && (
+                                      <a
+                                        href={adminSubmissionDownloadUrl(sub._id)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="ml-2 text-indigo-400 hover:underline"
+                                      >
+                                        Download File ↗
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+
+                                {sub.studentNotes && (
+                                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 italic">
+                                    "{sub.studentNotes}"
+                                  </div>
+                                )}
+
+                                {sub.adminFeedback && (
+                                  <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-xs text-emerald-200">
+                                    <span className="font-bold text-emerald-400 block mb-0.5">Teacher Feedback:</span>
+                                    <p className="italic leading-relaxed">"{sub.adminFeedback}"</p>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

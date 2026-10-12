@@ -2,7 +2,7 @@ import {readPagination,pageInfo,literalSearch,queryText,PaginationError} from '.
 import {Router, RequestHandler} from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
-import {savePdf, removePdf, downloadPdf, saveImage, removeImage} from '../services/pdfStorage.js';
+import {savePdf, removePdf, downloadPdf, saveImage, removeImage, saveSubmissionFile} from '../services/pdfStorage.js';
 import Course from '../models/Course.js';
 import CourseProgress from '../models/CourseProgress.js';
 import PastPaper from '../models/PastPaper.js';
@@ -11,12 +11,14 @@ import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLe
 import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:25}}).fields([
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:30}}).fields([
   {name:'pdfFiles',maxCount:25},
   {name:'pdfFile',maxCount:5},
+  {name:'resultSheetFiles',maxCount:25},
   {name:'thumbnail',maxCount:1},
   {name:'coverImage',maxCount:1}
 ]);
+const singleSubmissionUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1}}).single('submissionFile');
 const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,courseType:c.courseType||(c.isFree?'free':(c.billingType==='monthly'?'monthly':'one_time')),isMonthlyProgram:Boolean(c.isMonthlyProgram),parentCourseId:c.parentCourseId?String(c.parentCourseId):undefined,targetMonth:c.targetMonth||'',validityPeriod:c.validityPeriod||'lifetime',validityMonths:c.validityMonths??0,price:c.price??0,isFree:c.isFree??(c.price===0),billingType:c.billingType||'one_time',monthlyFee:c.monthlyFee||0,bankDetails:c.bankDetails||'',thumbnailUrl:c.thumbnailUrl||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0,subCourseCount:c.subCourseCount||0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
@@ -125,6 +127,22 @@ const present=(c:any,admin=false)=>{
           options: q.options || [],
           ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
         }));
+      } else if (b.type === 'paper') {
+        formatted.paperUrl = b.paperUrl || b.pdfUrl || '';
+        formatted.paperFileName = b.paperFileName || b.pdfFileName || 'Question Paper.pdf';
+        formatted.pdfUrl = formatted.paperUrl;
+        formatted.pdfFileName = formatted.paperFileName;
+        if (formatted.paperUrl) {
+          formatted.pdfPath = `/courses/${c._id}/blocks/${b._id}/download`;
+          formatted.paperPath = `/courses/${c._id}/blocks/${b._id}/download`;
+        }
+        formatted.resultSheetUrl = b.resultSheetUrl || '';
+        formatted.resultSheetFileName = b.resultSheetFileName || 'Result Sheet.pdf';
+        if (b.resultSheetUrl) {
+          formatted.resultSheetPath = `/courses/${c._id}/blocks/${b._id}/result-sheet/download`;
+        }
+        formatted.totalMarks = b.totalMarks || 100;
+        formatted.deadline = b.deadline || '';
       }
       return formatted;
     }),
@@ -230,13 +248,13 @@ router.get('/:id/blocks/:blockId/download',async(req,res)=>{
     if(!c){res.status(404).json({message:'Lesson not found.'});return;}
     const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId) ||
                 (Number.isInteger(Number(req.params.blockId)) ? c?.curriculumBlocks?.[Number(req.params.blockId)] : undefined);
-    if(!block || (block.type !== 'document' && !block.pdfUrl && !block.recordingPdfUrl)){
-      res.status(404).json({message:'Document not found.'});
+    if(!block || (block.type !== 'document' && block.type !== 'paper' && !block.pdfUrl && !block.recordingPdfUrl && !block.paperUrl)){
+      res.status(404).json({message:'Document or paper not found.'});
       return;
     }
     const watermark=await extractDownloadWatermark(req);
-    const effectivePdfUrl = block.pdfUrl || block.recordingPdfUrl || '';
-    const effectiveFileName = block.pdfFileName || block.recordingPdfFileName || 'document.pdf';
+    const effectivePdfUrl = block.paperUrl || block.pdfUrl || block.recordingPdfUrl || '';
+    const effectiveFileName = block.paperFileName || block.pdfFileName || block.recordingPdfFileName || 'document.pdf';
     let target: any = {
       ...(typeof (block as any)?.toObject === 'function' ? (block as any).toObject() : block),
       pdfUrl: effectivePdfUrl,
@@ -255,6 +273,110 @@ router.get('/:id/blocks/:blockId/download',async(req,res)=>{
     await downloadPdf(target,res,watermark,isInline);
   }catch(e){if(!res.headersSent)fail(res,e);}
 });
+
+router.get('/:id/blocks/:blockId/result-sheet/download', async (req: any, res: any) => {
+  try {
+    const c = await Course.findOne({ _id: req.params.id, ...publishedFilter });
+    if (!c) { res.status(404).json({ message: 'Lesson not found.' }); return; }
+    const blocks: any[] = (c.curriculumBlocks as any[]) || [];
+    const block = blocks.find((b: any) => String(b._id) === req.params.blockId) ||
+                  (/^\d+$/.test(req.params.blockId) ? blocks[parseInt(req.params.blockId, 10)] : undefined);
+    if (!block || !block.resultSheetUrl) {
+      res.status(404).json({ message: 'Result sheet not found or not published yet.' });
+      return;
+    }
+    const watermark = await extractDownloadWatermark(req);
+    const target = {
+      pdfUrl: block.resultSheetUrl,
+      pdfFileName: block.resultSheetFileName || 'result-sheet.pdf',
+      pdfProvider: block.resultSheetProvider || 'cloudinary',
+      pdfPublicId: block.resultSheetPublicId || '',
+    };
+    const isInline = req.query.inline === '1' || req.query.inline === 'true';
+    await downloadPdf(target, res, watermark, isInline);
+  } catch (e) { if (!res.headersSent) fail(res, e); }
+});
+
+router.post(
+  '/:id/blocks/:blockId/paper-submit',
+  protect,
+  (req: any, res: any, next: any) => {
+    singleSubmissionUpload(req, res, (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || 'File upload error.' });
+      next();
+    });
+  },
+  async (req: any, res: any) => {
+    try {
+      const c = await Course.findOne({ _id: req.params.id, ...publishedFilter });
+      if (!c) { res.status(404).json({ message: 'Course not found.' }); return; }
+      const blocks: any[] = (c.curriculumBlocks as any[]) || [];
+      const block = blocks.find((b: any) => String(b._id) === req.params.blockId) ||
+                    (/^\d+$/.test(req.params.blockId) ? blocks[parseInt(req.params.blockId, 10)] : undefined);
+      if (!block) { res.status(404).json({ message: 'Paper section not found.' }); return; }
+
+      let fileData: any = null;
+      if (req.file) {
+        fileData = await saveSubmissionFile(req.file);
+      }
+
+      const studentNotes = typeof req.body.studentNotes === 'string' ? req.body.studentNotes.trim() : '';
+      const blockKey = String(block._id || req.params.blockId);
+      const blockTitle = block.title || req.body.blockTitle || 'Paper';
+
+      let progress = await CourseProgress.findOne({ user: req.user!._id, course: c._id });
+      if (!progress) {
+        progress = new CourseProgress({ user: req.user!._id, course: c._id });
+      }
+
+      const existingSubIndex = (progress.paperSubmissions || []).findIndex((s: any) => s.blockKey === blockKey);
+      let submissionRecord: any;
+
+      if (existingSubIndex >= 0) {
+        submissionRecord = progress.paperSubmissions[existingSubIndex];
+        submissionRecord.submittedAt = new Date();
+        submissionRecord.status = 'pending_review';
+        submissionRecord.studentNotes = studentNotes;
+        if (fileData) {
+          submissionRecord.submissionUrl = fileData.fileUrl;
+          submissionRecord.submissionFileName = fileData.fileName;
+          submissionRecord.submissionPublicId = fileData.publicId;
+          submissionRecord.submissionProvider = fileData.provider;
+        }
+      } else {
+        submissionRecord = {
+          blockKey,
+          blockTitle,
+          submittedAt: new Date(),
+          status: 'pending_review',
+          submissionUrl: fileData?.fileUrl || '',
+          submissionFileName: fileData?.fileName || '',
+          submissionPublicId: fileData?.publicId || '',
+          submissionProvider: fileData?.provider || 'cloudinary',
+          studentNotes,
+          maxMarks: block.totalMarks || 100,
+        };
+        progress.paperSubmissions.push(submissionRecord);
+      }
+
+      // Mark step completed in student's timeline
+      const completedBlocks = new Set(progress.completedBlocks || []);
+      completedBlocks.add(blockKey);
+      progress.completedBlocks = Array.from(completedBlocks);
+
+      await progress.save();
+
+      res.json({
+        success: true,
+        message: 'Your paper has been submitted successfully for teacher review!',
+        submission: submissionRecord,
+        progress,
+      });
+    } catch (e: any) {
+      if (!res.headersSent) fail(res, e);
+    }
+  }
+);
 router.get('/:id',async(req,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
   if(cleanupExpiredLiveClasses(c)){
@@ -428,15 +550,32 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
       let fIdx = 0;
       for (const b of details.curriculumBlocks) {
-        if ((b.type === 'document' || b.type === 'video') && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
+        if ((b.type === 'document' || b.type === 'video' || b.type === 'paper') && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
           const s = saved[fIdx++];
           b.pdfUrl = s.pdfUrl;
           b.pdfPublicId = s.pdfPublicId;
-          b.pdfFileName = s.pdfFileName || b.title || 'Document';
+          b.pdfFileName = s.pdfFileName || b.title || (b.type === 'paper' ? 'Question Paper.pdf' : 'Document');
           b.recordingPdfUrl = s.pdfUrl;
           b.recordingPdfFileName = s.pdfFileName || b.title || 'Document';
+          b.paperUrl = s.pdfUrl;
+          b.paperFileName = s.pdfFileName || b.title || 'Question Paper.pdf';
+          b.paperPublicId = s.pdfPublicId;
+          b.paperProvider = s.pdfProvider || 'raw';
           b.pdfProvider = s.pdfProvider || 'raw';
           b.size = s.size;
+        }
+      }
+    }
+    const resultFiles = (groups?.resultSheetFiles || []) as Express.Multer.File[];
+    if (resultFiles.length > 0 && Array.isArray(details.curriculumBlocks)) {
+      let rfIdx = 0;
+      for (const b of details.curriculumBlocks) {
+        if (b.type === 'paper' && b.hasNewResultSheet && rfIdx < resultFiles.length) {
+          const rSaved = await savePdf(resultFiles[rfIdx++]);
+          b.resultSheetUrl = rSaved.pdfUrl;
+          b.resultSheetFileName = rSaved.pdfFileName || 'Result Sheet.pdf';
+          b.resultSheetPublicId = rSaved.pdfPublicId;
+          b.resultSheetProvider = rSaved.pdfProvider || 'raw';
         }
       }
     }

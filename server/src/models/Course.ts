@@ -11,7 +11,7 @@ export interface IQuizQuestion {
 }
 
 export interface ICurriculumBlock {
-  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz';
+  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz' | 'paper';
   title?: string;
   description?: string;
   // Video block
@@ -34,6 +34,17 @@ export interface ICurriculumBlock {
   // Quiz block
   quizQuestions?: IQuizQuestion[];
   passPercentage?: number;
+  // Paper / Assignment block
+  paperUrl?: string;
+  paperFileName?: string;
+  paperPublicId?: string;
+  paperProvider?: string;
+  resultSheetUrl?: string;
+  resultSheetFileName?: string;
+  resultSheetPublicId?: string;
+  resultSheetProvider?: string;
+  totalMarks?: number;
+  deadline?: string;
   // Order
   order: number;
 }
@@ -120,7 +131,7 @@ const CourseSchema = new Schema<ICourse>(
     resources: [{ pdfProvider: String, pdfUrl: String, pdfPublicId: String, pdfFileName: String, size: Number }],
     curriculumBlocks: [
       {
-        type: { type: String, enum: ['video', 'live_class', 'document', 'description', 'quiz'], required: true },
+        type: { type: String, enum: ['video', 'live_class', 'document', 'description', 'quiz', 'paper'], required: true },
         title: { type: String, default: '' },
         description: { type: String, default: '' },
         url: { type: String, default: '' },
@@ -139,6 +150,17 @@ const CourseSchema = new Schema<ICourse>(
         size: { type: Number, default: 0 },
         quizQuestions: [QuizQuestionSchema],
         passPercentage: { type: Number, default: 50 },
+        // Paper / Assignment block
+        paperUrl: { type: String, default: '' },
+        paperFileName: { type: String, default: '' },
+        paperPublicId: { type: String, default: '' },
+        paperProvider: { type: String, default: 'cloudinary' },
+        resultSheetUrl: { type: String, default: '' },
+        resultSheetFileName: { type: String, default: '' },
+        resultSheetPublicId: { type: String, default: '' },
+        resultSheetProvider: { type: String, default: 'cloudinary' },
+        totalMarks: { type: Number, default: 100 },
+        deadline: { type: String, default: '' },
         order: { type: Number, default: 0 },
       },
     ],

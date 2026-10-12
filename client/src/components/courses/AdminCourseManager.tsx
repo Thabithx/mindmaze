@@ -37,6 +37,8 @@ import {
   Upload,
   AlertCircle,
   X,
+  Award,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 type Question = {
@@ -396,17 +398,21 @@ export const AdminCourseManager: React.FC = () => {
         .map((b) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
       body.append('videosJson', JSON.stringify(allVideos));
 
-      // Append files uploaded directly on document or video companion blocks
+      // Append files uploaded directly on document, video companion, or paper blocks
       curriculumBlocks.forEach((b) => {
         if (b.pendingFile) {
           body.append('pdfFiles', b.pendingFile);
         }
+        if (b.pendingResultSheet) {
+          body.append('resultSheetFiles', b.pendingResultSheet);
+        }
       });
 
       // Clean curriculum blocks for JSON transmission
-      const cleanBlocks = curriculumBlocks.map(({ pendingFile, ...b }) => ({
+      const cleanBlocks = curriculumBlocks.map(({ pendingFile, pendingResultSheet, ...b }) => ({
         ...b,
         hasNewUpload: Boolean(pendingFile),
+        hasNewResultSheet: Boolean(pendingResultSheet),
         size: typeof b.size === 'number' ? b.size : (pendingFile ? pendingFile.size : 0),
       }));
       body.append('curriculumBlocksJson', JSON.stringify(cleanBlocks));
@@ -460,12 +466,21 @@ export const AdminCourseManager: React.FC = () => {
           ? `Lecture Video ${curriculumBlocks.filter((b) => b.type === 'video').length + 1}`
           : type === 'document'
           ? `Study Notes Handout ${curriculumBlocks.filter((b) => b.type === 'document').length + 1}`
+          : type === 'paper'
+          ? `Paper / Assignment ${curriculumBlocks.filter((b) => b.type === 'paper').length + 1}`
           : type === 'live_class'
           ? `Live Session ${curriculumBlocks.filter((b) => b.type === 'live_class').length + 1}`
           : type === 'quiz'
           ? 'Practice Quiz'
           : 'Lesson Overview',
       order: curriculumBlocks.length,
+      ...(type === 'paper'
+        ? {
+            totalMarks: 100,
+            deadline: '',
+            description: '',
+          }
+        : {}),
       ...(type === 'quiz'
         ? {
             passPercentage: 50,
@@ -1230,6 +1245,14 @@ export const AdminCourseManager: React.FC = () => {
                       <HelpCircle className="w-3.5 h-3.5" />
                       <span>+ Practice Quiz</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('paper')}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>+ Paper / Assignment</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1293,6 +1316,8 @@ export const AdminCourseManager: React.FC = () => {
                                   ? 'Study Notes PDF'
                                   : block.type === 'quiz'
                                   ? 'Practice Quiz'
+                                  : block.type === 'paper'
+                                  ? 'Paper / Assignment'
                                   : 'Overview Guidance'}
                               </span>
                             </div>
@@ -1611,6 +1636,158 @@ export const AdminCourseManager: React.FC = () => {
                                     )}
                                   </div>
                                 ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* PAPER / ASSIGNMENT BLOCK */}
+                          {block.type === 'paper' && (
+                            <div className="space-y-4 pt-2 border-t border-white/5">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-300 mb-1">
+                                    Total Marks
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="1000"
+                                    value={block.totalMarks || 100}
+                                    onChange={(e) => updateBlock(idx, { totalMarks: Number(e.target.value) || 100 })}
+                                    className={control}
+                                    placeholder="e.g. 100"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-300 mb-1">
+                                    Submission Deadline / Due Date
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={block.deadline || ''}
+                                    onChange={(e) => updateBlock(idx, { deadline: e.target.value })}
+                                    className={control}
+                                    placeholder="e.g. End of October / 2026-10-31"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                                  Questions / Paper Instructions (or Written Questions)
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={block.description || ''}
+                                  onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                                  className={control}
+                                  placeholder="Describe the paper requirements, instructions, or write questions here..."
+                                />
+                              </div>
+
+                              {/* 1. QUESTION PAPER PDF */}
+                              <div className="space-y-2 p-3.5 rounded-xl bg-slate-900/60 border border-amber-500/30">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>Question Paper Document (PDF)</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">Watermarked with student index on download</span>
+                                </label>
+
+                                {block.paperFileName || block.pdfFileName ? (
+                                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-amber-500/20 text-xs">
+                                    <span className="text-amber-200 font-bold truncate">
+                                      📄 {block.paperFileName || block.pdfFileName}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateBlock(idx, {
+                                          paperUrl: '',
+                                          paperFileName: '',
+                                          pdfUrl: '',
+                                          pdfFileName: '',
+                                          pendingFile: undefined,
+                                        })
+                                      }
+                                      className="text-rose-400 hover:text-rose-300 text-xs font-bold shrink-0 ml-2 cursor-pointer"
+                                    >
+                                      Remove Paper
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-amber-500/40 bg-slate-900/60 hover:bg-slate-900 transition cursor-pointer text-xs font-medium text-amber-300">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Attach Question Paper PDF for Students to Solve</span>
+                                    <input
+                                      type="file"
+                                      accept="application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          updateBlock(idx, {
+                                            pendingFile: file,
+                                            paperFileName: file.name,
+                                            pdfFileName: file.name,
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+
+                              {/* 2. OFFICIAL RESULT SHEET / MARKING SCHEME PDF */}
+                              <div className="space-y-2 p-3.5 rounded-xl bg-slate-900/60 border border-emerald-500/30">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5">
+                                    <Award className="w-3.5 h-3.5" />
+                                    <span>Official Result Sheet / Marking Scheme (PDF)</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">Optional · Visible to students after grading or publication</span>
+                                </label>
+
+                                {block.resultSheetFileName ? (
+                                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-emerald-500/20 text-xs">
+                                    <span className="text-emerald-200 font-bold truncate">
+                                      📊 {block.resultSheetFileName}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateBlock(idx, {
+                                          resultSheetUrl: '',
+                                          resultSheetFileName: '',
+                                          pendingResultSheet: undefined,
+                                        })
+                                      }
+                                      className="text-rose-400 hover:text-rose-300 text-xs font-bold shrink-0 ml-2 cursor-pointer"
+                                    >
+                                      Remove Result Sheet
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-emerald-500/40 bg-slate-900/60 hover:bg-slate-900 transition cursor-pointer text-xs font-medium text-emerald-300">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Attach Result Sheet / Scheme PDF (Optional)</span>
+                                    <input
+                                      type="file"
+                                      accept="application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          updateBlock(idx, {
+                                            pendingResultSheet: file,
+                                            resultSheetFileName: file.name,
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                )}
                               </div>
                             </div>
                           )}
