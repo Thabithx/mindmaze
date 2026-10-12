@@ -28,7 +28,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { ComingSoonModal } from '../ComingSoonModal';
-import { getAuthToken, getStoredUser } from '../../services/api';
+import { getAuthToken, getStoredUser, getAttributedFileName } from '../../services/api';
 
 interface PastPaperLibraryScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -563,7 +563,7 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = downloadModalPaper.title + '.pdf';
+                    link.download = getAttributedFileName(downloadModalPaper.title, '.pdf');
                     document.body.appendChild(link);
                     link.click();
                     link.remove();

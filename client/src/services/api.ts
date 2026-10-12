@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
+export const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -84,6 +84,30 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 // Practice images are stored as API-relative paths ("/practice/sets/<id>/images/<id>").
 export const practiceImageUrl=(path:string)=>/^https?:\/\//.test(path)?path:API_BASE+path;
 export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-papers/'+encodeURIComponent(paperId)+'/question-images/'+encodeURIComponent(imageId);
+
+export const adminEnrollmentSlipUrl = (enrollmentId: string, download = false): string => {
+  const token = getAuthToken();
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE}/enrollments/admin/${encodeURIComponent(enrollmentId)}/slip?${download ? 'download=1' : 'inline=1'}${tokenParam}`;
+};
+
+export const getAttributedFileName = (baseTitle: string, defaultExt = '.pdf'): string => {
+  const user = getStoredUser();
+  const cleanTitle = (baseTitle || 'document').trim().replace(/[^a-zA-Z0-9_\-\.\s]/g, '_');
+  const hasExt = /\.[a-zA-Z0-9]+$/.test(cleanTitle);
+  const fullTitle = hasExt ? cleanTitle : `${cleanTitle}${defaultExt}`;
+
+  if (!user || (!user.name && !user.indexNumber)) {
+    return fullTitle;
+  }
+
+  const prefix = [user.indexNumber, user.name]
+    .filter(Boolean)
+    .map((s: string) => String(s).trim().replace(/[^a-zA-Z0-9_-]/g, '_'))
+    .join('_');
+
+  return prefix ? `${prefix}_${fullTitle}` : fullTitle;
+};
 
 // API Methods
 export const api = {

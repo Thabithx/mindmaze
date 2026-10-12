@@ -23,7 +23,10 @@ async function uploadSlipToCloudinary(file: Express.Multer.File): Promise<{ url:
     file.originalname.toLowerCase().endsWith('.pdf') ||
     (file.buffer && file.buffer.length >= 5 && file.buffer.subarray(0, 1024).includes(Buffer.from('%PDF-')));
 
-  const rawPublicId = `slip_${randomUUID()}_${path.parse(file.originalname).name}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const rawExt = path.extname(file.originalname).toLowerCase();
+  const ext = rawExt || (isPdf ? '.pdf' : '.jpg');
+  const baseName = path.parse(file.originalname).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const rawPublicId = `slip_${randomUUID()}_${baseName}${ext}`;
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -644,5 +647,140 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
     res.status(500).json({ message: err?.message || 'Could not fetch student progress.' });
   }
 });
+
+// Helper to deliver bank deposit slip buffer with detected MIME type and attributed filename
+async function handleDeliverSlip(enrollment: any, req: AuthRequest, res: Response) {
+  if (!enrollment || !enrollment.slipUrl) {
+    res.status(404).json({ message: 'No bank deposit slip found for this enrollment.' });
+    return;
+  }
+
+  let remote: globalThis.Response;
+  try {
+    remote = await fetch(enrollment.slipUrl, { signal: AbortSignal.timeout(30000) });
+  } catch {
+    res.status(504).json({ message: 'The cloud storage provider did not respond. Please try again shortly.' });
+    return;
+  }
+
+  if (!remote.ok) {
+    res.status(502).json({ message: 'Could not retrieve bank slip from cloud storage.' });
+    return;
+  }
+
+  const arrayBuffer = await remote.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Detect MIME type and extension using magic bytes
+  let mimeType = 'application/octet-stream';
+  let ext = '.bin';
+
+  if (buffer.length >= 5 && buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'))) {
+    mimeType = 'application/pdf';
+    ext = '.pdf';
+  } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    mimeType = 'image/jpeg';
+    ext = '.jpg';
+  } else if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) {
+    mimeType = 'image/png';
+    ext = '.png';
+  } else if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString() === 'RIFF' &&
+    buffer.subarray(8, 12).toString() === 'WEBP'
+  ) {
+    mimeType = 'image/webp';
+    ext = '.webp';
+  } else if (enrollment.slipFileName) {
+    const parsed = path.extname(enrollment.slipFileName).toLowerCase();
+    if (parsed === '.pdf') {
+      mimeType = 'application/pdf';
+      ext = '.pdf';
+    } else if (parsed === '.jpg' || parsed === '.jpeg') {
+      mimeType = 'image/jpeg';
+      ext = '.jpg';
+    } else if (parsed === '.png') {
+      mimeType = 'image/png';
+      ext = '.png';
+    }
+  }
+
+  const user: any = enrollment.user || {};
+  const studentIndex = user.indexNumber || 'NO_INDEX';
+  const studentName = (user.name || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeFilename = `${studentIndex}_${studentName}_BankDepositSlip${ext}`;
+
+  const isDownload = req.query.download === '1' || req.query.download === 'true';
+
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader(
+    'Content-Disposition',
+    `${isDownload ? 'attachment' : 'inline'}; filename="${safeFilename}"`
+  );
+  res.setHeader('Content-Length', buffer.length);
+  res.send(buffer);
+}
+
+// 12. View / Download Bank Deposit Slip for Admin (content manager or admin)
+router.get(
+  '/admin/:id/slip',
+  protect,
+  contentManagerOnly,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        res.status(400).json({ message: 'Invalid enrollment ID.' });
+        return;
+      }
+
+      const enrollment = await CourseEnrollment.findById(id).populate('user', 'name indexNumber email');
+      await handleDeliverSlip(enrollment, req, res);
+    } catch (err: any) {
+      console.error('[Admin Slip Delivery Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to deliver bank deposit slip.' });
+      }
+    }
+  }
+);
+
+// 13. View / Download Bank Deposit Slip for Student (or Admin)
+router.get(
+  '/:id/slip',
+  protect,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        res.status(400).json({ message: 'Invalid enrollment ID.' });
+        return;
+      }
+
+      const enrollment = await CourseEnrollment.findById(id).populate('user', 'name indexNumber email');
+      if (!enrollment) {
+        res.status(404).json({ message: 'Enrollment not found.' });
+        return;
+      }
+
+      const isManager = ['admin', 'content_manager'].includes(req.user!.role);
+      const isOwner = String(enrollment.user?._id || enrollment.user) === String(req.user!._id);
+      if (!isManager && !isOwner) {
+        res.status(403).json({ message: 'Access denied.' });
+        return;
+      }
+
+      await handleDeliverSlip(enrollment, req, res);
+    } catch (err: any) {
+      console.error('[Slip Delivery Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to deliver bank deposit slip.' });
+      }
+    }
+  }
+);
 
 export default router;

@@ -46,6 +46,7 @@ import {
   Check,
   Save,
 } from 'lucide-react';
+import { getAttributedFileName } from '../../services/api';
 import { ScreenId, StudyPlan, TimetableSlot, DailyCoverTopic, UserProfile, StreamType } from '../../types';
 import {
   ALL_STREAM_STUDY_PLANS,
@@ -375,7 +376,7 @@ export const StudyPlansScreen: React.FC<StudyPlansScreenProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `AL_Study_Timetable_${selectedDay === 'All' ? 'All_Days' : selectedDay}.csv`);
+    link.setAttribute('download', getAttributedFileName(`AL_Study_Timetable_${selectedDay === 'All' ? 'All_Days' : selectedDay}`, '.csv'));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

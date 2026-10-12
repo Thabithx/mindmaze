@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { api } from '../../services/api';
+import { api, adminEnrollmentSlipUrl } from '../../services/api';
 import { CourseEnrollmentRecord, QuizSubmissionRecord } from '../courses/learning';
 import {
   CreditCard,
@@ -54,7 +54,13 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
   const [subjectFilter, setSubjectFilter] = useState('');
 
   // Slip Preview Modal
-  const [selectedSlip, setSelectedSlip] = useState<{ url: string; fileName?: string; student: string } | null>(null);
+  const [selectedSlip, setSelectedSlip] = useState<{
+    enrollmentId?: string;
+    url: string;
+    fileName?: string;
+    student: string;
+    studentIndex?: string;
+  } | null>(null);
 
   // Rejection Note Modal
   const [rejectingItem, setRejectingItem] = useState<CourseEnrollmentRecord | null>(null);
@@ -568,9 +574,11 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                         type="button"
                         onClick={() =>
                           setSelectedSlip({
+                            enrollmentId: item._id,
                             url: item.slipUrl!,
                             fileName: item.slipFileName,
                             student: user.name || 'Student',
+                            studentIndex: user.indexNumber,
                           })
                         }
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold transition cursor-pointer"
@@ -688,52 +696,100 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
       )}
 
       {/* MODAL 1: Bank Deposit Slip Full Preview */}
-      {selectedSlip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-3xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-bold text-white">Bank Deposit Slip — {selectedSlip.student}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href={selectedSlip.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 text-xs font-bold text-cyan-300 hover:underline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Full Screen</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setSelectedSlip(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+      {selectedSlip && (() => {
+        const previewUrl = selectedSlip.enrollmentId
+          ? adminEnrollmentSlipUrl(selectedSlip.enrollmentId, false)
+          : selectedSlip.url;
+        const downloadUrl = selectedSlip.enrollmentId
+          ? adminEnrollmentSlipUrl(selectedSlip.enrollmentId, true)
+          : selectedSlip.url;
+        const isPdf =
+          selectedSlip.fileName?.toLowerCase().endsWith('.pdf') ||
+          selectedSlip.url?.toLowerCase().includes('.pdf');
 
-            <div className="p-6 overflow-auto flex-1 flex items-center justify-center bg-black/40">
-              {selectedSlip.url.endsWith('.pdf') || selectedSlip.fileName?.endsWith('.pdf') ? (
-                <iframe
-                  src={selectedSlip.url}
-                  title="Bank Deposit Slip PDF"
-                  className="w-full h-[65vh] rounded-xl border border-slate-800 bg-white"
-                />
-              ) : (
-                <img
-                  src={selectedSlip.url}
-                  alt="Bank Deposit Slip"
-                  className="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain border border-white/10"
-                />
-              )}
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/80 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-white truncate">
+                      Bank Deposit Slip — {selectedSlip.student}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                      Student Index: <span className="text-cyan-300 font-semibold">{selectedSlip.studentIndex || 'Pending'}</span>
+                      {selectedSlip.fileName && <span className="ml-2 opacity-75 font-sans">({selectedSlip.fileName})</span>}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <a
+                    href={downloadUrl}
+                    download
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Download Slip</span>
+                  </a>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-bold transition shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Open Full Screen</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSlip(null)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 sm:p-6 overflow-auto flex-1 flex items-center justify-center bg-black/60 min-h-[50vh]">
+                {isPdf ? (
+                  <iframe
+                    src={previewUrl}
+                    title="Bank Deposit Slip PDF"
+                    className="w-full h-[70vh] rounded-xl border border-slate-800 bg-white"
+                  />
+                ) : (
+                  <div className="w-full flex flex-col items-center justify-center">
+                    <img
+                      src={previewUrl}
+                      alt="Bank Deposit Slip"
+                      onError={(e) => {
+                        // Fallback: If image fails to render because the uploaded slip is a PDF without .pdf in name, show in iframe!
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                        const fallback = document.getElementById('slip-fallback-frame');
+                        if (fallback) fallback.style.display = 'block';
+                      }}
+                      className="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain border border-white/10"
+                    />
+                    <iframe
+                      id="slip-fallback-frame"
+                      src={previewUrl}
+                      title="Bank Deposit Slip PDF Fallback"
+                      style={{ display: 'none' }}
+                      className="w-full h-[70vh] rounded-xl border border-slate-800 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 2: Rejection Reason Prompt */}
       {rejectingItem && (
@@ -1259,9 +1315,11 @@ export const EnrollmentsManager: React.FC<EnrollmentsManagerProps> = ({ onNaviga
                               type="button"
                               onClick={() =>
                                 setSelectedSlip({
+                                  enrollmentId: currentCourse.enrollmentId,
                                   url: currentCourse.slipUrl,
                                   fileName: currentCourse.slipFileName,
                                   student: studentProfileData.student?.name || 'Student',
+                                  studentIndex: studentProfileData.student?.indexNumber,
                                 })
                               }
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-xs cursor-pointer transition"

@@ -1,4 +1,4 @@
-import { deliverRemotePdf } from './pdfDelivery.js';
+import { deliverRemotePdf, buildAttributedFilename } from './pdfDelivery.js';
 import { watermarkPdf, WatermarkDetails } from './pdfWatermark.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
@@ -93,7 +93,8 @@ export async function downloadPdf(course: any, res: Response, watermark?: Waterm
       const rawBuffer = await readFile(localFilePath);
       const finalBuffer = await watermarkPdf(rawBuffer, watermark);
 
-      res.attachment(course.pdfFileName || 'notes.pdf');
+      const downloadName = buildAttributedFilename(course.pdfFileName || 'notes.pdf', watermark);
+      res.attachment(downloadName);
       res.type('application/pdf');
       res.setHeader('Content-Length', finalBuffer.length);
       res.send(finalBuffer);
