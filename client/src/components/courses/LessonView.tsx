@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api, getAuthToken, getStoredUser } from '../../services/api';
-import { Lesson, Progress, button, panel, youtubeEmbed, extractYouTubeId, CurriculumBlock, CurriculumQuizQuestion } from './learning';
+import { Lesson, Progress, button, panel, control, youtubeEmbed, extractYouTubeId, CurriculumBlock, CurriculumQuizQuestion } from './learning';
 import { CleanVideoPlayer } from './CleanVideoPlayer';
 import {
   Shield,
@@ -50,18 +50,6 @@ export function LessonView({
 
   // Main sequential curriculum: excludes live classes which live in the dedicated live class box
   const activeCurriculumBlocks = (lesson.curriculumBlocks || []).filter((b) => b.type !== 'live_class');
-
-  // Video blocks in curriculum
-  const videoBlocks = activeCurriculumBlocks
-    .map((b, originalIndex) => ({ b, originalIndex }))
-    .filter((item) => item.b.type === 'video');
-
-  // Active Video Index (defaults to first video block or fallback)
-  const [activeVideoIdx, setActiveVideoIdx] = useState<number>(() => {
-    return videoBlocks.length > 0 ? videoBlocks[0].originalIndex : 0;
-  });
-
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
   // Helper to identify a block
   const getBlockKey = (block: any, idx: number): string => {
@@ -143,6 +131,20 @@ export function LessonView({
     }
     return null;
   };
+
+  // Active Curriculum Step Index (defaults to the first incomplete unlocked step in sequential order)
+  const [activeStepIdx, setActiveStepIdx] = useState<number>(() => {
+    if (activeCurriculumBlocks.length === 0) return 0;
+    for (let i = 0; i < activeCurriculumBlocks.length; i++) {
+      const b = activeCurriculumBlocks[i];
+      if (!isBlockDone(b, i) && isBlockUnlocked(i)) {
+        return i;
+      }
+    }
+    return 0;
+  });
+
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
   const scrollToStep = (stepIdx: number) => {
     const el = document.getElementById(`learning-step-${stepIdx}`);
@@ -254,6 +256,9 @@ export function LessonView({
         });
         if (passed) {
           toggleBlockCompletion(blockKey);
+          if (activeStepIdx + 1 < activeCurriculumBlocks.length) {
+            setActiveStepIdx(activeStepIdx + 1);
+          }
         }
       } else {
         const res = await api.submitCourseQuiz(lesson._id, answers, lesson.revision, blockKey);
@@ -261,6 +266,9 @@ export function LessonView({
         if (res.progress) {
           onProgress(res.progress);
           window.dispatchEvent(new CustomEvent('mindmaze_courses_updated'));
+          if (res.passed && activeStepIdx + 1 < activeCurriculumBlocks.length) {
+            setActiveStepIdx(activeStepIdx + 1);
+          }
         }
       }
     } catch (e: any) {
@@ -270,13 +278,11 @@ export function LessonView({
     }
   };
 
-  // Determine the active video to display in Diagram 4 top player
-  const activeVideoBlock: CurriculumBlock | null =
-    activeCurriculumBlocks[activeVideoIdx]?.type === 'video'
-      ? activeCurriculumBlocks[activeVideoIdx]
-      : videoBlocks.length > 0
-      ? videoBlocks[0].b
-      : lesson.videos && lesson.videos[0]
+  // Active Block based on current active step in the sequential curriculum
+  const activeBlock: CurriculumBlock | null =
+    activeCurriculumBlocks[activeStepIdx] ||
+    (activeCurriculumBlocks.length > 0 ? activeCurriculumBlocks[0] : null) ||
+    (lesson.videos && lesson.videos[0]
       ? ({
           type: 'video',
           title: lesson.videos[0].title,
@@ -285,26 +291,30 @@ export function LessonView({
           isYouTube: lesson.videos[0].isYouTube,
           description: lesson.videos[0].description,
         } as CurriculumBlock)
-      : null;
+      : null);
 
-  // Companion PDF for the active video (Diagram 4 right top box)
+  // Companion PDF for the active video (if video has companion doc)
   const hasCompanionDoc = Boolean(
-    activeVideoBlock &&
-      (activeVideoBlock.pdfUrl ||
-        activeVideoBlock.recordingPdfUrl ||
-        activeVideoBlock.pdfFileName ||
-        activeVideoBlock.recordingPdfFileName)
+    activeBlock &&
+      activeBlock.type === 'video' &&
+      (activeBlock.pdfUrl ||
+        activeBlock.recordingPdfUrl ||
+        activeBlock.pdfFileName ||
+        activeBlock.recordingPdfFileName)
   );
 
   const companionPdfUrl =
-    activeVideoBlock?.pdfUrl ||
-    activeVideoBlock?.recordingPdfUrl ||
-    (activeVideoBlock?._id ? `/courses/${lesson._id}/blocks/${activeVideoBlock._id}/download` : '');
+    activeBlock?.pdfUrl ||
+    activeBlock?.recordingPdfUrl ||
+    (activeBlock?._id ? `/courses/${lesson._id}/blocks/${activeBlock._id}/download` : '');
 
   const companionPdfTitle =
-    activeVideoBlock?.pdfFileName ||
-    activeVideoBlock?.recordingPdfFileName ||
+    activeBlock?.pdfFileName ||
+    activeBlock?.recordingPdfFileName ||
     'This Video Related Documents (PDF)';
+
+  const hasRightSidebar = hasCompanionDoc || liveClasses.length > 0;
+  const isCurrentStepUnlocked = isBlockUnlocked(activeStepIdx);
 
   return (
     <div className="learning-area space-y-6">
@@ -389,116 +399,392 @@ export function LessonView({
 
       {error && <p role="alert" className="text-rose-300">{error}</p>}
 
-      {/* TOP ROW: EXACT DIAGRAM 4 IMPLEMENTATION */}
-      {/* Left: Video Player | Right: "This video related documents" (if exists) & "Live class links" */}
-      {activeVideoBlock && (
+      {/* TOP ROW: ACTIVE LEARNING STEP (DIAGRAM 4) */}
+      {(activeBlock || liveClasses.length > 0) && (
         <section className="space-y-3">
           <div
             className={`grid gap-6 items-start ${
-              hasCompanionDoc || liveClasses.length > 0 ? 'lg:grid-cols-12' : 'grid-cols-1'
+              hasRightSidebar ? 'lg:grid-cols-12' : 'grid-cols-1'
             }`}
           >
-            {/* BOX 1 (LEFT): VIDEO PLAYER */}
-            <div
-              className={`${
-                hasCompanionDoc || liveClasses.length > 0 ? 'lg:col-span-7 xl:col-span-8' : 'w-full'
-              } space-y-3`}
-            >
+            {/* BOX 1 (LEFT): ACTIVE LEARNING CONTENT */}
+            {activeBlock && (
               <div
-                className={`${panel} p-4 sm:p-5 overflow-hidden shadow-2xl border-indigo-500/30`}
-                onContextMenu={(e) => e.preventDefault()}
+                className={`${
+                  hasRightSidebar ? 'lg:col-span-7 xl:col-span-8' : 'w-full'
+                } space-y-3`}
               >
-                <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                  <div className="flex items-center gap-2 truncate">
-                    <Play className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <h3 className="text-white font-bold text-base truncate">
-                      {activeVideoBlock.title || 'Video Lecture'}
-                    </h3>
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60 shrink-0">
-                    <Lock className="w-3 h-3 text-cyan-400" />
-                    Protected Stream
-                  </span>
-                </div>
-
-                {/* Video screen */}
-                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none shadow-inner">
-                  {(() => {
-                    const targetUrl = activeVideoBlock.embedUrl || activeVideoBlock.url || '';
-                    const embed = youtubeEmbed(targetUrl);
-                    const hasValidId = Boolean(extractYouTubeId(targetUrl));
-
-                    if (embed || hasValidId) {
-                      return isPlaying ? (
-                        <CleanVideoPlayer
-                          url={targetUrl}
-                          title={activeVideoBlock.title || 'Video Lecture'}
-                          studentName={currentUser?.name || 'Mind Maze Student'}
-                          indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
-                          onEnded={() => {
-                            const blockKey = getBlockKey(activeVideoBlock, activeVideoIdx);
-                            if (!isBlockDone(activeVideoBlock, activeVideoIdx)) {
-                              toggleBlockCompletion(blockKey);
-                            }
-                          }}
-                        />
-                      ) : (
+                {!isCurrentStepUnlocked ? (
+                  /* Locked Step Banner */
+                  <div className={`${panel} p-8 text-center space-y-3 border-amber-500/40`}>
+                    <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+                      <Lock className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-white font-bold text-lg">{activeBlock.title || 'Curriculum Step'} is Locked</h4>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Please complete previous steps in the curriculum first to unlock this section.
+                    </p>
+                    {(() => {
+                      const blk = getBlockingBlock(activeStepIdx);
+                      return blk ? (
                         <button
-                          className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:brightness-110 transition cursor-pointer"
-                          onClick={() => setIsPlaying(true)}
+                          type="button"
+                          onClick={() => {
+                            setActiveStepIdx(blk.index);
+                            window.scrollTo({ top: 100, behavior: 'smooth' });
+                          }}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/30"
                         >
-                          <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
-                            <Play className="w-6 h-6 ml-0.5 fill-cyan-400" />
-                          </div>
-                          <span className="text-sm font-medium text-white">Watch Video Lecture</span>
+                          <span>Go to Step {blk.index + 1} ({blk.block.title}) ↑</span>
                         </button>
-                      );
-                    }
+                      ) : null;
+                    })()}
+                  </div>
+                ) : activeBlock.type === 'video' ? (
+                  /* VIDEO STEP */
+                  <div
+                    className={`${panel} p-4 sm:p-5 overflow-hidden shadow-2xl border-indigo-500/30`}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                      <div className="flex items-center gap-2 truncate">
+                        <Play className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <h3 className="text-white font-bold text-base truncate">
+                          {activeBlock.title || 'Video Lecture'}
+                        </h3>
+                        {activeCurriculumBlocks.length > 0 && (
+                          <span className="text-xs text-slate-400">
+                            (Step {activeStepIdx + 1} of {totalBlocks})
+                          </span>
+                        )}
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60 shrink-0">
+                        <Lock className="w-3 h-3 text-cyan-400" />
+                        Protected Stream
+                      </span>
+                    </div>
 
-                    if (targetUrl) {
-                      return (
-                        <div className="relative w-full h-full">
-                          <video
-                            src={targetUrl}
-                            controls
-                            controlsList="nodownload noplaybackrate"
-                            disablePictureInPicture
-                            className="w-full h-full bg-black"
-                            onContextMenu={(e) => e.preventDefault()}
-                            onEnded={() => {
-                              const blockKey = getBlockKey(activeVideoBlock, activeVideoIdx);
-                              if (!isBlockDone(activeVideoBlock, activeVideoIdx)) {
-                                toggleBlockCompletion(blockKey);
-                              }
-                            }}
-                          />
-                          {currentUser && (
-                            <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
-                              {currentUser.name} • {currentUser.indexNumber || 'STD'}
+                    {/* Video screen */}
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none shadow-inner">
+                      {(() => {
+                        const targetUrl = activeBlock.embedUrl || activeBlock.url || '';
+                        const embed = youtubeEmbed(targetUrl);
+                        const hasValidId = Boolean(extractYouTubeId(targetUrl));
+
+                        if (embed || hasValidId) {
+                          return isPlaying ? (
+                            <CleanVideoPlayer
+                              url={targetUrl}
+                              title={activeBlock.title || 'Video Lecture'}
+                              studentName={currentUser?.name || 'Mind Maze Student'}
+                              indexNumber={currentUser?.indexNumber || 'MM-STUDENT'}
+                              onEnded={() => {
+                                const blockKey = getBlockKey(activeBlock, activeStepIdx);
+                                if (!isBlockDone(activeBlock, activeStepIdx)) {
+                                  toggleBlockCompletion(blockKey);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <button
+                              className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 font-semibold hover:brightness-110 transition cursor-pointer"
+                              onClick={() => setIsPlaying(true)}
+                            >
+                              <div className="w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
+                                <Play className="w-6 h-6 ml-0.5 fill-cyan-400" />
+                              </div>
+                              <span className="text-sm font-medium text-white">Watch Video Lecture</span>
+                            </button>
+                          );
+                        }
+
+                        if (targetUrl) {
+                          return (
+                            <div className="relative w-full h-full">
+                              <video
+                                src={targetUrl}
+                                controls
+                                controlsList="nodownload noplaybackrate"
+                                disablePictureInPicture
+                                className="w-full h-full bg-black"
+                                onContextMenu={(e) => e.preventDefault()}
+                                onEnded={() => {
+                                  const blockKey = getBlockKey(activeBlock, activeStepIdx);
+                                  if (!isBlockDone(activeBlock, activeStepIdx)) {
+                                    toggleBlockCompletion(blockKey);
+                                  }
+                                }}
+                              />
+                              {currentUser && (
+                                <div className="pointer-events-none absolute bottom-4 right-4 z-20 px-2 py-1 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] text-white/50 font-mono">
+                                  {currentUser.name} • {currentUser.indexNumber || 'STD'}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    }
+                          );
+                        }
+
+                        return (
+                          <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">
+                            Video link is being prepared by the teacher.
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {activeBlock.description && (
+                      <div className="mt-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
+                        <p className="whitespace-pre-line">{activeBlock.description}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : activeBlock.type === 'quiz' ? (
+                  /* QUIZ STEP */
+                  (() => {
+                    const qList: CurriculumQuizQuestion[] =
+                      activeBlock.quizQuestions && activeBlock.quizQuestions.length > 0
+                        ? activeBlock.quizQuestions
+                        : quiz;
+                    const reqPass = activeBlock.passPercentage ?? 50;
+                    const blockKey = getBlockKey(activeBlock, activeStepIdx);
+                    const done = isBlockDone(activeBlock, activeStepIdx);
 
                     return (
-                      <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">
-                        Video link is being prepared by the teacher.
+                      <div className={`${panel} p-4 sm:p-6 shadow-2xl border-amber-500/30 space-y-4`}>
+                        <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/10 pb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                              <HelpCircle className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-white font-bold text-base">
+                                  {activeBlock.title || 'Practice Quiz'}
+                                </h3>
+                                <span className="text-xs text-slate-400">
+                                  (Step {activeStepIdx + 1} of {totalBlocks})
+                                </span>
+                              </div>
+                              <span className="text-xs text-amber-300/80">Passing requirement: {reqPass}%</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {done && (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Passed ✓</span>
+                              </span>
+                            )}
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              {qList.length} Questions
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quiz Results Banner */}
+                        {result && (
+                          <div
+                            className={`p-4 rounded-xl border space-y-1 ${
+                              result.status === 'passed'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : result.status === 'pending_review'
+                                ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 font-bold text-sm">
+                              {result.status === 'passed' ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  <span>Quiz Passed! ({result.score} / {result.total} · {result.percentage}%)</span>
+                                </>
+                              ) : result.status === 'pending_review' ? (
+                                <>
+                                  <Clock className="w-4 h-4 text-indigo-400" />
+                                  <span>Submitted for Teacher Review!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="w-4 h-4 text-rose-400" />
+                                  <span>
+                                    Passing Score Not Met ({result.score} / {result.total} · {result.percentage}%).
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Questions list */}
+                        <div className="space-y-4">
+                          {qList.map((q, qIndex) => (
+                            <div
+                              key={qIndex}
+                              className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3"
+                            >
+                              <p className="font-bold text-white text-sm">
+                                {qIndex + 1}. {q.questionText}
+                              </p>
+
+                              {q.imageUrl && (
+                                <div className="max-w-md rounded-lg overflow-hidden border border-slate-700 bg-slate-950 p-1">
+                                  <img src={q.imageUrl} alt="Diagram" className="max-h-56 object-contain" />
+                                </div>
+                              )}
+
+                              {q.questionType === 'text' ? (
+                                <textarea
+                                  rows={3}
+                                  className={`${control} text-xs`}
+                                  placeholder="Write your explanation or calculations here..."
+                                  value={String(answers[qIndex] || '')}
+                                  onChange={(e) => {
+                                    const next = [...answers];
+                                    next[qIndex] = e.target.value;
+                                    setAnswers(next);
+                                  }}
+                                />
+                              ) : (
+                                <div className="space-y-2">
+                                  {q.options.map((opt, optIndex) => (
+                                    <label
+                                      key={optIndex}
+                                      className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition ${
+                                        answers[qIndex] === optIndex
+                                          ? 'bg-indigo-600/20 border-indigo-500 text-white font-bold'
+                                          : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`q-top-${activeStepIdx}-${qIndex}`}
+                                        checked={answers[qIndex] === optIndex}
+                                        onChange={() => {
+                                          const next = [...answers];
+                                          next[qIndex] = optIndex;
+                                          setAnswers(next);
+                                        }}
+                                        className="text-indigo-500"
+                                      />
+                                      <span>{opt}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => submitBlockQuiz(blockKey, qList, reqPass)}
+                            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-amber-600/30 transition cursor-pointer"
+                          >
+                            {busy ? 'Submitting...' : 'Submit Quiz Answers'}
+                          </button>
+
+                          {done && activeStepIdx + 1 < activeCurriculumBlocks.length && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveStepIdx(activeStepIdx + 1);
+                                window.scrollTo({ top: 100, behavior: 'smooth' });
+                              }}
+                              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+                            >
+                              <span>Next Step: {activeCurriculumBlocks[activeStepIdx + 1]?.title || 'Next Step'} →</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
-                  })()}
-                </div>
+                  })()
+                ) : activeBlock.type === 'document' ? (
+                  /* DOCUMENT STEP */
+                  (() => {
+                    const blockKey = getBlockKey(activeBlock, activeStepIdx);
+                    const done = isBlockDone(activeBlock, activeStepIdx);
+                    const docUrl = activeBlock.path || activeBlock.pdfUrl || `/courses/${lesson._id}/download`;
 
-                {activeVideoBlock.description && (
-                  <div className="mt-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 text-xs leading-relaxed">
-                    <p className="whitespace-pre-line">{activeVideoBlock.description}</p>
+                    return (
+                      <div className={`${panel} p-4 sm:p-6 shadow-2xl border-emerald-500/30 space-y-4`}>
+                        <div className="flex items-center justify-between flex-wrap gap-3 border-b border-white/10 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-white text-base">
+                                  {activeBlock.title || activeBlock.pdfFileName || 'Study Notes & Handout'}
+                                </h3>
+                                <span className="text-xs text-slate-400">
+                                  (Step {activeStepIdx + 1} of {totalBlocks})
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400">PDF Study Material</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {signedIn && (
+                              <a
+                                href={api.courseResourceUrl(docUrl)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download PDF</span>
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleBlockCompletion(blockKey)}
+                              disabled={busy}
+                              className={`text-xs font-bold px-4 py-2 rounded-xl border transition flex items-center gap-1.5 cursor-pointer ${
+                                done
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
+                              }`}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{done ? 'Read ✓' : 'Mark as Read'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="w-full h-[65vh] rounded-xl overflow-hidden border border-slate-800 bg-white">
+                          <iframe
+                            src={api.courseResourceUrl(docUrl)}
+                            title={activeBlock.title || 'Document'}
+                            className="w-full h-full border-0"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  /* OVERVIEW / DESCRIPTION STEP */
+                  <div className={`${panel} p-5 space-y-3`}>
+                    <h3 className="text-white font-bold text-base">{activeBlock.title || 'Lesson Overview'}</h3>
+                    <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{activeBlock.description}</p>
+                    <button
+                      type="button"
+                      onClick={() => toggleBlockCompletion(getBlockKey(activeBlock, activeStepIdx))}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer"
+                    >
+                      {isBlockDone(activeBlock, activeStepIdx) ? 'Completed ✓' : 'Mark as Read'}
+                    </button>
                   </div>
                 )}
               </div>
-            </div>
+            )}
 
             {/* BOX 2 (RIGHT): COMPANION PDF & LIVE CLASS LINKS */}
-            {(hasCompanionDoc || liveClasses.length > 0) && (
+            {hasRightSidebar && (
               <div className="lg:col-span-5 xl:col-span-4 space-y-4">
                 {/* 2A: "This video related documents" (rendered ONLY if video has attached doc as per Diagram 4) */}
                 {hasCompanionDoc && (
@@ -611,7 +897,7 @@ export function LessonView({
             const done = isBlockDone(block, idx);
             const unlocked = isBlockUnlocked(idx);
             const blocking = !unlocked ? getBlockingBlock(idx) : null;
-            const isCurrentlyPlayingThisVideo = activeVideoIdx === idx;
+            const isCurrentStep = activeStepIdx === idx;
 
             return (
               <div key={idx} id={`learning-step-${idx}`} className="space-y-2 scroll-mt-24">
@@ -690,7 +976,7 @@ export function LessonView({
                           <div className="flex items-center gap-2">
                             <Play className="w-4 h-4 text-cyan-400" />
                             <h4 className="text-white font-bold text-base">{block.title}</h4>
-                            {isCurrentlyPlayingThisVideo && (
+                            {isCurrentStep && (
                               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 animate-pulse">
                                 Now Playing Above
                               </span>
@@ -705,14 +991,14 @@ export function LessonView({
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveVideoIdx(idx);
+                              setActiveStepIdx(idx);
                               setIsPlaying(true);
                               window.scrollTo({ top: 120, behavior: 'smooth' });
                             }}
                             className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer"
                           >
                             <Play className="w-3.5 h-3.5 fill-white" />
-                            <span>Watch in Player Above</span>
+                            <span>{isCurrentStep ? 'Now Playing Above' : 'Watch in Player Above'}</span>
                           </button>
 
                           {preview && (
@@ -737,14 +1023,32 @@ export function LessonView({
                               <FileText className="w-5 h-5" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-white text-base">
-                                {block.title || block.pdfFileName || 'Study Notes & Handout'}
-                              </h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-white text-base">
+                                  {block.title || block.pdfFileName || 'Study Notes & Handout'}
+                                </h4>
+                                {isCurrentStep && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">
+                                    Now Open Above
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-slate-400">PDF Study Material</p>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveStepIdx(idx);
+                                window.scrollTo({ top: 120, behavior: 'smooth' });
+                              }}
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-emerald-300 text-xs font-bold border border-emerald-500/30 transition cursor-pointer"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>{isCurrentStep ? 'Reading Above' : 'Open in Viewer Above'}</span>
+                            </button>
                             {signedIn && (
                               <a
                                 href={api.courseResourceUrl(
@@ -790,13 +1094,33 @@ export function LessonView({
                                 <HelpCircle className="w-4 h-4" />
                               </div>
                               <div>
-                                <h4 className="text-white font-bold text-base">{block.title || 'Practice Quiz'}</h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-white font-bold text-base">{block.title || 'Practice Quiz'}</h4>
+                                  {isCurrentStep && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                                      Active Above
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-xs text-amber-300/80">Passing requirement: {reqPass}%</span>
                               </div>
                             </div>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              {qList.length} Questions
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveStepIdx(idx);
+                                  window.scrollTo({ top: 120, behavior: 'smooth' });
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-850 hover:bg-slate-800 text-amber-300 text-xs font-bold border border-amber-500/30 transition cursor-pointer"
+                              >
+                                <HelpCircle className="w-3.5 h-3.5" />
+                                <span>{isCurrentStep ? 'Taking Quiz Above' : 'Open in Main Screen'}</span>
+                              </button>
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                {qList.length} Questions
+                              </span>
+                            </div>
                           </div>
 
                           {/* Quiz results banner */}
