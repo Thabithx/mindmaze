@@ -128,17 +128,19 @@ const present=(c:any,admin=false)=>{
           ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
         }));
       } else if (b.type === 'paper') {
-        formatted.paperUrl = b.paperUrl || b.pdfUrl || '';
+        const hasPaperFile = Boolean(b.paperUrl || b.pdfUrl || b.paperPublicId || b.pdfPublicId);
+        formatted.paperUrl = b.paperUrl || b.pdfUrl || (hasPaperFile ? `/courses/${c._id}/blocks/${b._id}/download` : '');
         formatted.paperFileName = b.paperFileName || b.pdfFileName || 'Question Paper.pdf';
         formatted.pdfUrl = formatted.paperUrl;
         formatted.pdfFileName = formatted.paperFileName;
-        if (formatted.paperUrl) {
+        if (hasPaperFile) {
           formatted.pdfPath = `/courses/${c._id}/blocks/${b._id}/download`;
           formatted.paperPath = `/courses/${c._id}/blocks/${b._id}/download`;
         }
-        formatted.resultSheetUrl = b.resultSheetUrl || '';
+        const hasResultFile = Boolean(b.resultSheetUrl || b.resultSheetPublicId);
+        formatted.resultSheetUrl = b.resultSheetUrl || (hasResultFile ? `/courses/${c._id}/blocks/${b._id}/result-sheet/download` : '');
         formatted.resultSheetFileName = b.resultSheetFileName || 'Result Sheet.pdf';
-        if (b.resultSheetUrl) {
+        if (hasResultFile) {
           formatted.resultSheetPath = `/courses/${c._id}/blocks/${b._id}/result-sheet/download`;
         }
         formatted.totalMarks = b.totalMarks || 100;
@@ -257,19 +259,21 @@ router.get('/:id/blocks/:blockId/download',async(req,res)=>{
     if(!c){res.status(404).json({message:'Lesson not found.'});return;}
     const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId) ||
                 (Number.isInteger(Number(req.params.blockId)) ? c?.curriculumBlocks?.[Number(req.params.blockId)] : undefined);
-    if(!block || (block.type !== 'document' && block.type !== 'paper' && !block.pdfUrl && !block.recordingPdfUrl && !block.paperUrl)){
+    if(!block || (block.type !== 'document' && block.type !== 'paper' && !block.pdfUrl && !block.recordingPdfUrl && !block.paperUrl && !block.paperPublicId && !block.pdfPublicId)){
       res.status(404).json({message:'Document or paper not found.'});
       return;
     }
     const watermark=await extractDownloadWatermark(req);
     const effectivePdfUrl = block.paperUrl || block.pdfUrl || block.recordingPdfUrl || '';
     const effectiveFileName = block.paperFileName || block.pdfFileName || block.recordingPdfFileName || 'document.pdf';
+    const effectivePublicId = block.paperPublicId || block.pdfPublicId || block.recordingPdfPublicId || '';
+    const effectiveProvider = block.paperProvider || block.pdfProvider || (effectivePdfUrl.includes('res.cloudinary.com') ? 'cloudinary' : 'local');
     let target: any = {
       ...(typeof (block as any)?.toObject === 'function' ? (block as any).toObject() : block),
       pdfUrl: effectivePdfUrl,
       pdfFileName: effectiveFileName,
-      pdfProvider: block.pdfProvider || (effectivePdfUrl.includes('res.cloudinary.com') ? 'cloudinary' : 'raw'),
-      pdfPublicId: block.pdfPublicId || block.recordingPdfPublicId || ''
+      pdfProvider: effectiveProvider,
+      pdfPublicId: effectivePublicId,
     };
     if (effectivePdfUrl && effectivePdfUrl.includes('/resources/')) {
       const match = effectivePdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
@@ -368,9 +372,9 @@ router.post(
         progress.paperSubmissions.push(submissionRecord);
       }
 
-      // Mark step completed in student's timeline
+      // Do not mark step as completed until teacher grades and reviews the paper
       const completedBlocks = new Set(progress.completedBlocks || []);
-      completedBlocks.add(blockKey);
+      completedBlocks.delete(blockKey);
       progress.completedBlocks = Array.from(completedBlocks);
 
       await progress.save();
@@ -570,7 +574,7 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
       let fIdx = 0;
       for (const b of details.curriculumBlocks) {
-        if ((b.type === 'document' || b.type === 'video' || b.type === 'paper') && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
+        if ((b.type === 'document' || b.type === 'video' || b.type === 'paper') && b.hasNewUpload && fIdx < saved.length) {
           const s = saved[fIdx++];
           b.pdfUrl = s.pdfUrl;
           b.pdfPublicId = s.pdfPublicId;

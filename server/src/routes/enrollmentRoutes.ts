@@ -578,7 +578,7 @@ router.put(
       }
       if (typeof grade === 'string') submission.grade = grade.trim();
       if (typeof adminFeedback === 'string') submission.adminFeedback = adminFeedback.trim();
-      submission.status = status === 'pending_review' ? 'pending_review' : 'reviewed';
+      submission.status = (status === 'pending_review' || status === 'pending') ? 'pending_review' : 'reviewed';
       submission.reviewedBy = req.user!._id;
       submission.reviewedAt = new Date();
 
@@ -595,10 +595,12 @@ router.put(
         }
       }
 
-      // Mark completed in completedBlocks
+      // Mark completed in completedBlocks only when reviewed
       const completedBlocks = new Set<string>(progress.completedBlocks || []);
-      if (submission.blockKey) {
+      if (submission.status === 'reviewed' && submission.blockKey) {
         completedBlocks.add(submission.blockKey);
+      } else if (submission.status === 'pending_review' && submission.blockKey) {
+        completedBlocks.delete(submission.blockKey);
       }
       progress.completedBlocks = Array.from(completedBlocks);
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, getAuthToken, getStoredUser } from '../../services/api';
+import { api, getAuthToken, getStoredUser, getAttributedFileName } from '../../services/api';
 import { Lesson, Progress, button, panel, control, youtubeEmbed, extractYouTubeId, CurriculumBlock, CurriculumQuizQuestion } from './learning';
 import { CleanVideoPlayer } from './CleanVideoPlayer';
 import {
@@ -71,7 +71,24 @@ export function LessonView({
     return block?._id ? String(block._id) : `block-${idx}`;
   };
 
+  const getBlockPaperSubmission = (block: any, idx: number) => {
+    const key = getBlockKey(block, idx);
+    const fallbackKey = `block-${idx}`;
+    const allSubs = localProgress?.paperSubmissions || progress?.paperSubmissions || [];
+    return allSubs.find(
+      (s: any) =>
+        s.blockKey === key ||
+        s.blockKey === fallbackKey ||
+        s.blockKey === String(idx) ||
+        (block._id && s.blockKey === String(block._id))
+    );
+  };
+
   const isBlockDone = (block: any, idx: number): boolean => {
+    if (block?.type === 'paper') {
+      const sub = getBlockPaperSubmission(block, idx);
+      return Boolean(sub && sub.status === 'reviewed');
+    }
     if (progress?.completed) return true;
     const key = getBlockKey(block, idx);
     const fallbackKey = `block-${idx}`;
@@ -81,13 +98,6 @@ export function LessonView({
   const isLegacyDone = (key: string): boolean => {
     if (progress?.completed) return true;
     return (progress?.completedBlocks || []).includes(key);
-  };
-
-  const getBlockPaperSubmission = (block: any, idx: number) => {
-    const key = getBlockKey(block, idx);
-    const fallbackKey = `block-${idx}`;
-    const allSubs = localProgress?.paperSubmissions || progress?.paperSubmissions || [];
-    return allSubs.find((s) => s.blockKey === key || s.blockKey === fallbackKey || (block._id && s.blockKey === String(block._id)));
   };
 
   const paperBlocks = activeCurriculumBlocks
@@ -230,6 +240,12 @@ export function LessonView({
   const progressPct = totalBlocks > 0 ? Math.min(100, Math.round((completedCount / totalBlocks) * 100)) : 0;
 
   const toggleBlockCompletion = async (blockKey: string) => {
+    // Cannot manually mark paper block as completed (only teacher review can complete it)
+    const targetBlock = activeCurriculumBlocks.find((b, i) => getBlockKey(b, i) === blockKey || `block-${i}` === blockKey);
+    if (targetBlock?.type === 'paper') {
+      return;
+    }
+
     setBusy(true);
     setError('');
     setCompletionNotice(null);
@@ -1072,10 +1088,11 @@ export function LessonView({
                     {/* PAPER / ASSIGNMENT STEP */}
                     {block.type === 'paper' && (() => {
                       const sub = getBlockPaperSubmission(block, idx);
-                      const isGraded = sub && sub.status === 'reviewed';
-                      const isPending = sub && sub.status === 'pending';
+                      const isGraded = Boolean(sub && (sub.status === 'reviewed' || (sub.marks !== null && sub.marks !== undefined)));
+                      const isPending = Boolean(sub && (sub.status === 'pending_review' || sub.status === 'pending') && !isGraded);
                       const isSubmitting = submittingPaperKey === blockKey;
                       const submitMsg = paperSubmitMessage[blockKey];
+                      const hasPaper = Boolean(block.paperUrl || block.paperPath || block.pdfUrl || (block.paperFileName && block.paperFileName !== 'Question Paper.pdf'));
 
                       return (
                         <section className={`${panel} border-indigo-500/30 p-4 sm:p-6 space-y-6`}>
@@ -1102,17 +1119,22 @@ export function LessonView({
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => toggleBlockCompletion(blockKey)}
-                              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'
-                              }`}
-                            >
-                              {done ? 'Step Completed ✓' : 'Mark as Done'}
-                            </button>
+                            {/* Status badge: Completed (Graded), Pending Grading, or Submission Required */}
+                            {isGraded ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                <span>Graded & Completed ✓</span>
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold">
+                                <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                                <span>Submitted · Pending Review</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold">
+                                <span>Submission Required</span>
+                              </span>
+                            )}
                           </div>
 
                           {/* Question Paper Documents & Instructions */}
@@ -1122,12 +1144,12 @@ export function LessonView({
                                 <FileText className="w-4 h-4 text-cyan-400" />
                                 <span>Question Paper & Assignment Details</span>
                               </h5>
-                              {block.paperUrl && (
+                              {hasPaper && (
                                 <a
                                   href={api.courseBlockDownloadUrl(lesson._id, blockKey)}
                                   target="_blank"
                                   rel="noreferrer"
-                                  download={getAttributedFileName(block.paperFileName || `${block.title || 'Paper'}_Questions`, '.pdf')}
+                                  download={getAttributedFileName(block.paperFileName || block.pdfFileName || `${block.title || 'Paper'}_Questions`, '.pdf')}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition shadow-sm cursor-pointer"
                                 >
                                   <Download className="w-3.5 h-3.5" />
@@ -1136,12 +1158,32 @@ export function LessonView({
                               )}
                             </div>
 
+                            {/* Attached Question Paper document card if paper exists */}
+                            {hasPaper && (
+                              <div className="p-3.5 rounded-xl bg-cyan-950/25 border border-cyan-500/30 flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2.5 text-cyan-200 text-xs font-semibold">
+                                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                                  <span className="truncate">Question Paper Document: <strong className="text-white ml-1">{block.paperFileName || block.pdfFileName || 'Question Paper.pdf'}</strong></span>
+                                </div>
+                                <a
+                                  href={api.courseBlockDownloadUrl(lesson._id, blockKey)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download={getAttributedFileName(block.paperFileName || block.pdfFileName || `${block.title || 'Paper'}_Questions`, '.pdf')}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download PDF</span>
+                                </a>
+                              </div>
+                            )}
+
                             {block.description ? (
                               <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">
                                 {block.description}
                               </div>
-                            ) : !block.paperUrl ? (
-                              <p className="text-xs text-slate-400 italic">No specific questions entered for this paper.</p>
+                            ) : !hasPaper ? (
+                              <p className="text-xs text-slate-400 italic">No specific questions or files attached for this paper.</p>
                             ) : null}
                           </div>
 
