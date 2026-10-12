@@ -171,10 +171,22 @@ router.get('/admin/topics',protect,contentManagerOnly,async(_req,res)=>{try{
 router.get('/admin/list',protect,contentManagerOnly,async(req,res)=>{try{
   const requested=readPagination(req.query),filter:any={};
   for(const key of ['subject','status'])if(queryText(req.query[key]))filter[key]=queryText(req.query[key]);
+  if(req.query.parentCourseId) {
+    filter.parentCourseId = req.query.parentCourseId;
+  } else if (req.query.mainOnly === 'true') {
+    filter.$or = [{ parentCourseId: { $exists: false } }, { parentCourseId: null }];
+  }
   const search=literalSearch(req.query.q);if(search)filter.$or=['title','topic','subject'].map(key=>({[key]:search}));
   const pagination=pageInfo(await Course.countDocuments(filter),requested);
-  const courses=await Course.find(filter).sort({subject:1,topicOrder:1,lessonOrder:1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
-  res.json({courses:courses.map(c=>present(c,true)),pagination});
+  const courses=await Course.find(filter).sort({createdAt:-1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
+  const withCounts = await Promise.all(courses.map(async (c) => {
+    const subCount = await Course.countDocuments({ parentCourseId: c._id });
+    return {
+      ...present(c, true),
+      subCourseCount: subCount,
+    };
+  }));
+  res.json({courses:withCounts,pagination});
 }catch(e){if(e instanceof PaginationError)res.status(400).json({message:e.message});else fail(res,e);}});
 router.get('/progress',protect,async(req:AuthRequest,res)=>{try{res.json({progress:await CourseProgress.find({user:req.user!._id}).lean()});}catch(e){fail(res,e);}});
 router.get('/',async(req,res)=>{try{
@@ -458,10 +470,17 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
 router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));
 router.put('/:id',protect,contentManagerOnly,parseUpload,saveLesson(true));
 router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
-  const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Lesson not found.'});return;}
+  const subCount = await Course.countDocuments({ parentCourseId: req.params.id });
+  if (subCount > 0) {
+    res.status(400).json({
+      message: `Cannot delete this main course because it contains ${subCount} monthly course(s). Please delete all monthly courses inside it first.`
+    });
+    return;
+  }
+  const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Course not found.'});return;}
   if(c.thumbnailPublicId) await removeImage(c.thumbnailPublicId).catch(()=>{});
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
-  await CourseProgress.deleteMany({course:c._id});res.json({message:'Lesson removed.'});
+  await CourseProgress.deleteMany({course:c._id});res.json({message:'Course removed successfully.'});
 }catch(e){fail(res,e);}});
 
 // Background worker: automatically delete live classes 5 hours after scheduled time

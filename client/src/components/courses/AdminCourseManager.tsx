@@ -20,6 +20,7 @@ import {
   Lock,
   Layers,
   ArrowRight,
+  ArrowLeft,
   Edit,
   Eye,
   RefreshCw,
@@ -34,6 +35,8 @@ import {
   CheckSquare,
   Image as ImageIcon,
   Upload,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 type Question = {
@@ -58,173 +61,261 @@ Account Number: 8009234567
 Branch: Colombo Fort
 Deposit the fee and upload the bank transfer receipt / deposit slip.`;
 
-const initialForm = () => ({
+const initialMainCourseForm = () => ({
   title: '',
   description: '',
   subject: 'Physics',
   stream: 'Both',
-  topic: '',
-  topicOrder: 1,
-  lessonOrder: 1,
-  estimatedMinutes: 20,
   medium: 'English',
-  syllabus: 'current',
+  monthlyFee: 3500,
   status: 'published' as 'draft' | 'published',
-  price: 0,
-  isFree: true,
-  billingType: 'one_time' as 'one_time' | 'monthly',
-  monthlyFee: 0,
-  courseType: 'free' as 'free' | 'one_time' | 'monthly',
-  isMonthlyProgram: false,
-  parentCourseId: '',
-  targetMonth: '',
-  validityPeriod: 'lifetime' as '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime',
-  validityMonths: 0,
   bankDetails: DEFAULT_BANK_DETAILS,
 });
 
+const initialMonthlyClassForm = (parent?: Lesson | null) => ({
+  title: '',
+  targetMonth: '',
+  description: '',
+  subject: parent?.subject || 'Physics',
+  stream: parent?.stream || 'Both',
+  medium: parent?.medium || 'English',
+  status: 'published' as 'draft' | 'published',
+  price: parent?.monthlyFee || parent?.price || 3500,
+  validityPeriod: '1_month' as '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime',
+  validityMonths: 1,
+  parentCourseId: parent?._id || '',
+  bankDetails: parent?.bankDetails || DEFAULT_BANK_DETAILS,
+  estimatedMinutes: 60,
+  topic: '',
+});
+
 export const AdminCourseManager: React.FC = () => {
-  const [form, setForm] = useState(initialForm());
-  const [editing, setEditing] = useState<Lesson | null>(null);
+  // Navigation level: Level 1 (Main Courses) vs Level 2 (Monthly classes inside a Main Course)
+  const [selectedMainCourse, setSelectedMainCourse] = useState<Lesson | null>(null);
+
+  // Level 1: Main Course creation/edit state
+  const [showMainCourseModal, setShowMainCourseModal] = useState(false);
+  const [editingMainCourse, setEditingMainCourse] = useState<Lesson | null>(null);
+  const [mainForm, setMainForm] = useState(initialMainCourseForm());
+  const [mainCoverFile, setMainCoverFile] = useState<File | null>(null);
+  const [mainCoverPreview, setMainCoverPreview] = useState<string>('');
+  const [removeMainCover, setRemoveMainCover] = useState<boolean>(false);
+
+  // Level 2: Monthly Class studio & curriculum editor state
+  const [showMonthlyStudio, setShowMonthlyStudio] = useState(false);
+  const [editingMonthlyClass, setEditingMonthlyClass] = useState<Lesson | null>(null);
+  const [monthlyForm, setMonthlyForm] = useState(initialMonthlyClassForm());
+  const [monthlyCoverFile, setMonthlyCoverFile] = useState<File | null>(null);
+  const [monthlyCoverPreview, setMonthlyCoverPreview] = useState<string>('');
+  const [removeMonthlyCover, setRemoveMonthlyCover] = useState<boolean>(false);
+
+  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'live_classes'>('info');
+  const [curriculumBlocks, setCurriculumBlocks] = useState<CurriculumBlock[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  // Active form section tab
-  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'live_classes'>('info');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Cover image / Thumbnail state
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string>('');
-  const [removeCover, setRemoveCover] = useState<boolean>(false);
-
-  // Content state
-  const [curriculumBlocks, setCurriculumBlocks] = useState<CurriculumBlock[]>([]);
-  const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [files, setFiles] = useState<File[]>([]);
-  const [resources, setResources] = useState<NonNullable<Lesson['resources']>>([]);
-  const [quiz, setQuiz] = useState<Question[]>([]);
-  const [related, setRelated] = useState<string[]>([]);
   const [preview, setPreview] = useState<Lesson | null>(null);
-  const [fileKey, setFileKey] = useState(0);
 
   // Filters & listings
   const [search, setSearch] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  const adminFilters = selectedMainCourse
+    ? { parentCourseId: selectedMainCourse._id, q: search, status: filterStatus }
+    : { mainOnly: 'true', q: search, subject: filterSubject, status: filterStatus };
+
   const lessonsPage = usePagedResource<Lesson>(
     '/courses/admin/list',
     'courses',
-    { q: search, subject: filterSubject, status: filterStatus },
+    adminFilters,
     'mindmaze_courses_updated'
   );
 
-  const [paperSearch, setPaperSearch] = useState('');
-  const [selectedPapersOnly, setSelectedPapersOnly] = useState(false);
-  const [topicChoices, setTopicChoices] = useState<{ subject: string; topic: string; topicOrder: number }[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadTopics = () =>
-      apiFetch('/courses/admin/topics')
-        .then((r) => {
-          if (!cancelled) setTopicChoices(r.topics || []);
-        })
-        .catch(() => {});
-    loadTopics();
-    window.addEventListener('mindmaze_courses_updated', loadTopics);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('mindmaze_courses_updated', loadTopics);
-    };
-  }, []);
-
-  const papersPage = usePagedResource<any>(
-    '/past-papers',
-    'papers',
-    selectedPapersOnly ? { ids: related.join(','), q: paperSearch } : { subject: form.subject, q: paperSearch },
-    'mindmaze_papers_updated'
-  );
-
   const lessons = lessonsPage.items;
-  const papers = papersPage.items;
   const loading = lessonsPage.loading;
   const load = lessonsPage.reload;
 
-  const reset = () => {
-    setForm(initialForm());
-    setEditing(null);
-    setCoverFile(null);
-    setCoverPreview('');
-    setRemoveCover(false);
-    setCurriculumBlocks([]);
-    setVideos([]);
-    setFiles([]);
-    setResources([]);
-    setQuiz([]);
-    setRelated([]);
-    setFileKey((k) => k + 1);
+  // Clear messages on view changes
+  useEffect(() => {
+    setMessage('');
     setError('');
-    setActiveTab('info');
+  }, [selectedMainCourse]);
+
+  // LEVEL 1: Open Main Course Creator / Editor
+  const openCreateMainCourse = () => {
+    setEditingMainCourse(null);
+    setMainForm(initialMainCourseForm());
+    setMainCoverFile(null);
+    setMainCoverPreview('');
+    setRemoveMainCover(false);
+    setShowMainCourseModal(true);
+    setError('');
+    setMessage('');
   };
 
-  const edit = (lesson: Lesson) => {
-    setEditing(lesson);
-    setCoverFile(null);
-    setCoverPreview(lesson.thumbnailUrl || '');
-    setRemoveCover(false);
-    setForm({
-      title: lesson.title,
-      description: lesson.description,
-      subject: lesson.subject,
-      stream: lesson.stream,
-      topic: lesson.topic,
-      topicOrder: lesson.topicOrder,
-      lessonOrder: lesson.lessonOrder,
-      estimatedMinutes: lesson.estimatedMinutes,
-      medium: lesson.medium,
-      syllabus: lesson.syllabus,
-      status: (lesson.status as 'draft' | 'published') || 'published',
-      price: lesson.price ?? 0,
-      isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
-      billingType: lesson.billingType || 'one_time',
-      monthlyFee: lesson.monthlyFee ?? (lesson.billingType === 'monthly' ? lesson.price : 0),
-      courseType: lesson.courseType || (lesson.isFree ? 'free' : (lesson.billingType === 'monthly' ? 'monthly' : 'one_time')),
-      isMonthlyProgram: Boolean(lesson.isMonthlyProgram),
-      parentCourseId: lesson.parentCourseId ? String(lesson.parentCourseId) : '',
-      targetMonth: lesson.targetMonth || '',
-      validityPeriod: lesson.validityPeriod || 'lifetime',
-      validityMonths: lesson.validityMonths ?? 0,
-      bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
+  const openEditMainCourse = (course: Lesson) => {
+    setEditingMainCourse(course);
+    setMainForm({
+      title: course.title,
+      description: course.description,
+      subject: course.subject,
+      stream: course.stream || 'Both',
+      medium: course.medium || 'English',
+      monthlyFee: course.monthlyFee || course.price || 3500,
+      status: (course.status as 'draft' | 'published') || 'published',
+      bankDetails: course.bankDetails || DEFAULT_BANK_DETAILS,
     });
+    setMainCoverFile(null);
+    setMainCoverPreview(course.thumbnailUrl || '');
+    setRemoveMainCover(false);
+    setShowMainCourseModal(true);
+    setError('');
+    setMessage('');
+  };
 
-    // Populate curriculum blocks, or seamlessly convert legacy lesson contents into the curriculum
+  // Save Main Course
+  const saveMainCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const body = new FormData();
+      body.append('title', mainForm.title.trim());
+      body.append('subject', mainForm.subject);
+      body.append('stream', mainForm.stream);
+      body.append('medium', mainForm.medium);
+      body.append('description', mainForm.description.trim());
+      body.append('monthlyFee', String(mainForm.monthlyFee));
+      body.append('price', String(mainForm.monthlyFee));
+      body.append('isMonthlyProgram', 'true');
+      body.append('billingType', 'monthly');
+      body.append('courseType', 'monthly');
+      body.append('parentCourseId', '');
+      body.append('status', mainForm.status);
+      body.append('bankDetails', mainForm.bankDetails);
+      body.append('topic', mainForm.title.trim());
+
+      if (mainCoverFile) {
+        body.append('thumbnail', mainCoverFile);
+      } else if (removeMainCover) {
+        body.append('removeThumbnail', 'true');
+      }
+
+      if (editingMainCourse) {
+        body.append('revision', String(editingMainCourse.revision));
+        await api.updateCourse(editingMainCourse._id, body);
+        setMessage(`Main course "${mainForm.title}" updated successfully.`);
+      } else {
+        await api.createCourse(body);
+        setMessage(`Main course "${mainForm.title}" created successfully.`);
+      }
+
+      setShowMainCourseModal(false);
+      load();
+      window.dispatchEvent(new Event('mindmaze_courses_updated'));
+    } catch (err: any) {
+      setError(err.message || 'Could not save main course.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Delete Main Course (Blocked if subCourseCount > 0!)
+  const removeMainCourse = async (course: Lesson) => {
+    const subCount = course.subCourseCount || 0;
+    if (subCount > 0) {
+      alert(
+        `Cannot delete "${course.title}": It contains ${subCount} monthly class(es). Please delete all monthly classes inside this main course first.`
+      );
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete the main course "${course.title}"?`)) {
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.deleteCourse(course._id);
+      load();
+      setMessage(`Main course "${course.title}" deleted.`);
+      window.dispatchEvent(new Event('mindmaze_courses_updated'));
+    } catch (err: any) {
+      setError(err.message || 'Could not delete main course.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // LEVEL 2: Open Monthly Class Creator / Editor
+  const openCreateMonthlyClass = () => {
+    if (!selectedMainCourse) return;
+    setEditingMonthlyClass(null);
+    setMonthlyForm(initialMonthlyClassForm(selectedMainCourse));
+    setMonthlyCoverFile(null);
+    setMonthlyCoverPreview('');
+    setRemoveMonthlyCover(false);
+    setCurriculumBlocks([]);
+    setActiveTab('info');
+    setShowMonthlyStudio(true);
+    setError('');
+    setMessage('');
+  };
+
+  const openEditMonthlyClass = (course: Lesson) => {
+    setEditingMonthlyClass(course);
+    setMonthlyForm({
+      title: course.title,
+      targetMonth: course.targetMonth || '',
+      description: course.description,
+      subject: course.subject,
+      stream: course.stream || selectedMainCourse?.stream || 'Both',
+      medium: course.medium || selectedMainCourse?.medium || 'English',
+      status: (course.status as 'draft' | 'published') || 'published',
+      price: course.price ?? selectedMainCourse?.monthlyFee ?? 3500,
+      validityPeriod: course.validityPeriod || '1_month',
+      validityMonths: course.validityMonths || 1,
+      parentCourseId: selectedMainCourse?._id || '',
+      bankDetails: course.bankDetails || selectedMainCourse?.bankDetails || DEFAULT_BANK_DETAILS,
+      estimatedMinutes: course.estimatedMinutes || 60,
+      topic: course.topic || '',
+    });
+    setMonthlyCoverFile(null);
+    setMonthlyCoverPreview(course.thumbnailUrl || '');
+    setRemoveMonthlyCover(false);
+
+    // Populate curriculum blocks
     let blocks: CurriculumBlock[] = [];
-    if (lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0) {
-      blocks = lesson.curriculumBlocks.map((b, i) => ({
+    if (course.curriculumBlocks && course.curriculumBlocks.length > 0) {
+      blocks = course.curriculumBlocks.map((b, i) => ({
         ...b,
         order: b.order ?? i,
       }));
     } else {
-      if (lesson.description?.trim()) {
+      if (course.description?.trim()) {
         blocks.push({
           type: 'description',
-          title: 'Lesson Introduction & Overview',
-          description: lesson.description.trim(),
+          title: 'Class Overview & Objectives',
+          description: course.description.trim(),
           order: blocks.length,
         });
       }
-      (lesson.videos || []).forEach((v, idx) => {
+      (course.videos || []).forEach((v, idx) => {
         blocks.push({
           type: 'video',
-          title: v.title || `Video Part ${idx + 1}`,
+          title: v.title || `Video Lecture Part ${idx + 1}`,
           url: v.url || '',
           description: v.description || '',
           order: blocks.length,
         });
       });
-      (lesson.resources || []).forEach((r, idx) => {
+      (course.resources || []).forEach((r, idx) => {
         blocks.push({
           type: 'document',
           title: r.title || `Study Notes ${idx + 1}`,
@@ -234,11 +325,11 @@ export const AdminCourseManager: React.FC = () => {
           order: blocks.length,
         });
       });
-      if (lesson.quiz && lesson.quiz.length > 0) {
+      if (course.quiz && course.quiz.length > 0) {
         blocks.push({
           type: 'quiz',
           title: 'Practice Quiz & Knowledge Check',
-          quizQuestions: lesson.quiz.map((q) => ({
+          quizQuestions: course.quiz.map((q) => ({
             questionText: q.questionText,
             options: [...q.options],
             correctOptionIndex: q.correctOptionIndex ?? 0,
@@ -249,71 +340,65 @@ export const AdminCourseManager: React.FC = () => {
       }
     }
     setCurriculumBlocks(blocks);
-
-    setVideos(
-      (lesson.videos || []).map((v) => ({
-        title: v.title || '',
-        url: v.url || '',
-        description: v.description || '',
-      }))
-    );
-    setResources(lesson.resources || []);
-    setFiles([]);
-    setQuiz(
-      (lesson.quiz || []).map((q) => ({
-        questionText: q.questionText,
-        options: [...q.options],
-        correctOptionIndex: q.correctOptionIndex ?? 0,
-        explanation: q.explanation || '',
-      }))
-    );
-    setRelated(lesson.relatedPaperIds || []);
-    setFileKey((k) => k + 1);
+    setActiveTab('info');
+    setShowMonthlyStudio(true);
     setError('');
     setMessage('');
-    setActiveTab('info');
-    document.getElementById('lesson-editor')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const save = async (e: React.FormEvent) => {
+  // Save Monthly Class
+  const saveMonthlyClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy) return;
+    if (busy || !selectedMainCourse) return;
     setBusy(true);
     setError('');
     setMessage('');
 
     try {
       const body = new FormData();
-      const topicVal = form.topic.trim() || form.title.trim() || 'General';
-      const payload = { ...form, topic: topicVal };
-      Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)));
+      body.append('title', monthlyForm.title.trim());
+      body.append('targetMonth', monthlyForm.targetMonth.trim());
+      body.append('subject', selectedMainCourse.subject);
+      body.append('stream', selectedMainCourse.stream);
+      body.append('medium', selectedMainCourse.medium);
+      body.append('description', monthlyForm.description.trim());
+      body.append('price', String(monthlyForm.price));
+      body.append('monthlyFee', String(monthlyForm.price));
+      body.append('billingType', 'monthly');
+      body.append('courseType', 'monthly');
+      body.append('isMonthlyProgram', 'false');
+      body.append('parentCourseId', selectedMainCourse._id);
+      body.append('validityPeriod', monthlyForm.validityPeriod);
+      body.append('validityMonths', String(monthlyForm.validityPeriod === '1_month' ? 1 : monthlyForm.validityPeriod === '3_months' ? 3 : monthlyForm.validityPeriod === '6_months' ? 6 : monthlyForm.validityPeriod === '1_year' ? 12 : 0));
+      body.append('status', monthlyForm.status);
+      body.append('bankDetails', monthlyForm.bankDetails);
+      body.append('topic', monthlyForm.targetMonth.trim() || selectedMainCourse.title);
+      body.append('estimatedMinutes', String(monthlyForm.estimatedMinutes));
 
-      // Course cover image (saved to Cloudinary)
-      if (coverFile) {
-        body.append('thumbnail', coverFile);
-      } else if (removeCover) {
+      if (monthlyCoverFile) {
+        body.append('thumbnail', monthlyCoverFile);
+      } else if (removeMonthlyCover) {
         body.append('removeThumbnail', 'true');
       }
 
-      // Collect and sync all quiz questions across quiz blocks
+      // Collect quiz questions
       const allQuizQuestions = curriculumBlocks
         .filter((b) => b.type === 'quiz')
         .flatMap((b) => b.quizQuestions || []);
       body.append('quizJson', JSON.stringify(allQuizQuestions));
 
-      // Collect and sync all video lectures across video blocks
+      // Collect video lectures
       const allVideos = curriculumBlocks
         .filter((b) => b.type === 'video')
         .map((b) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
       body.append('videosJson', JSON.stringify(allVideos));
 
-      // Append files uploaded directly on document or video blocks
+      // Append files uploaded directly on document or video companion blocks
       curriculumBlocks.forEach((b) => {
         if (b.pendingFile) {
           body.append('pdfFiles', b.pendingFile);
         }
       });
-      files.forEach((f) => body.append('pdfFiles', f));
 
       // Clean curriculum blocks for JSON transmission
       const cleanBlocks = curriculumBlocks.map(({ pendingFile, ...b }) => ({
@@ -323,71 +408,61 @@ export const AdminCourseManager: React.FC = () => {
       }));
       body.append('curriculumBlocksJson', JSON.stringify(cleanBlocks));
 
-      body.append('relatedPaperIds', JSON.stringify(related));
-      body.append('keepResourceIds', JSON.stringify(resources.map((r) => r.id)));
-      if (editing) body.append('revision', String(editing.revision));
+      if (editingMonthlyClass) {
+        body.append('revision', String(editingMonthlyClass.revision));
+        await api.updateCourse(editingMonthlyClass._id, body);
+        setMessage(`Monthly class "${monthlyForm.title}" updated successfully.`);
+      } else {
+        await api.createCourse(body);
+        setMessage(`Monthly class "${monthlyForm.title}" published under ${selectedMainCourse.title}.`);
+      }
 
-      const result = editing ? await api.updateCourse(editing._id, body) : await api.createCourse(body);
+      setShowMonthlyStudio(false);
       load();
-      reset();
-      setMessage(
-        result.course.status === 'draft'
-          ? 'Draft saved successfully. (Hidden from students)'
-          : 'Lesson published successfully! Students can access it now.'
-      );
       window.dispatchEvent(new Event('mindmaze_courses_updated'));
-    } catch (e: any) {
-      setError(e.message || 'Could not save lesson.');
+    } catch (err: any) {
+      setError(err.message || 'Could not save monthly class.');
     } finally {
       setBusy(false);
     }
   };
 
-  const remove = async (lesson: Lesson) => {
-    if (!window.confirm(`Are you sure you want to delete "${lesson.title}" and its progress?`)) return;
+  // Delete Monthly Class (Always allowed!)
+  const removeMonthlyClass = async (course: Lesson) => {
+    if (!window.confirm(`Are you sure you want to delete monthly class "${course.title}"?`)) {
+      return;
+    }
+
     setBusy(true);
     setError('');
+    setMessage('');
     try {
-      await api.deleteCourse(lesson._id);
+      await api.deleteCourse(course._id);
       load();
-      if (editing?._id === lesson._id) reset();
-      setMessage('Lesson deleted.');
+      setMessage(`Monthly class "${course.title}" deleted.`);
       window.dispatchEvent(new Event('mindmaze_courses_updated'));
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err: any) {
+      setError(err.message || 'Could not delete monthly class.');
     } finally {
       setBusy(false);
     }
   };
 
-  const addVideo = () => {
-    setVideos((prev) => [...prev, { title: `Part ${prev.length + 1}`, url: '', description: '' }]);
-  };
-
+  // Curriculum block helpers
   const addCurriculumBlock = (type: CurriculumBlock['type']) => {
     const newBlock: CurriculumBlock = {
       type,
       title:
-        type === 'live_class'
-          ? 'Live Class Discussion'
-          : type === 'video'
-          ? `Video Lecture ${curriculumBlocks.filter((b) => b.type === 'video').length + 1}`
+        type === 'video'
+          ? `Lecture Video ${curriculumBlocks.filter((b) => b.type === 'video').length + 1}`
           : type === 'document'
-          ? 'Lecture Notes (PDF)'
+          ? `Study Notes Handout ${curriculumBlocks.filter((b) => b.type === 'document').length + 1}`
+          : type === 'live_class'
+          ? `Live Session ${curriculumBlocks.filter((b) => b.type === 'live_class').length + 1}`
           : type === 'quiz'
-          ? 'Practice Quiz & Knowledge Check'
-          : 'Module Guidance & Overview',
-      description: '',
+          ? 'Practice Quiz'
+          : 'Lesson Overview',
       order: curriculumBlocks.length,
-      ...(type === 'live_class'
-        ? {
-            meetingPlatform: 'Zoom',
-            liveLink: '',
-            scheduledTime: '',
-          }
-        : {}),
-      ...(type === 'video' ? { url: '' } : {}),
-      ...(type === 'document' ? { pdfUrl: '', pdfFileName: '' } : {}),
       ...(type === 'quiz'
         ? {
             passPercentage: 50,
@@ -396,7 +471,6 @@ export const AdminCourseManager: React.FC = () => {
                 questionText: '',
                 questionType: 'mcq',
                 imageUrl: '',
-                imagePublicId: '',
                 options: ['', ''],
                 correctOptionIndex: 0,
                 explanation: '',
@@ -406,6 +480,30 @@ export const AdminCourseManager: React.FC = () => {
         : {}),
     };
     setCurriculumBlocks((prev) => [...prev, newBlock]);
+  };
+
+  const removeBlock = (index: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.filter((_, i) => i !== index).map((b, i) => ({ ...b, order: i }))
+    );
+  };
+
+  const updateBlock = (index: number, patch: Partial<CurriculumBlock>) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, ...patch } : b))
+    );
+  };
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    setCurriculumBlocks((prev) => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) return prev;
+      const temp = next[index];
+      next[index] = next[target];
+      next[target] = temp;
+      return next.map((b, i) => ({ ...b, order: i }));
+    });
   };
 
   const addQuestionToBlock = (blockIdx: number) => {
@@ -443,11 +541,7 @@ export const AdminCourseManager: React.FC = () => {
     );
   };
 
-  const updateQuestionInBlock = (
-    blockIdx: number,
-    qIdx: number,
-    patch: any
-  ) => {
+  const updateQuestionInBlock = (blockIdx: number, qIdx: number, patch: any) => {
     setCurriculumBlocks((prev) =>
       prev.map((b, i) => {
         if (i !== blockIdx) return b;
@@ -493,127 +587,85 @@ export const AdminCourseManager: React.FC = () => {
     );
   };
 
-  const moveBlock = (index: number, direction: 'up' | 'down') => {
-    setCurriculumBlocks((prev) => {
-      const next = [...prev];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= next.length) return prev;
-      const temp = next[index];
-      next[index] = next[target];
-      next[target] = temp;
-      return next.map((b, i) => ({ ...b, order: i }));
-    });
-  };
-
-  const moveSequentialBlock = (seqIndex: number, direction: 'up' | 'down') => {
-    const seqItems = curriculumBlocks
-      .map((b, i) => ({ b, i }))
-      .filter((item) => item.b.type !== 'live_class');
-    const targetSeqIndex = direction === 'up' ? seqIndex - 1 : seqIndex + 1;
-    if (targetSeqIndex < 0 || targetSeqIndex >= seqItems.length) return;
-
-    const actualIdx = seqItems[seqIndex].i;
-    const targetActualIdx = seqItems[targetSeqIndex].i;
-
-    setCurriculumBlocks((prev) => {
-      const next = [...prev];
-      const temp = next[actualIdx];
-      next[actualIdx] = next[targetActualIdx];
-      next[targetActualIdx] = temp;
-      return next.map((b, i) => ({ ...b, order: i }));
-    });
-  };
-
-  const removeBlock = (index: number) => {
-    setCurriculumBlocks((prev) =>
-      prev.filter((_, i) => i !== index).map((b, i) => ({ ...b, order: i }))
-    );
-  };
-
-  const updateBlock = (index: number, patch: Partial<CurriculumBlock>) => {
-    setCurriculumBlocks((prev) =>
-      prev.map((b, i) => (i === index ? { ...b, ...patch } : b))
-    );
-  };
-
-  const importExistingIntoCurriculum = () => {
-    const blocks: CurriculumBlock[] = [];
-    if (form.description?.trim()) {
-      blocks.push({
-        type: 'description',
-        title: 'Lesson Introduction & Overview',
-        description: form.description.trim(),
-        order: blocks.length,
-      });
-    }
-    videos.forEach((v, idx) => {
-      blocks.push({
-        type: 'video',
-        title: v.title || `Video Part ${idx + 1}`,
-        url: v.url,
-        description: v.description || '',
-        order: blocks.length,
-      });
-    });
-    resources.forEach((r, idx) => {
-      blocks.push({
-        type: 'document',
-        title: r.title || `Study Notes ${idx + 1}`,
-        pdfUrl: r.path,
-        pdfFileName: r.title,
-        size: r.size,
-        order: blocks.length,
-      });
-    });
-    setCurriculumBlocks(blocks);
-  };
-
-  const changeQuestion = (i: number, patch: Partial<Question>) =>
-    setQuiz((prev) => prev.map((q, j) => (j === i ? { ...q, ...patch } : q)));
-
-  const visible = lessons.filter(
-    (l) =>
-      (!filterSubject || l.subject === filterSubject) &&
-      (!filterStatus || l.status === filterStatus) &&
-      [l.title, l.topic, l.subject].join(' ').toLowerCase().includes(search.trim().toLowerCase())
-  );
-
   return (
-    <div className="learning-area space-y-8">
-      {/* Top Banner Header */}
-      <div className="rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-md p-6 shadow-xl flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-              Admin Workspace
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Courses & Lesson Studio</span>
+    <div className="learning-area space-y-6">
+      {/* LEVEL 1: MAIN COURSES TOP BAR */}
+      {!selectedMainCourse ? (
+        <div className="rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-md p-6 shadow-xl flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                <Layers className="w-3 h-3 text-purple-400" />
+                <span>Level 1: Main Courses</span>
+              </span>
+              <span className="text-xs text-slate-400 font-medium">Platform Program Architecture</span>
+            </div>
+            <h2 className="text-2xl font-black text-white">Main Courses Management</h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+              Create and manage main class programs (e.g. "2027 A/L Physics Class"). Click on any main course to manage its monthly classes and lecture recordings.
+            </p>
           </div>
-          <h2 className="text-2xl font-black text-white">Course & Lesson Manager</h2>
-          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Create structured lessons, stream protected YouTube videos without external branding, and attach watermarked notes.
-          </p>
-        </div>
 
-        {editing ? (
           <button
             type="button"
-            onClick={reset}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition cursor-pointer"
-          >
-            Cancel Editing
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => document.getElementById('lesson-editor')?.scrollIntoView({ behavior: 'smooth' })}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 hover:brightness-110 transition cursor-pointer"
+            onClick={openCreateMainCourse}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Create New Lesson</span>
+            <span>Create Main Course</span>
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* LEVEL 2: INSIDE SELECTED MAIN COURSE TOP BANNER */
+        <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-indigo-950/60 backdrop-blur-md p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMainCourse(null);
+                setShowMonthlyStudio(false);
+              }}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold border border-white/10 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>← Back to All Main Courses</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                Rs. {(selectedMainCourse.monthlyFee || selectedMainCourse.price || 0).toLocaleString()} / month
+              </span>
+              <button
+                type="button"
+                onClick={openCreateMonthlyClass}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-600/30 hover:brightness-110 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Monthly Class</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 flex-wrap">
+            {selectedMainCourse.thumbnailUrl && (
+              <img
+                src={selectedMainCourse.thumbnailUrl}
+                alt={selectedMainCourse.title}
+                className="w-16 h-16 rounded-xl object-cover border border-white/10 shadow"
+              />
+            )}
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-black text-cyan-400">{selectedMainCourse.subject}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-xs text-purple-300 font-bold">{selectedMainCourse.stream} Stream</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">{selectedMainCourse.title}</h3>
+              <p className="text-xs text-slate-300 line-clamp-1 mt-0.5">{selectedMainCourse.description}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-sm flex items-center gap-3">
@@ -624,7 +676,7 @@ export const AdminCourseManager: React.FC = () => {
 
       {error && (
         <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-sm flex items-center gap-3">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -632,7 +684,7 @@ export const AdminCourseManager: React.FC = () => {
       {preview && (
         <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/95 p-6 shadow-2xl space-y-4">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <h3 className="font-bold text-white text-lg">Student View Preview</h3>
+            <h3 className="font-bold text-white text-lg">Student View Preview: {preview.title}</h3>
             <button
               className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
               onClick={() => setPreview(null)}
@@ -644,79 +696,32 @@ export const AdminCourseManager: React.FC = () => {
         </div>
       )}
 
-      {/* Main Studio Editor Card */}
-      <form id="lesson-editor" onSubmit={save} className="rounded-2xl border border-white/10 bg-[#161831]/80 backdrop-blur-md shadow-2xl overflow-hidden">
-        {/* Editor Title & Tab Selector */}
-        <div className="border-b border-white/10 bg-slate-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
-              {editing ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+      {/* MODAL: LEVEL 1 CREATE / EDIT MAIN COURSE */}
+      {showMainCourseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center justify-center font-bold">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editingMainCourse ? 'Edit Main Course' : 'Create New Main Course'}
+                  </h3>
+                  <p className="text-xs text-slate-400">Master Class Category (contains monthly classes)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMainCourseModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white">{editing ? 'Edit Lesson' : 'Add New Lesson'}</h3>
-              <p className="text-xs text-slate-400">Fill in the details below to publish to students</p>
-            </div>
-          </div>
 
-          {/* Clean Step / Section Tabs - Overview, Curriculum Flow, and Live Classes */}
-          <div className="flex items-center bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setActiveTab('info')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'info'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>1. Overview</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('curriculum')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'curriculum'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-indigo-300" />
-              <span>2. Curriculum Flow</span>
-              {curriculumBlocks.filter((b) => b.type !== 'live_class').length > 0 && (
-                <span className="w-5 h-5 rounded-full bg-indigo-400/20 text-indigo-300 text-[11px] flex items-center justify-center font-bold">
-                  {curriculumBlocks.filter((b) => b.type !== 'live_class').length}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('live_classes')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'live_classes'
-                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5 text-rose-400" />
-              <span>3. Live Classes</span>
-              {curriculumBlocks.filter((b) => b.type === 'live_class').length > 0 && (
-                <span className="w-5 h-5 rounded-full bg-rose-400/20 text-rose-300 text-[11px] flex items-center justify-center font-bold">
-                  {curriculumBlocks.filter((b) => b.type === 'live_class').length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Form Body */}
-        <fieldset disabled={busy} className="p-6 space-y-6">
-          {/* TAB 1: BASIC LESSON INFO & OVERVIEW */}
-          {activeTab === 'info' && (
-            <div className="space-y-5 animate-in fade-in duration-200">
-              {/* Row 1: Subject, Topic, Medium */}
+            <form onSubmit={saveMainCourse} className="p-6 overflow-y-auto space-y-4">
               <div className="grid sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
@@ -724,8 +729,8 @@ export const AdminCourseManager: React.FC = () => {
                   </label>
                   <select
                     className={control}
-                    value={form.subject}
-                    onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value, topic: '' }))}
+                    value={mainForm.subject}
+                    onChange={(e) => setMainForm((f) => ({ ...f, subject: e.target.value }))}
                   >
                     {subjects.map((s) => (
                       <option key={s} value={s}>
@@ -737,202 +742,66 @@ export const AdminCourseManager: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Topic / Category (Optional)
+                    A/L Stream
                   </label>
-                  <input
-                    list="lesson-topics"
+                  <select
                     className={control}
-                    value={form.topic}
-                    placeholder="e.g. Mechanics (or leave empty)"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const match = topicChoices.find((l) => l.subject === form.subject && l.topic === value);
-                      setForm((f) => ({
-                        ...f,
-                        topic: value,
-                        ...(match ? { topicOrder: match.topicOrder } : {}),
-                      }));
-                    }}
-                  />
-                  <datalist id="lesson-topics">
-                    {[...new Set(topicChoices.filter((l) => l.subject === form.subject).map((l) => l.topic))].map((t) => (
-                      <option key={t} value={t} />
-                    ))}
-                  </datalist>
+                    value={mainForm.stream}
+                    onChange={(e) => setMainForm((f) => ({ ...f, stream: e.target.value }))}
+                  >
+                    <option value="Both">Both (Maths & Bio)</option>
+                    <option value="Physical Science">Physical Science (Maths)</option>
+                    <option value="Biological Science">Biological Science (Bio)</option>
+                    <option value="Technology">Technology</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Language Medium
+                    Medium
                   </label>
                   <select
                     className={control}
-                    value={form.medium}
-                    onChange={(e) => setForm((f) => ({ ...f, medium: e.target.value }))}
+                    value={mainForm.medium}
+                    onChange={(e) => setMainForm((f) => ({ ...f, medium: e.target.value }))}
                   >
-                    {['English', 'Sinhala', 'Tamil'].map((s) => (
-                      <option key={s} value={s}>
-                        {s} Medium
-                      </option>
-                    ))}
+                    <option value="English">English Medium</option>
+                    <option value="Sinhala">Sinhala Medium</option>
+                    <option value="Tamil">Tamil Medium</option>
                   </select>
                 </div>
               </div>
 
-              {/* Subject related courses preview helper */}
-              {(() => {
-                const subjectCourses = lessons.filter((l) => l.subject === form.subject);
-                if (subjectCourses.length === 0) return null;
-                return (
-                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs">
-                    <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span className="text-cyan-300">
-                        Existing {form.subject} Courses ({subjectCourses.length}):
-                      </span>
-                      <span className="text-[10px] text-slate-400">Click to edit</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                      {subjectCourses.map((c) => (
-                        <button
-                          key={c._id}
-                          type="button"
-                          onClick={() => edit(c)}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
-                        >
-                          <span>{c.title}</span>
-                          <span className="text-[9px] text-slate-400">({c.topic || 'General'})</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Row 2: Course / Lesson Title */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Course / Lesson Title <span className="text-rose-400">*</span>
+                  Main Course Title <span className="text-rose-400">*</span>
                 </label>
                 <input
                   required
-                  placeholder="e.g. Centripetal Force & Vertical Circles — Theory & Derivations"
+                  placeholder="e.g. 2027 A/L Physics Theory Master Class"
                   className={control}
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  value={mainForm.title}
+                  onChange={(e) => setMainForm((f) => ({ ...f, title: e.target.value }))}
                 />
               </div>
 
-              {/* Row 3: Dedicated Separate Lesson Description Section */}
-              <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Lesson Description & Study Guidance</span>
-                    <span className="text-rose-400">*</span>
-                  </label>
-                  <span className="text-[11px] text-slate-400">Visible to all students in Lesson Overview</span>
-                </div>
-                <textarea
-                  required
-                  rows={4}
-                  className={`${control} font-normal leading-relaxed`}
-                  placeholder="Write a clear overview of this lesson: key concepts covered, formulas, syllabus references, and study tips for A/L students..."
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-
-              {/* Course Cover Image (Cloudinary) */}
-              <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Course Cover Image (Cloudinary)</span>
-                  </label>
-                  <span className="text-[11px] text-slate-400">Displayed on Course Catalog cards (16:9 ratio)</span>
-                </div>
-
-                {coverPreview ? (
-                  <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950 max-w-md group shadow-lg">
-                    <img
-                      src={coverPreview}
-                      alt="Course cover preview"
-                      className="w-full aspect-video object-cover"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                      <label className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Change</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setCoverFile(file);
-                              setCoverPreview(URL.createObjectURL(file));
-                              setRemoveCover(false);
-                            }
-                          }}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCoverFile(null);
-                          setCoverPreview('');
-                          setRemoveCover(true);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-slate-300 font-mono">
-                      {coverFile ? coverFile.name : 'Active Cloudinary Cover'}
-                    </div>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700/80 hover:border-indigo-500/80 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 transition cursor-pointer group">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 flex items-center justify-center transition">
-                      <ImageIcon className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-200 mt-2">Click to upload Course Cover Image</span>
-                    <span className="text-[11px] text-slate-400 mt-0.5">JPEG, PNG, WEBP — Saved to Cloudinary</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setCoverFile(file);
-                          setCoverPreview(URL.createObjectURL(file));
-                          setRemoveCover(false);
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Row 4: Estimated Study Time & Status */}
-              <div className="grid sm:grid-cols-2 gap-4 items-center">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Estimated Study Time (Minutes)
+                    Standard Monthly Fee (Rs.) <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="number"
-                    min={1}
-                    max={600}
+                    min={0}
                     required
+                    placeholder="3500"
                     className={control}
-                    value={form.estimatedMinutes}
-                    onChange={(e) => setForm((f) => ({ ...f, estimatedMinutes: Number(e.target.value) }))}
+                    value={mainForm.monthlyFee}
+                    onChange={(e) => setMainForm((f) => ({ ...f, monthlyFee: Number(e.target.value) }))}
                   />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Default fee used when creating monthly classes inside this main course.
+                  </p>
                 </div>
 
                 <div>
@@ -942,22 +811,22 @@ export const AdminCourseManager: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, status: 'published' }))}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                        form.status === 'published'
-                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      onClick={() => setMainForm((f) => ({ ...f, status: 'published' }))}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border ${
+                        mainForm.status === 'published'
+                          ? 'bg-emerald-600 text-white border-emerald-500'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}
                     >
-                      ✓ Published (Live)
+                      ✓ Published
                     </button>
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, status: 'draft' }))}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                        form.status === 'draft'
-                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      onClick={() => setMainForm((f) => ({ ...f, status: 'draft' }))}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border ${
+                        mainForm.status === 'draft'
+                          ? 'bg-amber-600 text-white border-amber-500'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}
                     >
                       Draft (Hidden)
@@ -966,695 +835,584 @@ export const AdminCourseManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 5: Course Pricing, Type & Access Validity */}
-              <div className="rounded-xl border border-indigo-500/30 bg-slate-900/60 p-4 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-white">Course Type & Access Settings</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({
-                          ...f,
-                          isFree: true,
-                          price: 0,
-                          billingType: 'one_time',
-                          monthlyFee: 0,
-                          courseType: 'free',
-                          isMonthlyProgram: false,
-                          parentCourseId: '',
-                          validityPeriod: 'lifetime',
-                          validityMonths: 0,
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        form.courseType === 'free' || form.isFree || form.price === 0
-                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                      }`}
-                    >
-                      ✓ Free Course
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({
-                          ...f,
-                          isFree: false,
-                          price: f.price || 1500,
-                          billingType: 'one_time',
-                          courseType: 'one_time',
-                          isMonthlyProgram: false,
-                          parentCourseId: '',
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        form.courseType === 'one_time' && !form.isFree && !form.isMonthlyProgram
-                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                      }`}
-                    >
-                      💳 One-Time Paid Course
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({
-                          ...f,
-                          isFree: false,
-                          billingType: 'monthly',
-                          courseType: 'monthly',
-                          isMonthlyProgram: true,
-                          parentCourseId: '',
-                          monthlyFee: f.monthlyFee || f.price || 2500,
-                          price: f.price || 2500,
-                          validityPeriod: 'lifetime',
-                          validityMonths: 0,
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        form.isMonthlyProgram
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                      }`}
-                    >
-                      📁 Monthly Program (Master Category)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({
-                          ...f,
-                          isFree: false,
-                          billingType: 'monthly',
-                          courseType: 'monthly',
-                          isMonthlyProgram: false,
-                          monthlyFee: f.monthlyFee || f.price || 2500,
-                          price: f.price || 2500,
-                          validityPeriod: f.validityPeriod === 'lifetime' ? '1_month' : f.validityPeriod,
-                          validityMonths: f.validityMonths || 1,
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                        form.courseType === 'monthly' && !form.isMonthlyProgram
-                          ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                      }`}
-                    >
-                      📅 Monthly Sub-Class (e.g. October Class)
-                    </button>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Course Description & Overview <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  className={control}
+                  placeholder="Provide an overview of the master program syllabus coverage, target A/L year, and batch information..."
+                  value={mainForm.description}
+                  onChange={(e) => setMainForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </div>
 
-                {/* Monthly Program (Master) Informational Notice */}
-                {form.isMonthlyProgram && (
-                  <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/40 text-xs text-purple-200 space-y-1">
-                    <div className="font-bold text-purple-300 flex items-center gap-1.5">
-                      <Layers className="w-4 h-4" />
-                      <span>Parent Program / Master Course Category (e.g. "2027 A/L Physics Class")</span>
-                    </div>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      This parent course will be displayed on the course catalog with its cover photo, description, and monthly fee.
-                      Inside, students will see the list of Monthly Classes (e.g. October, November) and enroll per month.
-                    </p>
-                    {editing && (
-                      <div className="pt-2 mt-2 border-t border-purple-500/20">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-300">
-                            Sub-courses under this program: {lessons.filter((l) => l.parentCourseId === editing._id).length}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const parentId = editing._id;
-                              const parentSubject = editing.subject;
-                              const parentFee = editing.monthlyFee || editing.price || 2500;
-                              reset();
-                              setForm((f) => ({
-                                ...f,
-                                subject: parentSubject,
-                                courseType: 'monthly',
-                                isMonthlyProgram: false,
-                                parentCourseId: parentId,
-                                title: `${editing.title} - `,
-                                price: parentFee,
-                                monthlyFee: parentFee,
-                                isFree: false,
-                                billingType: 'monthly',
-                                validityPeriod: '1_month',
-                                validityMonths: 1,
-                              }));
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Add New Month Class to this Program
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Sub-Class Parent Selector & Month Settings */}
-                {form.courseType === 'monthly' && !form.isMonthlyProgram && (
-                  <div className="grid sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
-                        Parent Monthly Program (Master Category)
-                      </label>
-                      <select
-                        className={control}
-                        value={form.parentCourseId}
-                        onChange={(e) => setForm((f) => ({ ...f, parentCourseId: e.target.value }))}
-                      >
-                        <option value="">-- Standalone Monthly Class (No Parent) --</option>
-                        {lessons
-                          .filter((l) => l.isMonthlyProgram)
-                          .map((prog) => (
-                            <option key={prog._id} value={prog._id}>
-                              📁 {prog.title} ({prog.subject})
-                            </option>
-                          ))}
-                      </select>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Select which master program (e.g. 2027 A/L Physics) this monthly class belongs to.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
-                        Target Month (e.g. October 2026)
-                      </label>
-                      <input
-                        className={control}
-                        placeholder="e.g. October 2026"
-                        value={form.targetMonth}
-                        onChange={(e) => setForm((f) => ({ ...f, targetMonth: e.target.value }))}
-                      />
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Students paying for this month will gain access specifically to this month's recordings and materials.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Fee and Validity Expiry settings for paid courses */}
-                {!form.isFree && (
-                  <div className="grid sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 animate-in fade-in duration-150">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">
-                        {form.courseType === 'monthly' || form.billingType === 'monthly'
-                          ? 'Monthly Fee (LKR / mo)'
-                          : 'Course Fee (LKR)'}{' '}
-                        <span className="text-rose-400">*</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
+              {/* Cover Image Upload */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Main Course Cover Picture (16:9 ratio)
+                </label>
+                {mainCoverPreview ? (
+                  <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950 aspect-video max-w-sm group">
+                    <img src={mainCoverPreview} alt="Cover" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                      <label className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold cursor-pointer">
+                        <span>Change</span>
                         <input
-                          type="number"
-                          min={1}
-                          required={!form.isFree}
-                          placeholder="e.g. 2500"
-                          className={`${control} pl-10 font-bold`}
-                          value={form.billingType === 'monthly' ? (form.monthlyFee || form.price) : form.price}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
                           onChange={(e) => {
-                            const val = Math.max(0, Number(e.target.value));
-                            setForm((f) => ({
-                              ...f,
-                              price: val,
-                              monthlyFee: f.billingType === 'monthly' ? val : f.monthlyFee,
-                              isFree: val === 0,
-                            }));
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setMainCoverFile(file);
+                              setMainCoverPreview(URL.createObjectURL(file));
+                              setRemoveMainCover(false);
+                            }
                           }}
                         />
-                      </div>
-                    </div>
-
-                    {/* Expiration Validity Period (1 month, 3 months, 6 months, 1 year, Lifetime) */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1.5">
-                        Access Expiration / Validity
                       </label>
-                      <select
-                        className={control}
-                        value={form.validityPeriod}
-                        onChange={(e) => {
-                          const val = e.target.value as any;
-                          const months = val === '1_month' ? 1 : val === '3_months' ? 3 : val === '6_months' ? 6 : val === '1_year' ? 12 : 0;
-                          setForm((f) => ({ ...f, validityPeriod: val, validityMonths: months }));
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMainCoverFile(null);
+                          setMainCoverPreview('');
+                          setRemoveMainCover(true);
                         }}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold"
                       >
-                        <option value="1_month">1 Month (30 Days from approval)</option>
-                        <option value="3_months">3 Months (90 Days from approval)</option>
-                        <option value="6_months">6 Months (180 Days from approval)</option>
-                        <option value="1_year">1 Year (365 Days from approval)</option>
-                        <option value="lifetime">Lifetime Access (Never expires)</option>
-                      </select>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        When expired, the student must renew their enrollment to continue watching.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                        Bank Account & Transfer Instructions
-                      </label>
-                      <textarea
-                        rows={3}
-                        className={`${control} text-xs font-mono leading-relaxed`}
-                        placeholder="Bank: Commercial Bank | Account: 123456789 | Name: Mind Maze | Branch: Colombo"
-                        value={form.bankDetails}
-                        onChange={(e) => setForm((f) => ({ ...f, bankDetails: e.target.value }))}
-                      />
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Shown to students when uploading bank deposit receipts.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Collapsed Advanced Ordering & Stream Settings */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer"
-                >
-                  {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  <span>Advanced Settings (Streams, Ordering & Syllabus version)</span>
-                </button>
-
-                {showAdvanced && (
-                  <div className="mt-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800 grid sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Target Stream</label>
-                      <select
-                        className={control}
-                        value={form.stream}
-                        onChange={(e) => setForm((f) => ({ ...f, stream: e.target.value }))}
-                      >
-                        {['Both', 'Maths', 'Bio', 'Physical Science', 'Biological Science', 'Non-stream'].map((s) => (
-                          <option key={s} value={s}>
-                            {s === 'Both' ? 'Maths and Bio' : s}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Syllabus</label>
-                      <select
-                        className={control}
-                        value={form.syllabus}
-                        onChange={(e) => setForm((f) => ({ ...f, syllabus: e.target.value }))}
-                      >
-                        <option value="current">Current syllabus</option>
-                        <option value="old">Old syllabus</option>
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Topic Order</label>
-                        <input
-                          type="number"
-                          min={0}
-                          className={control}
-                          value={form.topicOrder}
-                          onChange={(e) => setForm((f) => ({ ...f, topicOrder: Number(e.target.value) }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Lesson Order</label>
-                        <input
-                          type="number"
-                          min={0}
-                          className={control}
-                          value={form.lessonOrder}
-                          onChange={(e) => setForm((f) => ({ ...f, lessonOrder: Number(e.target.value) }))}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Related Past Papers section */}
-                    <div className="sm:col-span-3 border-t border-white/5 pt-3 space-y-2">
-                      <label className="block text-xs font-medium text-slate-400">
-                        Link Related Past Papers ({related.length} selected)
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="search"
-                          placeholder="Search past papers..."
-                          className={control}
-                          value={paperSearch}
-                          onChange={(e) => setPaperSearch(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPapersOnly(!selectedPapersOnly)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                            selectedPapersOnly
-                              ? 'bg-purple-600 text-white border-purple-500'
-                              : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                          }`}
-                        >
-                          {selectedPapersOnly ? 'Selected only' : 'All papers'}
-                        </button>
-                      </div>
-
-                      <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl bg-slate-900 p-2 border border-slate-800">
-                        {papers.map((p: any) => (
-                          <label
-                            key={p.id}
-                            className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-xs text-slate-300 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={related.includes(p.id)}
-                              onChange={(e) =>
-                                setRelated((prev) =>
-                                  e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
-                                )
-                              }
-                            />
-                            <span>{p.title}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('curriculum')}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
-                >
-                  <span>Continue to Curriculum Flow</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: COURSERA-STYLE CURRICULUM FLOW (VIDEOS, DOCS, GUIDES, QUIZZES) */}
-          {activeTab === 'curriculum' && (() => {
-            const sequentialBlocks = curriculumBlocks
-              .map((block, originalIndex) => ({ block, originalIndex }))
-              .filter((item) => item.block.type !== 'live_class');
-
-            return (
-              <div className="space-y-6 animate-in fade-in duration-200">
-                {/* Header / Intro banner */}
-                <div className="rounded-xl bg-gradient-to-r from-indigo-950/60 to-purple-950/60 p-4 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-indigo-400" />
-                      <h4 className="font-bold text-white text-sm">
-                        Coursera-Style Curriculum Flow ({sequentialBlocks.length} Items)
-                      </h4>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                        Sequential Timeline
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-                      Sequence your course components downwards in the order students will follow:
-                      mix <strong>Video Lessons</strong>, <strong>Document Notes (PDFs)</strong>, <strong>Practice Quizzes</strong>, and <strong>Reading Guides</strong>.
-                    </p>
-                  </div>
-
-                  {sequentialBlocks.length === 0 && (videos.length > 0 || resources.length > 0 || form.description) && (
-                    <button
-                      type="button"
-                      onClick={importExistingIntoCurriculum}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>⚡ Import Existing Items to Timeline</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick Add Toolbar */}
-                <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-                    <Plus className="w-3.5 h-3.5" /> Add Step:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => addCurriculumBlock('video')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer"
-                  >
-                    <Video className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>+ Video / YouTube Lesson</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => addCurriculumBlock('document')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>+ PDF Document / Notes</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => addCurriculumBlock('description')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>+ Guide / Description Section</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => addCurriculumBlock('quiz')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-                    <span>+ Quiz & MCQs</span>
-                  </button>
-                </div>
-
-                {/* Empty State */}
-                {sequentialBlocks.length === 0 ? (
-                  <div className="text-center py-12 rounded-xl border border-dashed border-slate-700 bg-slate-900/40 space-y-4">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto shadow-inner">
-                      <Layers className="w-7 h-7" />
-                    </div>
-                    <div className="max-w-md mx-auto">
-                      <p className="text-sm font-bold text-white">Curriculum Timeline is Empty</p>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Add YouTube lectures, PDF documents, study guides, and quizzes in the order students will follow downwards!
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => addCurriculumBlock('video')}
-                        className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-cyan-600/20"
-                      >
-                        <Video className="w-3.5 h-3.5" /> Add Video
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addCurriculumBlock('document')}
-                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
-                      >
-                        <FileText className="w-3.5 h-3.5" /> Add Document
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addCurriculumBlock('description')}
-                        className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
-                      >
-                        <BookOpen className="w-3.5 h-3.5" /> Add Description
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addCurriculumBlock('quiz')}
-                        className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-600/20"
-                      >
-                        <HelpCircle className="w-3.5 h-3.5" /> Add Quiz / MCQs
+                        Remove
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {sequentialBlocks.map(({ block, originalIndex }, seqIdx) => {
-                      const idx = originalIndex;
-                      const isFirst = seqIdx === 0;
-                      const isLast = seqIdx === sequentialBlocks.length - 1;
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 transition cursor-pointer">
+                    <ImageIcon className="w-6 h-6 text-purple-400 mb-2" />
+                    <span className="text-xs font-bold text-slate-200">Upload Main Course Cover Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setMainCoverFile(file);
+                          setMainCoverPreview(URL.createObjectURL(file));
+                          setRemoveMainCover(false);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`rounded-2xl border p-4.5 space-y-3.5 transition-all shadow-md ${
-                          block.type === 'video'
-                            ? 'bg-slate-900/90 border-cyan-500/30'
-                            : block.type === 'document'
-                            ? 'bg-slate-900/90 border-emerald-500/30'
-                            : block.type === 'quiz'
-                            ? 'bg-slate-900/90 border-amber-500/30 ring-1 ring-amber-500/10'
-                            : 'bg-slate-900/90 border-indigo-500/30'
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Bank Details for Student Fee Transfer Slips
+                </label>
+                <textarea
+                  rows={3}
+                  className={`${control} font-mono text-xs`}
+                  value={mainForm.bankDetails}
+                  onChange={(e) => setMainForm((f) => ({ ...f, bankDetails: e.target.value }))}
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMainCourseModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 flex items-center gap-2"
+                >
+                  {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                  <span>{editingMainCourse ? 'Update Main Course' : 'Create Main Course'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* LEVEL 2: FULL STUDIO FOR CREATING / EDITING MONTHLY CLASS */}
+      {selectedMainCourse && showMonthlyStudio && (
+        <form
+          onSubmit={saveMonthlyClass}
+          className="rounded-2xl border border-purple-500/40 bg-[#161831]/90 backdrop-blur-md shadow-2xl overflow-hidden space-y-0"
+        >
+          {/* Studio Header */}
+          <div className="border-b border-white/10 bg-slate-900/60 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold">
+                {editingMonthlyClass ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {editingMonthlyClass ? 'Edit Monthly Class' : 'Create Monthly Class'} inside{' '}
+                  <span className="text-purple-300">"{selectedMainCourse.title}"</span>
+                </h3>
+                <p className="text-xs text-slate-400">Configure lectures, companion PDFs, and practice quizzes</p>
+              </div>
+            </div>
+
+            <div className="flex items-center bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveTab('info')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeTab === 'info' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>1. Overview & Pricing</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('curriculum')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeTab === 'curriculum' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-300" />
+                <span>2. Curriculum Flow</span>
+                {curriculumBlocks.filter((b) => b.type !== 'live_class').length > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-400/20 text-indigo-300 text-[11px] flex items-center justify-center font-bold">
+                    {curriculumBlocks.filter((b) => b.type !== 'live_class').length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('live_classes')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeTab === 'live_classes' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5 text-rose-400" />
+                <span>3. Live Classes</span>
+                {curriculumBlocks.filter((b) => b.type === 'live_class').length > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-rose-400/20 text-rose-300 text-[11px] flex items-center justify-center font-bold">
+                    {curriculumBlocks.filter((b) => b.type === 'live_class').length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Form Body */}
+          <fieldset disabled={busy} className="p-6 space-y-6">
+            {/* TAB 1: OVERVIEW & PRICING */}
+            {activeTab === 'info' && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Target Month <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g. October 2026"
+                      className={control}
+                      value={monthlyForm.targetMonth}
+                      onChange={(e) => setMonthlyForm((f) => ({ ...f, targetMonth: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Label shown to students (e.g. "October 2026", "November 2026").
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Monthly Class Title <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g. October 2026 - Mechanics & Rotational Motion"
+                      className={control}
+                      value={monthlyForm.title}
+                      onChange={(e) => setMonthlyForm((f) => ({ ...f, title: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Monthly Class Fee (Rs.) <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      className={control}
+                      value={monthlyForm.price}
+                      onChange={(e) => setMonthlyForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Access Validity Duration
+                    </label>
+                    <select
+                      className={control}
+                      value={monthlyForm.validityPeriod}
+                      onChange={(e) =>
+                        setMonthlyForm((f) => ({
+                          ...f,
+                          validityPeriod: e.target.value as any,
+                        }))
+                      }
+                    >
+                      <option value="1_month">1 Month from enrollment</option>
+                      <option value="3_months">3 Months from enrollment</option>
+                      <option value="6_months">6 Months from enrollment</option>
+                      <option value="1_year">1 Year from enrollment</option>
+                      <option value="lifetime">Lifetime Access</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Publishing Status
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMonthlyForm((f) => ({ ...f, status: 'published' }))}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border ${
+                          monthlyForm.status === 'published'
+                            ? 'bg-emerald-600 text-white border-emerald-500'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
                         }`}
                       >
-                        {/* Top Block Header: Sequence #, Type Pill, Reorder and Delete Buttons */}
-                        <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-black text-xs flex items-center justify-center">
-                              {seqIdx + 1}
-                            </span>
+                        ✓ Published
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMonthlyForm((f) => ({ ...f, status: 'draft' }))}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border ${
+                          monthlyForm.status === 'draft'
+                            ? 'bg-amber-600 text-white border-amber-500'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Draft
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-                            {block.type === 'video' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                                <Video className="w-3 h-3 text-cyan-400" />
-                                Video Lecture
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Monthly Class Description & Lesson Plan <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    className={control}
+                    placeholder="Describe what will be covered this month: weekly topics, problem sets, and syllabus sections..."
+                    value={monthlyForm.description}
+                    onChange={(e) => setMonthlyForm((f) => ({ ...f, description: e.target.value }))}
+                  />
+                </div>
+
+                {/* Monthly Cover Picture */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Monthly Class Thumbnail / Cover Picture (Optional)
+                  </label>
+                  {monthlyCoverPreview ? (
+                    <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950 aspect-video max-w-sm group">
+                      <img src={monthlyCoverPreview} alt="Cover" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                        <label className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold cursor-pointer">
+                          <span>Change</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setMonthlyCoverFile(file);
+                                setMonthlyCoverPreview(URL.createObjectURL(file));
+                                setRemoveMonthlyCover(false);
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMonthlyCoverFile(null);
+                            setMonthlyCoverPreview('');
+                            setRemoveMonthlyCover(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-slate-700 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 transition cursor-pointer">
+                      <ImageIcon className="w-6 h-6 text-cyan-400 mb-2" />
+                      <span className="text-xs font-bold text-slate-200">Upload Monthly Class Cover</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setMonthlyCoverFile(file);
+                            setMonthlyCoverPreview(URL.createObjectURL(file));
+                            setRemoveMonthlyCover(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: CURRICULUM FLOW (VIDEOS + COMPANION PDF, NOTES, QUIZZES) */}
+            {activeTab === 'curriculum' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-indigo-400" />
+                      <span>Sequential Curriculum Steps ({curriculumBlocks.length})</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Videos, companion PDF notes, standalone handouts, and quizzes unlock step-by-step for students.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('video')}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>+ Video Lecture (with companion PDF)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('document')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>+ Notes PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('quiz')}
+                      className="px-3 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      <span>+ Practice Quiz</span>
+                    </button>
+                  </div>
+                </div>
+
+                {curriculumBlocks.filter((b) => b.type !== 'live_class').length === 0 ? (
+                  <div className="p-8 text-center rounded-xl border border-dashed border-slate-700 bg-slate-950/40 text-slate-400 text-xs space-y-2">
+                    <p>No curriculum items added yet. Click above to add a video lecture, notes PDF, or quiz.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {curriculumBlocks
+                      .map((b, originalIndex) => ({ b, originalIndex }))
+                      .filter((item) => item.b.type !== 'live_class')
+                      .map(({ b: block, originalIndex: idx }, seqIndex) => (
+                        <div
+                          key={idx}
+                          className="rounded-xl border border-slate-700/80 bg-slate-950/80 p-5 space-y-4 shadow-lg"
+                        >
+                          <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-black flex items-center justify-center border border-indigo-500/30">
+                                {seqIndex + 1}
                               </span>
-                            )}
-                            {block.type === 'document' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                <FileText className="w-3 h-3 text-emerald-400" />
-                                PDF Document / Handout
+                              <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
+                                {block.type === 'video'
+                                  ? 'Video Lecture'
+                                  : block.type === 'document'
+                                  ? 'Study Notes PDF'
+                                  : block.type === 'quiz'
+                                  ? 'Practice Quiz'
+                                  : 'Overview Guidance'}
                               </span>
-                            )}
-                            {block.type === 'description' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                <BookOpen className="w-3 h-3 text-indigo-400" />
-                                Reading Guide / Description
-                              </span>
-                            )}
-                            {block.type === 'quiz' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40">
-                                <HelpCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                Quiz / MCQs ({block.quizQuestions?.length || 0} Questions)
-                              </span>
-                            )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveBlock(idx, 'up')}
+                                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                                title="Move Up"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveBlock(idx, 'down')}
+                                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                                title="Move Down"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeBlock(idx)}
+                                className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/40 ml-2"
+                                title="Remove Step"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
-                          {/* Move Up / Down & Remove */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              disabled={isFirst}
-                              onClick={() => moveSequentialBlock(seqIdx, 'up')}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white dark:border-transparent disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                              title="Move Up"
-                            >
-                              <ArrowUp className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isLast}
-                              onClick={() => moveSequentialBlock(seqIdx, 'down')}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white dark:border-transparent disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                              title="Move Down"
-                            >
-                              <ArrowDown className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeBlock(idx)}
-                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer ml-1"
-                              title="Remove item"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {/* Title */}
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                              Step Title
+                            </label>
+                            <input
+                              className={control}
+                              value={block.title || ''}
+                              onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                              placeholder="e.g. Newton's Laws of Motion Part 1"
+                            />
                           </div>
-                        </div>
 
-                        {/* Form fields based on block type */}
-
-                        {block.type === 'video' && (
-                          <div className="space-y-3">
-                            <div className="grid sm:grid-cols-2 gap-3">
+                          {/* VIDEO BLOCK: URL + COMPANION PDF */}
+                          {block.type === 'video' && (
+                            <div className="space-y-4 pt-2 border-t border-white/5">
                               <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Video Title <span className="text-cyan-400">*</span>
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-cyan-300 mb-1 flex items-center gap-1.5">
+                                  <Video className="w-3.5 h-3.5" />
+                                  <span>YouTube / Protected Video URL <span className="text-rose-400">*</span></span>
                                 </label>
                                 <input
-                                  required
                                   className={control}
-                                  placeholder="e.g. Part 1: Core Principles"
-                                  value={block.title || ''}
-                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  YouTube URL <span className="text-cyan-400">*</span>
-                                </label>
-                                <input
-                                  required
-                                  className={control}
-                                  placeholder="https://www.youtube.com/watch?v=..."
+                                  placeholder="https://www.youtube.com/watch?v=... or direct MP4 link"
                                   value={block.url || ''}
                                   onChange={(e) => updateBlock(idx, { url: e.target.value })}
                                 />
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                Video Notes / Description (Optional)
-                              </label>
-                              <textarea
-                                rows={2}
-                                className={control}
-                                placeholder="Key formulas, timestamps, or summary points..."
-                                value={block.description || ''}
-                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
-                              />
-                            </div>
-
-                            {/* Companion PDF Attachment for Side-by-Side Viewing */}
-                            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <label className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
-                                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span>Attach Companion PDF Notes / Tute Sheet</span>
-                                </label>
-                                <span className="text-[11px] text-cyan-400/80">Opens side-by-side with video for students</span>
+                                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                                  Streams securely without YouTube branding and watermarked with student's index number.
+                                </span>
                               </div>
 
-                              {(block.recordingPdfUrl || block.pdfUrl || block.pendingFile) ? (
-                                <div className="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-cyan-500/30 text-xs">
-                                  <div className="flex items-center gap-2 truncate">
-                                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
-                                    <span className="font-semibold text-slate-200 truncate">
-                                      {block.pendingFile?.name || block.recordingPdfFileName || block.pdfFileName || 'Attached PDF Notes'}
+                              {/* COMPANION PDF DOCUMENT ATTACHMENT */}
+                              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>This Video's Related Companion PDF Notes (Right side in Diagram 4)</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    Shown alongside video if uploaded
+                                  </span>
+                                </div>
+
+                                {block.pdfFileName || block.recordingPdfFileName ? (
+                                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-emerald-500/20 text-xs">
+                                    <span className="text-emerald-200 font-medium">
+                                      📄 {block.pdfFileName || block.recordingPdfFileName}
                                     </span>
-                                    {block.pendingFile && (
-                                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                                        Ready to upload
-                                      </span>
-                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateBlock(idx, {
+                                          pdfUrl: '',
+                                          pdfFileName: '',
+                                          recordingPdfUrl: '',
+                                          recordingPdfFileName: '',
+                                          pendingFile: undefined,
+                                        })
+                                      }
+                                      className="text-rose-400 hover:text-rose-300 text-xs font-bold"
+                                    >
+                                      Remove PDF
+                                    </button>
                                   </div>
+                                ) : (
+                                  <label className="flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-emerald-500/40 bg-slate-900/60 hover:bg-slate-900 transition cursor-pointer text-xs font-medium text-emerald-300">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Attach Companion PDF Notes for this Video</span>
+                                    <input
+                                      type="file"
+                                      accept="application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          updateBlock(idx, {
+                                            pendingFile: file,
+                                            pdfFileName: file.name,
+                                            recordingPdfFileName: file.name,
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* DOCUMENT BLOCK: STANDALONE PDF HANDOUT */}
+                          {block.type === 'document' && (
+                            <div className="space-y-3 pt-2 border-t border-white/5">
+                              <label className="block text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Study Notes Document (PDF) <span className="text-rose-400">*</span></span>
+                              </label>
+
+                              {block.pdfFileName ? (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-emerald-500/30 text-xs">
+                                  <span className="text-emerald-300 font-bold">
+                                    📄 {block.pdfFileName}
+                                  </span>
                                   <button
                                     type="button"
-                                    onClick={() => updateBlock(idx, { pendingFile: undefined, pdfUrl: '', pdfFileName: '', recordingPdfUrl: '', recordingPdfFileName: '' })}
-                                    className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer text-xs flex items-center gap-1"
-                                    title="Remove attached PDF"
+                                    onClick={() =>
+                                      updateBlock(idx, {
+                                        pdfUrl: '',
+                                        pdfFileName: '',
+                                        pendingFile: undefined,
+                                      })
+                                    }
+                                    className="text-rose-400 hover:text-rose-300 text-xs font-bold"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" /> Remove
+                                    Replace
                                   </button>
                                 </div>
                               ) : (
-                                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 rounded-lg bg-slate-900/50 hover:bg-slate-900 cursor-pointer transition">
-                                  <Upload className="w-4 h-4 text-cyan-400 shrink-0" />
-                                  <span className="text-xs text-slate-300">Click to attach PDF notes / tute sheet (Displays on right side of video)</span>
+                                <label className="flex flex-col items-center justify-center p-5 rounded-xl border border-dashed border-emerald-500/40 bg-slate-900/60 hover:bg-slate-900 transition cursor-pointer text-xs text-emerald-300">
+                                  <Upload className="w-5 h-5 mb-1" />
+                                  <span className="font-bold">Upload PDF Document</span>
+                                  <span className="text-[10px] text-slate-400">PDFs will be watermarked upon download</span>
                                   <input
                                     type="file"
-                                    accept=".pdf,application/pdf"
+                                    accept="application/pdf"
                                     className="hidden"
                                     onChange={(e) => {
                                       const file = e.target.files?.[0];
@@ -1662,7 +1420,6 @@ export const AdminCourseManager: React.FC = () => {
                                         updateBlock(idx, {
                                           pendingFile: file,
                                           pdfFileName: file.name,
-                                          recordingPdfFileName: file.name,
                                         });
                                       }
                                     }}
@@ -1670,777 +1427,287 @@ export const AdminCourseManager: React.FC = () => {
                                 </label>
                               )}
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {block.type === 'document' && (
-                          <div className="space-y-3">
-                            <div className="grid sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Document Title <span className="text-emerald-400">*</span>
-                                </label>
-                                <input
-                                  required
-                                  className={control}
-                                  placeholder="e.g. Lecture Notes & Worked Examples"
-                                  value={block.title || ''}
-                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Attach PDF Document / Slide
-                                </label>
-                                <div className="space-y-2">
-                                  <input
-                                    type="file"
-                                    accept=".pdf,application/pdf"
-                                    className="block w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-600/30 file:text-emerald-300 hover:file:bg-emerald-600/40 file:cursor-pointer cursor-pointer border border-slate-700 rounded-xl bg-slate-900/80 p-1"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        updateBlock(idx, {
-                                          pendingFile: file,
-                                          pdfFileName: file.name,
-                                          title:
-                                            block.title && block.title !== 'Lecture Notes (PDF)'
-                                              ? block.title
-                                              : file.name.replace(/\.[^/.]+$/, ''),
-                                          size: file.size,
-                                        });
-                                      }
-                                    }}
-                                  />
-                                  {block.pendingFile && (
-                                    <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-semibold bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-500/30">
-                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                      <span className="truncate">Ready to upload: {block.pendingFile.name} ({(block.pendingFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
-                                    </div>
-                                  )}
-                                  {!block.pendingFile && block.pdfFileName && (
-                                    <div className="flex items-center gap-2 text-[11px] text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
-                                      <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                      <span className="truncate">
-                                        Saved PDF: {block.pdfFileName}
-                                        {typeof block.size === 'number' && block.size > 0
-                                          ? ` (${(block.size / (1024 * 1024)).toFixed(2)} MB)`
-                                          : ''}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Optional: Pick from existing library if course already has files */}
-                            {resources.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-1">
-                                  Or Link from Course PDF Library:
-                                </label>
-                                <select
-                                  className={control}
-                                  value={block.pdfUrl || ''}
-                                  onChange={(e) => {
-                                    const chosen = resources.find((r) => r.path === e.target.value);
-                                    updateBlock(idx, {
-                                      pdfUrl: e.target.value,
-                                      pdfFileName: chosen ? chosen.title : block.pdfFileName,
-                                      size: chosen ? chosen.size : block.size,
-                                    });
-                                  }}
-                                >
-                                  <option value="">-- Choose from existing course PDFs --</option>
-                                  {resources.map((r) => (
-                                    <option key={r.id} value={r.path}>
-                                      {r.title}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                Document Notes / Instructions (Optional)
-                              </label>
-                              <textarea
-                                rows={2}
-                                className={control}
-                                placeholder="e.g. Please read pages 1-12 before attending the live session..."
-                                value={block.description || ''}
-                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {block.type === 'description' && (
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                Section Heading / Title <span className="text-indigo-400">*</span>
-                              </label>
-                              <input
-                                required
-                                className={control}
-                                placeholder="e.g. Module Overview & Essential Background"
-                                value={block.title || ''}
-                                onChange={(e) => updateBlock(idx, { title: e.target.value })}
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                Content / Study Guidance (Text) <span className="text-indigo-400">*</span>
-                              </label>
-                              <textarea
-                                required
-                                rows={4}
-                                className={control}
-                                placeholder="Write comprehensive guidelines, derivation steps, formula references, or instructions for students..."
-                                value={block.description || ''}
-                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {block.type === 'quiz' && (
-                          <div className="space-y-4">
-                            <div className="grid sm:grid-cols-3 gap-3">
-                              <div className="sm:col-span-1">
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                  Quiz Title <span className="text-amber-600 dark:text-amber-400">*</span>
-                                </label>
-                                <input
-                                  required
-                                  className={control}
-                                  placeholder="e.g. Practice Quiz & Knowledge Check"
-                                  value={block.title || ''}
-                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
-                                />
-                              </div>
-
-                              <div className="sm:col-span-1">
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                  Passing Score (%) <span className="text-amber-600 dark:text-amber-400">*</span>
-                                </label>
-                                <div className="relative">
+                          {/* QUIZ BLOCK: MCQ OR OPEN-ENDED WITH DIAGRAMS */}
+                          {block.type === 'quiz' && (
+                            <div className="space-y-4 pt-2 border-t border-white/5">
+                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-400">Passing percentage:</span>
                                   <input
                                     type="number"
-                                    min={0}
+                                    min={10}
                                     max={100}
-                                    required
-                                    className={control}
-                                    placeholder="50"
+                                    className="w-16 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white text-xs text-center font-bold"
                                     value={block.passPercentage ?? 50}
-                                    onChange={(e) => updateBlock(idx, { passPercentage: Number(e.target.value) || 0 })}
+                                    onChange={(e) => updateBlock(idx, { passPercentage: Number(e.target.value) })}
                                   />
-                                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                                  <span className="text-xs text-slate-400">%</span>
                                 </div>
-                              </div>
 
-                              <div className="sm:col-span-1">
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                  Pass Guidance (Optional)
-                                </label>
-                                <input
-                                  className={control}
-                                  placeholder="e.g. Score required percentage to complete step."
-                                  value={block.description || ''}
-                                  onChange={(e) => updateBlock(idx, { description: e.target.value })}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Question Cards List */}
-                            <div className="space-y-3 pt-1">
-                              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                                  <CheckSquare className="w-3.5 h-3.5" />
-                                  <span>Questions ({block.quizQuestions?.length || 0})</span>
-                                </span>
                                 <button
                                   type="button"
                                   onClick={() => addQuestionToBlock(idx)}
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600 hover:text-white text-xs font-bold transition flex items-center gap-1"
                                 >
-                                  <Plus className="w-3 h-3" />
+                                  <Plus className="w-3.5 h-3.5" />
                                   <span>Add Question</span>
                                 </button>
                               </div>
 
-                              {(!block.quizQuestions || block.quizQuestions.length === 0) ? (
-                                <div className="text-center py-6 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 text-xs text-amber-700 dark:text-amber-300">
-                                  No questions added yet. Click &quot;Add Question&quot; to create MCQs for this quiz block.
-                                </div>
-                              ) : (
-                                block.quizQuestions.map((q, qIdx) => (
-                                  <div
-                                    key={qIdx}
-                                    className="p-4 rounded-xl bg-slate-100/90 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 space-y-3 shadow-sm"
-                                  >
-                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="space-y-3">
+                                {(block.quizQuestions || []).map((q, qIdx) => (
+                                  <div key={qIdx} className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-2">
-                                        <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[11px] font-black border border-amber-500/30">
-                                          {qIdx + 1}
-                                        </span>
-                                        <span className="text-xs font-bold text-slate-800 dark:text-white">Question {qIdx + 1}</span>
-                                      </div>
-
-                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-white">Q{qIdx + 1}.</span>
                                         <select
-                                          className="text-xs py-1 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-cyan-300 font-semibold focus:outline-none"
+                                          className="text-xs bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-300 font-semibold"
                                           value={q.questionType || 'mcq'}
                                           onChange={(e) => updateQuestionInBlock(idx, qIdx, { questionType: e.target.value as any })}
                                         >
                                           <option value="mcq">Multiple Choice (MCQ)</option>
-                                          <option value="text">Written Answer (Requires Admin Review)</option>
+                                          <option value="text">Open-ended / Text (Admin Review)</option>
                                         </select>
-
-                                        {block.quizQuestions && block.quizQuestions.length > 1 && (
-                                          <button
-                                            type="button"
-                                            onClick={() => removeQuestionFromBlock(idx, qIdx)}
-                                            className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold flex items-center gap-1 transition cursor-pointer"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                            <span>Remove</span>
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                        Question Text <span className="text-amber-600 dark:text-amber-400">*</span>
-                                      </label>
-                                      <textarea
-                                        required
-                                        rows={2}
-                                        className={control}
-                                        placeholder="e.g. The figure shows a micrometer (pitch 0.5 mm, 50 divisions). The reading is..."
-                                        value={q.questionText}
-                                        onChange={(e) =>
-                                          updateQuestionInBlock(idx, qIdx, { questionText: e.target.value })
-                                        }
-                                      />
-                                    </div>
-
-                                    {/* Question Diagram / Figure Uploader */}
-                                    <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-2">
-                                      <div className="flex items-center justify-between flex-wrap gap-2">
-                                        <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-                                          <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
-                                          <span>Question Diagram / Figure (Optional)</span>
-                                        </label>
-                                        <span className="text-[10px] text-slate-400">Attach diagrams, micrometer figures, circuits, etc.</span>
                                       </div>
 
+                                      <button
+                                        type="button"
+                                        onClick={() => removeQuestionFromBlock(idx, qIdx)}
+                                        className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+
+                                    {/* Question Text */}
+                                    <textarea
+                                      rows={2}
+                                      className={control}
+                                      placeholder="Question statement or problem formulation..."
+                                      value={q.questionText}
+                                      onChange={(e) => updateQuestionInBlock(idx, qIdx, { questionText: e.target.value })}
+                                    />
+
+                                    {/* Question Diagram / Image */}
+                                    <div className="flex items-center gap-3">
                                       {q.imageUrl ? (
-                                        <div className="flex items-center gap-3">
-                                          <img
-                                            src={q.imageUrl}
-                                            alt="Question diagram"
-                                            className="max-h-24 max-w-xs rounded-lg border border-slate-700 object-contain bg-slate-950 p-1 shadow"
-                                          />
+                                        <div className="relative inline-block border border-slate-700 rounded-lg overflow-hidden max-h-24">
+                                          <img src={q.imageUrl} alt="Diagram" className="max-h-24 object-contain" />
                                           <button
                                             type="button"
                                             onClick={() => updateQuestionInBlock(idx, qIdx, { imageUrl: '', imagePublicId: '' })}
-                                            className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
+                                            className="absolute top-1 right-1 bg-black/70 text-rose-400 p-1 rounded"
                                           >
-                                            <Trash2 className="w-3 h-3" /> Remove Diagram
+                                            ✕
                                           </button>
                                         </div>
                                       ) : (
-                                        <div className="flex items-center gap-2">
+                                        <label className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold cursor-pointer flex items-center gap-1.5 border border-slate-700">
+                                          <ImageIcon className="w-3.5 h-3.5 text-purple-400" />
+                                          <span>Attach Question Diagram / Image</span>
                                           <input
                                             type="file"
-                                            accept="image/png,image/jpeg,image/webp"
-                                            id={`quiz-q-img-${idx}-${qIdx}`}
+                                            accept="image/*"
                                             className="hidden"
                                             onChange={async (e) => {
                                               const file = e.target.files?.[0];
-                                              if (!file) return;
-                                              try {
-                                                const res = await api.uploadQuizQuestionImage(file);
-                                                updateQuestionInBlock(idx, qIdx, { imageUrl: res.url, imagePublicId: res.publicId });
-                                              } catch (err: any) {
-                                                alert(err?.message || 'Could not upload question diagram.');
+                                              if (file) {
+                                                try {
+                                                  const res = await api.uploadQuizQuestionImage(file);
+                                                  updateQuestionInBlock(idx, qIdx, { imageUrl: res.url, imagePublicId: res.publicId });
+                                                } catch (err: any) {
+                                                  alert(err.message || 'Could not upload diagram');
+                                                }
                                               }
                                             }}
                                           />
-                                          <label
-                                            htmlFor={`quiz-q-img-${idx}-${qIdx}`}
-                                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition"
-                                          >
-                                            <Upload className="w-3.5 h-3.5" />
-                                            <span>Upload Diagram Image</span>
-                                          </label>
-                                          <span className="text-[10px] text-slate-500">PNG, JPG, or WebP</span>
-                                        </div>
+                                        </label>
                                       )}
                                     </div>
 
-                                    {/* Question Type: Written Answer vs MCQ */}
-                                    {q.questionType === 'text' ? (
-                                      <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/20 text-xs text-amber-300/90 leading-relaxed flex items-start gap-2">
-                                        <HelpCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                                        <span>Students will type their written response. When submitted, you can review, score, and grade their answer in the Enrollments section to mark this step completed.</span>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        {/* Options */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">
-                                              Options ({q.options.length})
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => addOptionToQuestion(idx, qIdx)}
-                                              disabled={q.options.length >= 6}
-                                              className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40"
-                                            >
-                                              <Plus className="w-3 h-3" /> Add Option
-                                            </button>
-                                          </div>
-
-                                          <div className="grid sm:grid-cols-2 gap-2">
-                                            {q.options.map((opt, optIdx) => (
-                                              <div key={optIdx} className="relative">
-                                                <div className="flex items-center gap-1.5">
-                                                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 w-5 text-center">
-                                                    {String.fromCharCode(65 + optIdx)}.
-                                                  </span>
-                                                  <input
-                                                    required
-                                                    className={control}
-                                                    placeholder={`Option ${optIdx + 1}`}
-                                                    value={opt}
-                                                    onChange={(e) => {
-                                                      const newOpts = [...q.options];
-                                                      newOpts[optIdx] = e.target.value;
-                                                      updateQuestionInBlock(idx, qIdx, { options: newOpts });
-                                                    }}
-                                                  />
-                                                  {q.options.length > 2 && (
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => removeOptionFromQuestion(idx, qIdx, optIdx)}
-                                                      className="p-1 rounded text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition cursor-pointer"
-                                                      title="Delete option"
-                                                    >
-                                                      <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-
-                                        {/* Correct Option & Explanation */}
-                                        <div className="grid sm:grid-cols-2 gap-3 pt-1">
-                                          <div>
-                                            <label className="block text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
-                                              Correct Answer <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                                            </label>
-                                            <select
-                                              className={control}
-                                              value={q.correctOptionIndex}
-                                              onChange={(e) =>
-                                                updateQuestionInBlock(idx, qIdx, {
-                                                  correctOptionIndex: Number(e.target.value),
-                                                })
-                                              }
-                                            >
-                                              {q.options.map((opt, optIdx) => (
-                                                <option key={optIdx} value={optIdx}>
-                                                  Option {String.fromCharCode(65 + optIdx)} {opt ? `(${opt.slice(0, 30)})` : ''}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-
-                                          <div>
-                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-400 mb-1">
-                                              Explanation (Optional feedback)
-                                            </label>
+                                    {/* Options if MCQ */}
+                                    {(!q.questionType || q.questionType === 'mcq') && (
+                                      <div className="space-y-2 pt-2 border-t border-white/5">
+                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                                          Options (Select radio for correct answer):
+                                        </span>
+                                        {q.options.map((opt, optIdx) => (
+                                          <div key={optIdx} className="flex items-center gap-2">
                                             <input
-                                              className={control}
-                                              placeholder="Explain why this option is correct..."
-                                              value={q.explanation || ''}
-                                              onChange={(e) =>
-                                                updateQuestionInBlock(idx, qIdx, { explanation: e.target.value })
-                                              }
+                                              type="radio"
+                                              name={`correct-${idx}-${qIdx}`}
+                                              checked={q.correctOptionIndex === optIdx}
+                                              onChange={() => updateQuestionInBlock(idx, qIdx, { correctOptionIndex: optIdx })}
+                                              className="w-4 h-4 text-emerald-500"
                                             />
+                                            <input
+                                              className={`${control} flex-1 text-xs py-1.5`}
+                                              placeholder={`Option ${optIdx + 1}`}
+                                              value={opt}
+                                              onChange={(e) => {
+                                                const next = [...q.options];
+                                                next[optIdx] = e.target.value;
+                                                updateQuestionInBlock(idx, qIdx, { options: next });
+                                              }}
+                                            />
+                                            {q.options.length > 2 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => removeOptionFromQuestion(idx, qIdx, optIdx)}
+                                                className="text-slate-500 hover:text-rose-400 text-xs"
+                                              >
+                                                ✕
+                                              </button>
+                                            )}
                                           </div>
-                                        </div>
-                                      </>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={() => addOptionToQuestion(idx, qIdx)}
+                                          className="text-xs text-indigo-400 hover:underline font-semibold"
+                                        >
+                                          + Add Option
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
-                                ))
-                              )}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Quick Add at bottom */}
-                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => addCurriculumBlock('live_class')}
-                      className="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Radio className="w-3.5 h-3.5 animate-pulse" /> + Live Class
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addCurriculumBlock('video')}
-                      className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Video className="w-3.5 h-3.5" /> + Video
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addCurriculumBlock('document')}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> + Document
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addCurriculumBlock('description')}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" /> + Description
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addCurriculumBlock('quiz')}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <HelpCircle className="w-3.5 h-3.5" /> + Quiz & MCQs
-                    </button>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                </div>
-              )}
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between pt-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('info')}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
-                >
-                  ← Back to Overview
-                </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('live_classes')}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer"
-                  >
-                    <Radio className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Next: Live Classes →</span>
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50"
-                  >
-                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
-            </div>
-          );
-        })()}
+            )}
 
-          {/* TAB 3: DEDICATED LIVE CLASSES (SCHEDULED SESSIONS) */}
-          {activeTab === 'live_classes' && (() => {
-            const liveItems = curriculumBlocks
-              .map((block, originalIndex) => ({ block, originalIndex }))
-              .filter((item) => item.block.type === 'live_class');
-
-            return (
-              <div className="space-y-6 animate-in fade-in duration-200">
-                {/* Live Classes Header / Banner */}
-                <div className="rounded-xl bg-gradient-to-r from-rose-950/60 to-red-950/60 p-4 border border-rose-500/30 flex flex-wrap items-center justify-between gap-3">
+            {/* TAB 3: LIVE CLASSES */}
+            {activeTab === 'live_classes' && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl bg-rose-950/30 border border-rose-500/40">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
                       <Radio className="w-4 h-4 text-rose-400 animate-pulse" />
-                      <h4 className="font-bold text-white text-sm">
-                        Scheduled Live Classes ({liveItems.length})
-                      </h4>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                        Separate Section
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-                      Schedule upcoming Zoom, Google Meet, or Teams live sessions. Live classes appear in the student sidebar and are not locked into the sequential learning progression.
+                      <span>Live Class Classroom Sessions</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Live class links automatically disappear 5 hours after the scheduled time.
                     </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => addCurriculumBlock('live_class')}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/30 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Schedule New Live Class</span>
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Live Session</span>
                   </button>
                 </div>
 
-                {/* Empty State */}
-                {liveItems.length === 0 ? (
-                  <div className="text-center py-12 rounded-xl border border-dashed border-slate-700 bg-slate-900/40 space-y-4">
-                    <div className="w-14 h-14 rounded-2xl bg-rose-600/15 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto shadow-inner">
-                      <Radio className="w-7 h-7" />
-                    </div>
-                    <div className="max-w-md mx-auto">
-                      <h5 className="text-sm font-bold text-white mb-1">No Live Classes Scheduled</h5>
-                      <p className="text-xs text-slate-400 mb-4">
-                        You haven't scheduled any live sessions for this lesson yet. Students can still access all sequential curriculum items (videos, documents, quizzes).
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => addCurriculumBlock('live_class')}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-rose-600/20"
-                      >
-                        <Plus className="w-4 h-4" /> Schedule First Live Class
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {liveItems.map(({ block, originalIndex }, liveIdx) => {
-                      const idx = originalIndex;
-                      return (
-                        <div
-                          key={idx}
-                          className="rounded-2xl border p-4.5 space-y-3.5 transition-all shadow-md bg-slate-900/90 border-rose-500/30 ring-1 ring-rose-500/10"
-                        >
-                          {/* Top Header */}
-                          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-2.5">
-                            <div className="flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black text-xs flex items-center justify-center">
-                                {liveIdx + 1}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                <Radio className="w-3 h-3 text-rose-400 animate-pulse" />
-                                Live Class Session
-                              </span>
-                            </div>
+                <div className="space-y-4">
+                  {curriculumBlocks
+                    .map((b, idx) => ({ b, idx }))
+                    .filter((item) => item.b.type === 'live_class')
+                    .map(({ b: lc, idx }) => (
+                      <div key={idx} className="p-5 rounded-xl bg-slate-950 border border-rose-500/30 space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                          <span className="text-xs font-bold text-rose-300">Live Class Session</span>
+                          <button
+                            type="button"
+                            onClick={() => removeBlock(idx)}
+                            className="text-rose-400 hover:text-rose-300 text-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                            <button
-                              type="button"
-                              onClick={() => removeBlock(idx)}
-                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
-                              title="Delete Live Class"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                              Live Meeting Link (Zoom / Google Meet)
+                            </label>
+                            <input
+                              className={control}
+                              placeholder="https://zoom.us/j/... or Meet link"
+                              value={lc.liveLink || ''}
+                              onChange={(e) => updateBlock(idx, { liveLink: e.target.value })}
+                            />
                           </div>
 
-                          {/* Live Class Form */}
-                          <div className="space-y-3">
-                            <div className="grid sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Live Class Title <span className="text-rose-400">*</span>
-                                </label>
-                                <input
-                                  required
-                                  className={control}
-                                  placeholder="e.g. Live Discussion & Revision Session"
-                                  value={block.title || ''}
-                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Platform / Meeting App
-                                </label>
-                                <select
-                                  className={control}
-                                  value={block.meetingPlatform || 'Zoom'}
-                                  onChange={(e) => updateBlock(idx, { meetingPlatform: e.target.value })}
-                                >
-                                  <option value="Zoom">Zoom</option>
-                                  <option value="Google Meet">Google Meet</option>
-                                  <option value="Microsoft Teams">Microsoft Teams</option>
-                                  <option value="YouTube Live">YouTube Live</option>
-                                  <option value="Other">Other Platform</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="grid sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                  Live Meeting URL (Link) <span className="text-rose-400">*</span>
-                                </label>
-                                <input
-                                  required
-                                  type="url"
-                                  className={control}
-                                  placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-                                  value={block.liveLink || ''}
-                                  onChange={(e) => updateBlock(idx, { liveLink: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-                                  <span>Scheduled Date & Time</span>
-                                  <span className="text-[10px] text-amber-400 font-medium">Auto-deletes 5h after this time</span>
-                                </label>
-                                <input
-                                  type="datetime-local"
-                                  className={control}
-                                  value={block.scheduledTime ? (block.scheduledTime.length >= 16 ? block.scheduledTime.slice(0, 16) : block.scheduledTime) : ''}
-                                  onChange={(e) => updateBlock(idx, { scheduledTime: e.target.value })}
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                Instructions / Notes for Students
-                              </label>
-                              <textarea
-                                rows={2}
-                                className={control}
-                                placeholder="e.g. Have your tutorial sheet ready. Mic must be muted upon entry."
-                                value={block.description || ''}
-                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
-                              />
-                            </div>
-
-                            {/* Friendly Note: Recordings are added as video lessons */}
-                            <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800 flex items-start gap-2.5 text-xs text-slate-300">
-                              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                              <p>
-                                <strong className="text-white">Need to upload a recording after the class?</strong> Add it as a normal video lecture in{' '}
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTab('curriculum')}
-                                  className="text-indigo-400 font-semibold underline hover:text-indigo-300 cursor-pointer"
-                                >
-                                  2. Curriculum Flow
-                                </button>
-                                .
-                              </p>
-                            </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                              Scheduled Date & Time
+                            </label>
+                            <input
+                              type="datetime-local"
+                              className={control}
+                              value={lc.scheduledTime ? lc.scheduledTime.slice(0, 16) : ''}
+                              onChange={(e) => updateBlock(idx, { scheduledTime: e.target.value })}
+                            />
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">
+                              Auto-cleans 5 hours after scheduled time.
+                            </span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
 
-                {/* Navigation */}
-                <div className="flex items-center justify-between pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('curriculum')}
-                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
-                  >
-                    ← Back to Curriculum Flow
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50"
-                  >
-                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Live Class Session Title
+                          </label>
+                          <input
+                            className={control}
+                            placeholder="e.g. Live Q&A and Problem Solving Session"
+                            value={lc.title || ''}
+                            onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
-            );
-          })()}
+            )}
 
-          {/* PERSISTENT BOTTOM ACTION BAR */}
-          <div className="border-t border-white/10 pt-5 flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">Status:</span>
-              <span
-                className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                  form.status === 'published'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                }`}
-              >
-                {form.status === 'published' ? '● Ready to Publish' : '○ Save as Draft'}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {editing && (
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-              )}
-
+            {/* Save Monthly Class Buttons */}
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-between flex-wrap gap-3">
               <button
                 type="button"
-                disabled={busy}
-                onClick={(e) => {
-                  setForm((f) => ({ ...f, status: 'draft' }));
-                  setTimeout(() => {
-                    const submitBtn = document.getElementById('save-lesson-btn');
-                    submitBtn?.click();
-                  }, 50);
-                }}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                onClick={() => setShowMonthlyStudio(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:text-white"
               >
-                Save as Draft
+                Cancel
               </button>
 
               <button
-                id="save-lesson-btn"
                 type="submit"
                 disabled={busy}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-600/30 hover:brightness-110 flex items-center gap-2"
               >
-                {busy ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Saving Lesson...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                <span>{editingMonthlyClass ? 'Update Monthly Class' : 'Publish Monthly Class'}</span>
               </button>
             </div>
-          </div>
-        </fieldset>
-      </form>
+          </fieldset>
+        </form>
+      )}
 
-      {/* LESSON DIRECTORY TABLE / LIST */}
+      {/* DIRECTORY SECTION: LEVEL 1 (MAIN COURSES) OR LEVEL 2 (MONTHLY CLASSES) */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-4 border-b border-white/5 pb-4">
           <div>
-            <h3 className="font-bold text-white text-lg">Existing Lessons ({lessonsPage.pagination.total})</h3>
-            <p className="text-xs text-slate-400">Browse, edit or preview previously created lessons.</p>
+            <h3 className="font-bold text-white text-lg">
+              {!selectedMainCourse
+                ? `Main Course Programs (${lessonsPage.pagination.total})`
+                : `Monthly Classes for "${selectedMainCourse.title}" (${lessonsPage.pagination.total})`}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {!selectedMainCourse
+                ? 'Select a main course to manage its monthly classes or delete when empty.'
+                : 'Browse, edit, or delete monthly classes inside this main course.'}
+            </p>
           </div>
 
           <button
@@ -2460,24 +1727,26 @@ export const AdminCourseManager: React.FC = () => {
             <input
               type="search"
               className={`${control} pl-9`}
-              placeholder="Search by title, topic..."
+              placeholder="Search by title..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <select
-            className={control}
-            value={filterSubject}
-            onChange={(e) => setFilterSubject(e.target.value)}
-          >
-            <option value="">All Subjects</option>
-            {subjects.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          {!selectedMainCourse && (
+            <select
+              className={control}
+              value={filterSubject}
+              onChange={(e) => setFilterSubject(e.target.value)}
+            >
+              <option value="">All Subjects</option>
+              {subjects.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             className={control}
@@ -2491,98 +1760,173 @@ export const AdminCourseManager: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-400 text-sm">Loading lessons...</div>
-        ) : visible.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
-            No matching lessons found. Create a lesson above.
+          <div className="text-center py-12 text-slate-400 text-sm">Loading courses...</div>
+        ) : lessons.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 text-sm space-y-2">
+            <p>
+              {!selectedMainCourse
+                ? 'No main courses found. Click "+ Create Main Course" to get started.'
+                : 'No monthly classes found under this main course. Click "+ Create Monthly Class" to add one.'}
+            </p>
           </div>
         ) : (
           <div className="grid gap-3">
-            {visible.map((l) => (
-              <div
-                key={l._id}
-                className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 dark:bg-slate-950/70 dark:border-slate-800/80 transition flex items-center justify-between flex-wrap gap-4"
-                style={{
-                  backgroundColor: 'var(--lesson-card-bg, rgba(2, 6, 23, 0.7))',
-                  borderColor: 'var(--lesson-border, rgba(51, 65, 85, 0.8))',
-                }}
-              >
-                <div className="space-y-1 max-w-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-cyan-500 dark:text-cyan-300">{l.subject}</span>
-                    <span className="text-slate-400 dark:text-slate-600">•</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{l.topic}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        l.status === 'published'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20'
-                      }`}
-                    >
-                      {l.status}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                        l.isFree || !l.price
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
-                          : l.billingType === 'monthly'
-                          ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30'
-                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
-                      }`}
-                    >
-                      {l.isFree || !l.price
-                        ? 'FREE'
-                        : l.billingType === 'monthly'
-                        ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
-                        : `Rs. ${(l.price || 0).toLocaleString()}`}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">{l.title}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{l.description}</p>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 font-medium">
-                    <span>🎬 {l.videoCount || 0} Videos</span>
-                    <span>•</span>
-                    <span>📄 {l.resourceCount || 0} PDFs</span>
-                    <span>•</span>
-                    <span>⏱️ {l.estimatedMinutes || 15} mins</span>
-                  </div>
-                </div>
+            {lessons.map((course) => {
+              const subCount = course.subCourseCount || 0;
+              const isMainLevel = !selectedMainCourse;
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => edit(l)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-bold border border-indigo-200 dark:border-indigo-500/30 transition cursor-pointer"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreview(l);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:text-white text-xs font-bold border border-slate-300 dark:border-slate-700 transition cursor-pointer"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Preview</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(l)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold border border-rose-200 dark:border-rose-500/20 transition cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
-                  </button>
+              return (
+                <div
+                  key={course._id}
+                  className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between flex-wrap gap-4"
+                >
+                  <div className="flex items-center gap-4 min-w-0 max-w-2xl">
+                    {course.thumbnailUrl ? (
+                      <img
+                        src={course.thumbnailUrl}
+                        alt={course.title}
+                        className="w-20 h-14 rounded-lg object-cover border border-slate-800 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-20 h-14 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 shrink-0">
+                        {isMainLevel ? <Layers className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                      </div>
+                    )}
+
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-cyan-400">{course.subject}</span>
+                        {course.targetMonth && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                            {course.targetMonth}
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            course.status === 'published'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          {course.status}
+                        </span>
+                        <span className="text-xs font-black text-amber-300">
+                          Rs. {(course.monthlyFee || course.price || 0).toLocaleString()} {isMainLevel ? '/ mo' : ''}
+                        </span>
+                      </div>
+
+                      <h4 className="font-bold text-white text-sm truncate">{course.title}</h4>
+                      <p className="text-xs text-slate-400 line-clamp-1">{course.description}</p>
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5 font-medium">
+                        {isMainLevel ? (
+                          <span className="text-purple-300 font-bold flex items-center gap-1">
+                            <Layers className="w-3 h-3 text-purple-400" />
+                            <span>{subCount} Monthly Classes inside</span>
+                          </span>
+                        ) : (
+                          <>
+                            <span>🎬 {course.videoCount || 0} Videos</span>
+                            <span>•</span>
+                            <span>📄 {course.resourceCount || 0} PDFs</span>
+                            <span>•</span>
+                            <span>
+                              ⏱️{' '}
+                              {course.validityPeriod === '1_month'
+                                ? '1 mo validity'
+                                : course.validityPeriod === '3_months'
+                                ? '3 mo validity'
+                                : course.validityPeriod === '6_months'
+                                ? '6 mo validity'
+                                : course.validityPeriod === '1_year'
+                                ? '1 yr validity'
+                                : 'Lifetime'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isMainLevel ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMainCourse(course)}
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold transition shadow-md shadow-purple-600/20 cursor-pointer"
+                        >
+                          <Layers className="w-3.5 h-3.5" />
+                          <span>Manage Monthly Classes ({subCount}) →</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditMainCourse(course)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition cursor-pointer"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={subCount > 0 || busy}
+                          onClick={() => removeMainCourse(course)}
+                          title={
+                            subCount > 0
+                              ? `Cannot delete: Contains ${subCount} monthly class(es). Delete the monthly classes inside first.`
+                              : 'Delete main course'
+                          }
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
+                            subCount > 0
+                              ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed opacity-60'
+                              : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-rose-500/20 cursor-pointer'
+                          }`}
+                        >
+                          {subCount > 0 ? <Lock className="w-3.5 h-3.5 text-slate-500" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          <span>Delete</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditMonthlyClass(course)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold border border-indigo-500/30 transition cursor-pointer"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit Curriculum</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreview(course);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Preview</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => removeMonthlyClass(course)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-bold border border-rose-500/20 transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <Pagination {...lessonsPage.pagination} label="Lessons" />
+        <Pagination {...lessonsPage.pagination} label="Courses" />
       </div>
     </div>
   );
