@@ -34,6 +34,10 @@ export const seedAdminUser = async (): Promise<void> => {
         admin.isActive = true;
         updated = true;
       }
+      if (!admin.indexNumber) {
+        admin.indexNumber = 'MM-ADMIN-01';
+        updated = true;
+      }
       if (updated) {
         await admin.save();
         console.log(`[Admin Seed] Admin permissions verified for: ${ADMIN_EMAIL}`);

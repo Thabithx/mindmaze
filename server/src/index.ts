@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import telegramRoutes from './routes/telegramRoutes.js';
 import paperAssetRoutes from './routes/paperAssetRoutes.js';
 import paperQuizRoutes from './routes/paperQuizRoutes.js';
@@ -17,6 +18,7 @@ import syllabusRoutes from './routes/syllabusRoutes.js';
 import mistakeRoutes from './routes/mistakeRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import enrollmentRoutes from './routes/enrollmentRoutes.js';
 
 import Timetable from './models/Timetable.js';
 import User from './models/User.js';
@@ -64,6 +66,7 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/mistakes', mistakeRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/enrollments', enrollmentRoutes);
 
 function parseTimeToMinutes(timeStr: string): number | null {
   if (!timeStr) return null;

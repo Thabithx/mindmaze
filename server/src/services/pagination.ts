@@ -33,7 +33,7 @@ export function userListFilter(query: Record<string, unknown>) {
   const stream = queryText(query.stream);
   if (stream && stream !== 'all') filter.stream = stream;
   const search = literalSearch(query.q);
-  if (search) filter.$or = ['name','email','whatsappNumber','mobileNumber','phoneNumber','phone'].map(field => ({[field]:search}));
+  if (search) filter.$or = ['name','email','indexNumber','whatsappNumber','mobileNumber','phoneNumber','phone'].map(field => ({[field]:search}));
   return filter;
 }
 

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https://mindmaze-30xp.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -87,7 +87,15 @@ export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-pape
 
 // API Methods
 export const api = {
-  presentPaper: (p:any) => ({...p,markingSchemeUrl:p.markingSchemePath?API_BASE+p.markingSchemePath:undefined,pdfUrl:API_BASE+p.pdfPath}),
+  presentPaper: (p:any) => {
+    const token = getAuthToken();
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    return {
+      ...p,
+      markingSchemeUrl: p.markingSchemePath ? `${API_BASE}${p.markingSchemePath}${tokenQuery}` : undefined,
+      pdfUrl: `${API_BASE}${p.pdfPath}${tokenQuery}`,
+    };
+  },
   telegramStatus:()=>apiFetch('/telegram/status'),
   startTelegramVerification:(body:{phone:string;currentPassword?:string})=>apiFetch('/telegram/start',{method:'POST',body:JSON.stringify(body)}),
   confirmTelegramVerification:(code:string)=>apiFetch('/telegram/confirm',{method:'POST',body:JSON.stringify({code})}),
@@ -137,12 +145,29 @@ export const api = {
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
-  courseResourceUrl: (path: string) => API_BASE + path,
+  courseResourceUrl: (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const token = getAuthToken();
+    const base = API_BASE + path;
+    if (!token) return base;
+    const sep = path.includes('?') ? '&' : '?';
+    return `${base}${sep}token=${encodeURIComponent(token)}`;
+  },
   getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
   getCourseProgress: () => apiFetch('/courses/progress'),
-  saveCourseProgress: (id: string, body: {completed?:boolean}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
-  submitCourseQuiz: (id: string, answers: number[], revision: number) => apiFetch('/courses/'+id+'/quiz',{method:'POST',body:JSON.stringify({answers,revision})}),
+  saveCourseProgress: (id: string, body: {completed?:boolean; completedBlocks?: string[]}) => apiFetch('/courses/'+id+'/progress',{method:'PUT',body:JSON.stringify(body)}),
+  submitCourseQuiz: (id: string, answers: any[], revision?: number, blockKey?: string) =>
+    apiFetch('/courses/' + id + '/quiz', {
+      method: 'POST',
+      body: JSON.stringify({ answers, revision, blockKey }),
+    }),
+  uploadQuizQuestionImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('imageFile', file);
+    return apiFetch('/courses/admin/quiz-image', { method: 'POST', body: formData });
+  },
   getCourses: (stream?: string, subject?: string) => {
     const query = new URLSearchParams();
     if (stream) query.append('stream', stream);
@@ -196,4 +221,32 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  // Course Enrollments & Payments
+  enrollInCourse: (courseId: string, formData?: FormData) =>
+    apiFetch(`/enrollments/enroll/${courseId}`, {
+      method: 'POST',
+      body: formData || JSON.stringify({}),
+    }),
+  getMyEnrollments: () => apiFetch('/enrollments/my'),
+  getCourseEnrollmentStatus: (courseId: string) => apiFetch(`/enrollments/my/${courseId}`),
+  getAdminEnrollments: (params: Record<string, string> = {}) =>
+    apiFetch('/enrollments/admin/all?' + new URLSearchParams(params)),
+  updateEnrollmentStatus: (id: string, status: 'approved' | 'rejected' | 'pending', adminNotes?: string) =>
+    apiFetch(`/enrollments/admin/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, adminNotes }),
+    }),
+  deleteEnrollment: (id: string) => apiFetch(`/enrollments/admin/${id}`, { method: 'DELETE' }),
+  reviewQuizSubmission: (
+    progressId: string,
+    submissionId: string,
+    payload: { answersReview?: any[]; adminFeedback?: string; overrideStatus?: string }
+  ) =>
+    apiFetch(`/enrollments/admin/progress/${progressId}/submissions/${submissionId}/review`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  getStudentDetailedProgress: (userId: string) =>
+    apiFetch(`/enrollments/admin/student/${userId}/progress`),
 };

@@ -3,6 +3,11 @@ import { Moon, Sun } from 'lucide-react';
 export function applyTheme(theme: string) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
 }
 export function initializeTheme() {
   let theme = 'dark';

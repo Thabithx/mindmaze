@@ -1,72 +1,2589 @@
-import {Pagination} from '../common/Pagination';
-import {usePagedResource} from '../../hooks/usePagedResource';
-import React,{useEffect,useRef,useState} from 'react';
-import {api,apiFetch} from '../../services/api';
-import {Lesson,subjects,control,button,panel} from './learning';
-import {LessonView} from './LessonView';
+import React, { useEffect, useState } from 'react';
+import { Pagination } from '../common/Pagination';
+import { usePagedResource } from '../../hooks/usePagedResource';
+import { api, apiFetch } from '../../services/api';
+import { Lesson, subjects, control, button, panel, extractYouTubeId, getYouTubeThumbnail, CurriculumBlock } from './learning';
+import { LessonView } from './LessonView';
+import {
+  BookOpen,
+  Video,
+  FileText,
+  HelpCircle,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Sparkles,
+  Lock,
+  Layers,
+  ArrowRight,
+  Edit,
+  Eye,
+  RefreshCw,
+  CreditCard,
+  Radio,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  Calendar,
+  Clock,
+  Link as LinkIcon,
+  CheckSquare,
+  Image as ImageIcon,
+  Upload,
+} from 'lucide-react';
 
-type Question={questionText:string;options:string[];correctOptionIndex:number;explanation:string};
-const initial=()=>({title:'',description:'',subject:'Physics',stream:'Both',topic:'',topicOrder:1,lessonOrder:1,estimatedMinutes:15,medium:'English',syllabus:'current',status:'draft'});
-export const AdminCourseManager:React.FC=()=>{
+type Question = {
+  questionText: string;
+  questionType?: 'mcq' | 'text';
+  imageUrl?: string;
+  imagePublicId?: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation: string;
+};
 
-  const [form,setForm]=useState(initial),[editing,setEditing]=useState<Lesson|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
-  const [videos,setVideos]=useState<{title:string;url:string}[]>([]),[files,setFiles]=useState<File[]>([]),[resources,setResources]=useState<NonNullable<Lesson['resources']>>([]);
-  const [quiz,setQuiz]=useState<Question[]>([]),[related,setRelated]=useState<string[]>([]),[preview,setPreview]=useState<Lesson|null>(null),[fileKey,setFileKey]=useState(0);
-  const [search,setSearch]=useState(''),[filterSubject,setFilterSubject]=useState(''),[filterStatus,setFilterStatus]=useState('');
-  const lessonsPage=usePagedResource<Lesson>('/courses/admin/list','courses',{q:search,subject:filterSubject,status:filterStatus},'mindmaze_courses_updated');
-  const [paperSearch,setPaperSearch]=useState(''),[selectedPapersOnly,setSelectedPapersOnly]=useState(false);
-  const [topicChoices,setTopicChoices]=useState<{subject:string;topic:string;topicOrder:number}[]>([]);
-  useEffect(()=>{let cancelled=false;const loadTopics=()=>apiFetch('/courses/admin/topics').then(r=>{if(!cancelled)setTopicChoices(r.topics);}).catch(()=>{});loadTopics();window.addEventListener('mindmaze_courses_updated',loadTopics);return()=>{cancelled=true;window.removeEventListener('mindmaze_courses_updated',loadTopics);};},[]);
-  const papersPage=usePagedResource<any>('/past-papers','papers',selectedPapersOnly?{ids:related.join(','),q:paperSearch}:{subject:form.subject,q:paperSearch},'mindmaze_papers_updated');
-  const lessons=lessonsPage.items,papers=papersPage.items,loading=lessonsPage.loading;
-  const load=lessonsPage.reload;
-  const reset=()=>{setForm(initial());setEditing(null);setVideos([]);setFiles([]);setResources([]);setQuiz([]);setRelated([]);setFileKey(k=>k+1);setError('');};
-  const edit=(lesson:Lesson)=>{
-    setEditing(lesson);setForm({title:lesson.title,description:lesson.description,subject:lesson.subject,stream:lesson.stream,topic:lesson.topic,topicOrder:lesson.topicOrder,lessonOrder:lesson.lessonOrder,estimatedMinutes:lesson.estimatedMinutes,medium:lesson.medium,syllabus:lesson.syllabus,status:lesson.status});
-    setVideos((lesson.videos||[]).map(v=>({...v})));setResources(lesson.resources||[]);setFiles([]);setQuiz((lesson.quiz||[]).map(q=>({...q,options:[...q.options],correctOptionIndex:q.correctOptionIndex??0,explanation:q.explanation||''})));setRelated(lesson.relatedPaperIds||[]);setFileKey(k=>k+1);setError('');setMessage('');
-    document.getElementById('lesson-editor')?.scrollIntoView({behavior:'smooth'});
+type VideoItem = {
+  title: string;
+  url: string;
+  description: string;
+};
+
+const DEFAULT_BANK_DETAILS = `Bank: Commercial Bank / Bank of Ceylon
+Account Name: Mind Maze Education
+Account Number: 8009234567
+Branch: Colombo Fort
+Deposit the fee and upload the bank transfer receipt / deposit slip.`;
+
+const initialForm = () => ({
+  title: '',
+  description: '',
+  subject: 'Physics',
+  stream: 'Both',
+  topic: '',
+  topicOrder: 1,
+  lessonOrder: 1,
+  estimatedMinutes: 20,
+  medium: 'English',
+  syllabus: 'current',
+  status: 'published' as 'draft' | 'published',
+  price: 0,
+  isFree: true,
+  billingType: 'one_time' as 'one_time' | 'monthly',
+  monthlyFee: 0,
+  courseType: 'free' as 'free' | 'one_time' | 'monthly',
+  isMonthlyProgram: false,
+  parentCourseId: '',
+  targetMonth: '',
+  validityPeriod: 'lifetime' as '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime',
+  validityMonths: 0,
+  bankDetails: DEFAULT_BANK_DETAILS,
+});
+
+export const AdminCourseManager: React.FC = () => {
+  const [form, setForm] = useState(initialForm());
+  const [editing, setEditing] = useState<Lesson | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  // Active form section tab
+  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'live_classes'>('info');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Cover image / Thumbnail state
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string>('');
+  const [removeCover, setRemoveCover] = useState<boolean>(false);
+
+  // Content state
+  const [curriculumBlocks, setCurriculumBlocks] = useState<CurriculumBlock[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [resources, setResources] = useState<NonNullable<Lesson['resources']>>([]);
+  const [quiz, setQuiz] = useState<Question[]>([]);
+  const [related, setRelated] = useState<string[]>([]);
+  const [preview, setPreview] = useState<Lesson | null>(null);
+  const [fileKey, setFileKey] = useState(0);
+
+  // Filters & listings
+  const [search, setSearch] = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const lessonsPage = usePagedResource<Lesson>(
+    '/courses/admin/list',
+    'courses',
+    { q: search, subject: filterSubject, status: filterStatus },
+    'mindmaze_courses_updated'
+  );
+
+  const [paperSearch, setPaperSearch] = useState('');
+  const [selectedPapersOnly, setSelectedPapersOnly] = useState(false);
+  const [topicChoices, setTopicChoices] = useState<{ subject: string; topic: string; topicOrder: number }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTopics = () =>
+      apiFetch('/courses/admin/topics')
+        .then((r) => {
+          if (!cancelled) setTopicChoices(r.topics || []);
+        })
+        .catch(() => {});
+    loadTopics();
+    window.addEventListener('mindmaze_courses_updated', loadTopics);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('mindmaze_courses_updated', loadTopics);
+    };
+  }, []);
+
+  const papersPage = usePagedResource<any>(
+    '/past-papers',
+    'papers',
+    selectedPapersOnly ? { ids: related.join(','), q: paperSearch } : { subject: form.subject, q: paperSearch },
+    'mindmaze_papers_updated'
+  );
+
+  const lessons = lessonsPage.items;
+  const papers = papersPage.items;
+  const loading = lessonsPage.loading;
+  const load = lessonsPage.reload;
+
+  const reset = () => {
+    setForm(initialForm());
+    setEditing(null);
+    setCoverFile(null);
+    setCoverPreview('');
+    setRemoveCover(false);
+    setCurriculumBlocks([]);
+    setVideos([]);
+    setFiles([]);
+    setResources([]);
+    setQuiz([]);
+    setRelated([]);
+    setFileKey((k) => k + 1);
+    setError('');
+    setActiveTab('info');
   };
-  const save=async(e:React.FormEvent)=>{
-    e.preventDefault();if(busy)return;setBusy(true);setError('');setMessage('');
-    try{
-      const body=new FormData();Object.entries(form).forEach(([key,value])=>body.append(key,String(value)));
-      body.append('videosJson',JSON.stringify(videos));body.append('quizJson',JSON.stringify(quiz));body.append('relatedPaperIds',JSON.stringify(related));body.append('keepResourceIds',JSON.stringify(resources.map(r=>r.id)));
-      if(editing)body.append('revision',String(editing.revision));files.forEach(f=>body.append('pdfFiles',f));
-      const result=editing?await api.updateCourse(editing._id,body):await api.createCourse(body);
+
+  const edit = (lesson: Lesson) => {
+    setEditing(lesson);
+    setCoverFile(null);
+    setCoverPreview(lesson.thumbnailUrl || '');
+    setRemoveCover(false);
+    setForm({
+      title: lesson.title,
+      description: lesson.description,
+      subject: lesson.subject,
+      stream: lesson.stream,
+      topic: lesson.topic,
+      topicOrder: lesson.topicOrder,
+      lessonOrder: lesson.lessonOrder,
+      estimatedMinutes: lesson.estimatedMinutes,
+      medium: lesson.medium,
+      syllabus: lesson.syllabus,
+      status: (lesson.status as 'draft' | 'published') || 'published',
+      price: lesson.price ?? 0,
+      isFree: lesson.isFree ?? ((lesson.price ?? 0) === 0),
+      billingType: lesson.billingType || 'one_time',
+      monthlyFee: lesson.monthlyFee ?? (lesson.billingType === 'monthly' ? lesson.price : 0),
+      courseType: lesson.courseType || (lesson.isFree ? 'free' : (lesson.billingType === 'monthly' ? 'monthly' : 'one_time')),
+      isMonthlyProgram: Boolean(lesson.isMonthlyProgram),
+      parentCourseId: lesson.parentCourseId ? String(lesson.parentCourseId) : '',
+      targetMonth: lesson.targetMonth || '',
+      validityPeriod: lesson.validityPeriod || 'lifetime',
+      validityMonths: lesson.validityMonths ?? 0,
+      bankDetails: lesson.bankDetails || DEFAULT_BANK_DETAILS,
+    });
+
+    // Populate curriculum blocks, or seamlessly convert legacy lesson contents into the curriculum
+    let blocks: CurriculumBlock[] = [];
+    if (lesson.curriculumBlocks && lesson.curriculumBlocks.length > 0) {
+      blocks = lesson.curriculumBlocks.map((b, i) => ({
+        ...b,
+        order: b.order ?? i,
+      }));
+    } else {
+      if (lesson.description?.trim()) {
+        blocks.push({
+          type: 'description',
+          title: 'Lesson Introduction & Overview',
+          description: lesson.description.trim(),
+          order: blocks.length,
+        });
+      }
+      (lesson.videos || []).forEach((v, idx) => {
+        blocks.push({
+          type: 'video',
+          title: v.title || `Video Part ${idx + 1}`,
+          url: v.url || '',
+          description: v.description || '',
+          order: blocks.length,
+        });
+      });
+      (lesson.resources || []).forEach((r, idx) => {
+        blocks.push({
+          type: 'document',
+          title: r.title || `Study Notes ${idx + 1}`,
+          pdfUrl: r.path,
+          pdfFileName: r.title,
+          size: r.size,
+          order: blocks.length,
+        });
+      });
+      if (lesson.quiz && lesson.quiz.length > 0) {
+        blocks.push({
+          type: 'quiz',
+          title: 'Practice Quiz & Knowledge Check',
+          quizQuestions: lesson.quiz.map((q) => ({
+            questionText: q.questionText,
+            options: [...q.options],
+            correctOptionIndex: q.correctOptionIndex ?? 0,
+            explanation: q.explanation || '',
+          })),
+          order: blocks.length,
+        });
+      }
+    }
+    setCurriculumBlocks(blocks);
+
+    setVideos(
+      (lesson.videos || []).map((v) => ({
+        title: v.title || '',
+        url: v.url || '',
+        description: v.description || '',
+      }))
+    );
+    setResources(lesson.resources || []);
+    setFiles([]);
+    setQuiz(
+      (lesson.quiz || []).map((q) => ({
+        questionText: q.questionText,
+        options: [...q.options],
+        correctOptionIndex: q.correctOptionIndex ?? 0,
+        explanation: q.explanation || '',
+      }))
+    );
+    setRelated(lesson.relatedPaperIds || []);
+    setFileKey((k) => k + 1);
+    setError('');
+    setMessage('');
+    setActiveTab('info');
+    document.getElementById('lesson-editor')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const body = new FormData();
+      const topicVal = form.topic.trim() || form.title.trim() || 'General';
+      const payload = { ...form, topic: topicVal };
+      Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)));
+
+      // Course cover image (saved to Cloudinary)
+      if (coverFile) {
+        body.append('thumbnail', coverFile);
+      } else if (removeCover) {
+        body.append('removeThumbnail', 'true');
+      }
+
+      // Collect and sync all quiz questions across quiz blocks
+      const allQuizQuestions = curriculumBlocks
+        .filter((b) => b.type === 'quiz')
+        .flatMap((b) => b.quizQuestions || []);
+      body.append('quizJson', JSON.stringify(allQuizQuestions));
+
+      // Collect and sync all video lectures across video blocks
+      const allVideos = curriculumBlocks
+        .filter((b) => b.type === 'video')
+        .map((b) => ({ title: b.title || 'Video', url: b.url || '', description: b.description || '' }));
+      body.append('videosJson', JSON.stringify(allVideos));
+
+      // Append files uploaded directly on document or video blocks
+      curriculumBlocks.forEach((b) => {
+        if (b.pendingFile) {
+          body.append('pdfFiles', b.pendingFile);
+        }
+      });
+      files.forEach((f) => body.append('pdfFiles', f));
+
+      // Clean curriculum blocks for JSON transmission
+      const cleanBlocks = curriculumBlocks.map(({ pendingFile, ...b }) => ({
+        ...b,
+        hasNewUpload: Boolean(pendingFile),
+        size: typeof b.size === 'number' ? b.size : (pendingFile ? pendingFile.size : 0),
+      }));
+      body.append('curriculumBlocksJson', JSON.stringify(cleanBlocks));
+
+      body.append('relatedPaperIds', JSON.stringify(related));
+      body.append('keepResourceIds', JSON.stringify(resources.map((r) => r.id)));
+      if (editing) body.append('revision', String(editing.revision));
+
+      const result = editing ? await api.updateCourse(editing._id, body) : await api.createCourse(body);
       load();
-      reset();setMessage(result.course.status==='draft'?'Draft saved. It is hidden from students.':'Lesson published. Students can find it under its subject and topic.');window.dispatchEvent(new Event('mindmaze_courses_updated'));
-    }catch(e:any){setError(e.message);}finally{setBusy(false);}
+      reset();
+      setMessage(
+        result.course.status === 'draft'
+          ? 'Draft saved successfully. (Hidden from students)'
+          : 'Lesson published successfully! Students can access it now.'
+      );
+      window.dispatchEvent(new Event('mindmaze_courses_updated'));
+    } catch (e: any) {
+      setError(e.message || 'Could not save lesson.');
+    } finally {
+      setBusy(false);
+    }
   };
-  const remove=async(lesson:Lesson)=>{if(!window.confirm(`Delete “${lesson.title}” and its lesson progress?`))return;setBusy(true);setError('');try{await api.deleteCourse(lesson._id);load();if(editing?._id===lesson._id)reset();setMessage('Lesson deleted.');window.dispatchEvent(new Event('mindmaze_courses_updated'));}catch(e:any){setError(e.message);}finally{setBusy(false);}};
-  const changeQuestion=(i:number,patch:Partial<Question>)=>setQuiz(prev=>prev.map((q,j)=>j===i?{...q,...patch}:q));
-  const visible=lessons.filter(l=>(!filterSubject||l.subject===filterSubject)&&(!filterStatus||l.status===filterStatus)&&[l.title,l.topic,l.subject].join(' ').toLowerCase().includes(search.trim().toLowerCase()));
-  return <section className="learning-area space-y-6">
-    <header className={panel}><h2 className="text-xl font-bold text-white">Manage courses & lessons</h2><p className="text-sm text-slate-400">Choose a subject and topic, add a lesson, then attach videos, notes and practice questions.</p></header>
-    {message&&<p role="status" className="text-emerald-300">{message}</p>}{error&&<p role="alert" className="text-rose-300">{error}</p>}
-    {preview&&<div className={panel}><button className={button} onClick={()=>setPreview(null)}>Close student preview</button><LessonView key={preview._id} lesson={preview} preview onProgress={()=>{}}/></div>}
-    <form id="lesson-editor" onSubmit={save} className={panel}>
-      <h3 className="text-lg font-bold text-white">{editing?'Edit lesson':'Create a lesson'}</h3>
-      <fieldset disabled={busy} className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="text-sm text-slate-300">Subject<select className={control+' mt-1'} value={form.subject} onChange={e=>setForm(f=>({...f,subject:e.target.value,topic:''}))}>{subjects.map(s=><option key={s}>{s}</option>)}</select></label>
-          <label className="text-sm text-slate-300">Topic<input required list="lesson-topics" className={control+' mt-1'} value={form.topic} placeholder="Choose or enter a new topic" onChange={e=>{const value=e.target.value,match=topicChoices.find(l=>l.subject===form.subject&&l.topic===value);setForm(f=>({...f,topic:value,...(match?{topicOrder:match.topicOrder}:{})}));}}/><datalist id="lesson-topics">{[...new Set(topicChoices.filter(l=>l.subject===form.subject).map(l=>l.topic))].map(t=><option key={t} value={t}/>)}</datalist></label>
-          <label className="text-sm text-slate-300">Target stream<select className={control+' mt-1'} value={form.stream} onChange={e=>setForm(f=>({...f,stream:e.target.value}))}>{['Both','Maths','Bio','Physical Science','Biological Science','Non-stream'].map(s=><option key={s} value={s}>{s==='Both'?'Maths and Bio':s}</option>)}</select></label>
-          <label className="text-sm text-slate-300">Topic order<input type="number" min="0" max="1000" required className={control+' mt-1'} value={form.topicOrder} onChange={e=>setForm(f=>({...f,topicOrder:Number(e.target.value)}))}/></label>
-          <label className="text-sm text-slate-300">Lesson order<input type="number" min="0" max="1000" required className={control+' mt-1'} value={form.lessonOrder} onChange={e=>setForm(f=>({...f,lessonOrder:Number(e.target.value)}))}/></label>
-          <label className="text-sm text-slate-300">Study time (minutes)<input type="number" min="1" max="600" required className={control+' mt-1'} value={form.estimatedMinutes} onChange={e=>setForm(f=>({...f,estimatedMinutes:Number(e.target.value)}))}/></label>
-          <label className="text-sm text-slate-300">Language<select className={control+' mt-1'} value={form.medium} onChange={e=>setForm(f=>({...f,medium:e.target.value}))}>{['English','Sinhala','Tamil'].map(s=><option key={s}>{s}</option>)}</select></label>
-          <label className="text-sm text-slate-300">Syllabus<select className={control+' mt-1'} value={form.syllabus} onChange={e=>setForm(f=>({...f,syllabus:e.target.value}))}><option value="current">Current syllabus</option><option value="old">Old syllabus</option></select></label>
-          <label className="text-sm text-slate-300">Visibility<select className={control+' mt-1'} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}><option value="draft">Draft — hidden from students</option><option value="published">Published</option></select></label>
+
+  const remove = async (lesson: Lesson) => {
+    if (!window.confirm(`Are you sure you want to delete "${lesson.title}" and its progress?`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.deleteCourse(lesson._id);
+      load();
+      if (editing?._id === lesson._id) reset();
+      setMessage('Lesson deleted.');
+      window.dispatchEvent(new Event('mindmaze_courses_updated'));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addVideo = () => {
+    setVideos((prev) => [...prev, { title: `Part ${prev.length + 1}`, url: '', description: '' }]);
+  };
+
+  const addCurriculumBlock = (type: CurriculumBlock['type']) => {
+    const newBlock: CurriculumBlock = {
+      type,
+      title:
+        type === 'live_class'
+          ? 'Live Class Discussion'
+          : type === 'video'
+          ? `Video Lecture ${curriculumBlocks.filter((b) => b.type === 'video').length + 1}`
+          : type === 'document'
+          ? 'Lecture Notes (PDF)'
+          : type === 'quiz'
+          ? 'Practice Quiz & Knowledge Check'
+          : 'Module Guidance & Overview',
+      description: '',
+      order: curriculumBlocks.length,
+      ...(type === 'live_class'
+        ? {
+            meetingPlatform: 'Zoom',
+            liveLink: '',
+            scheduledTime: '',
+          }
+        : {}),
+      ...(type === 'video' ? { url: '' } : {}),
+      ...(type === 'document' ? { pdfUrl: '', pdfFileName: '' } : {}),
+      ...(type === 'quiz'
+        ? {
+            passPercentage: 50,
+            quizQuestions: [
+              {
+                questionText: '',
+                questionType: 'mcq',
+                imageUrl: '',
+                imagePublicId: '',
+                options: ['', ''],
+                correctOptionIndex: 0,
+                explanation: '',
+              },
+            ],
+          }
+        : {}),
+    };
+    setCurriculumBlocks((prev) => [...prev, newBlock]);
+  };
+
+  const addQuestionToBlock = (blockIdx: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIdx) return b;
+        return {
+          ...b,
+          quizQuestions: [
+            ...(b.quizQuestions || []),
+            {
+              questionText: '',
+              questionType: 'mcq',
+              imageUrl: '',
+              imagePublicId: '',
+              options: ['', ''],
+              correctOptionIndex: 0,
+              explanation: '',
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  const removeQuestionFromBlock = (blockIdx: number, qIdx: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIdx) return b;
+        return {
+          ...b,
+          quizQuestions: (b.quizQuestions || []).filter((_, j) => j !== qIdx),
+        };
+      })
+    );
+  };
+
+  const updateQuestionInBlock = (
+    blockIdx: number,
+    qIdx: number,
+    patch: any
+  ) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIdx) return b;
+        return {
+          ...b,
+          quizQuestions: (b.quizQuestions || []).map((q, j) => (j === qIdx ? { ...q, ...patch } : q)),
+        };
+      })
+    );
+  };
+
+  const addOptionToQuestion = (blockIdx: number, qIdx: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIdx) return b;
+        return {
+          ...b,
+          quizQuestions: (b.quizQuestions || []).map((q, j) =>
+            j === qIdx ? { ...q, options: [...q.options, ''] } : q
+          ),
+        };
+      })
+    );
+  };
+
+  const removeOptionFromQuestion = (blockIdx: number, qIdx: number, optIdx: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIdx) return b;
+        return {
+          ...b,
+          quizQuestions: (b.quizQuestions || []).map((q, j) => {
+            if (j !== qIdx) return q;
+            const newOpts = q.options.filter((_, k) => k !== optIdx);
+            return {
+              ...q,
+              options: newOpts,
+              correctOptionIndex: Math.min(q.correctOptionIndex, Math.max(0, newOpts.length - 1)),
+            };
+          }),
+        };
+      })
+    );
+  };
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    setCurriculumBlocks((prev) => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) return prev;
+      const temp = next[index];
+      next[index] = next[target];
+      next[target] = temp;
+      return next.map((b, i) => ({ ...b, order: i }));
+    });
+  };
+
+  const moveSequentialBlock = (seqIndex: number, direction: 'up' | 'down') => {
+    const seqItems = curriculumBlocks
+      .map((b, i) => ({ b, i }))
+      .filter((item) => item.b.type !== 'live_class');
+    const targetSeqIndex = direction === 'up' ? seqIndex - 1 : seqIndex + 1;
+    if (targetSeqIndex < 0 || targetSeqIndex >= seqItems.length) return;
+
+    const actualIdx = seqItems[seqIndex].i;
+    const targetActualIdx = seqItems[targetSeqIndex].i;
+
+    setCurriculumBlocks((prev) => {
+      const next = [...prev];
+      const temp = next[actualIdx];
+      next[actualIdx] = next[targetActualIdx];
+      next[targetActualIdx] = temp;
+      return next.map((b, i) => ({ ...b, order: i }));
+    });
+  };
+
+  const removeBlock = (index: number) => {
+    setCurriculumBlocks((prev) =>
+      prev.filter((_, i) => i !== index).map((b, i) => ({ ...b, order: i }))
+    );
+  };
+
+  const updateBlock = (index: number, patch: Partial<CurriculumBlock>) => {
+    setCurriculumBlocks((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, ...patch } : b))
+    );
+  };
+
+  const importExistingIntoCurriculum = () => {
+    const blocks: CurriculumBlock[] = [];
+    if (form.description?.trim()) {
+      blocks.push({
+        type: 'description',
+        title: 'Lesson Introduction & Overview',
+        description: form.description.trim(),
+        order: blocks.length,
+      });
+    }
+    videos.forEach((v, idx) => {
+      blocks.push({
+        type: 'video',
+        title: v.title || `Video Part ${idx + 1}`,
+        url: v.url,
+        description: v.description || '',
+        order: blocks.length,
+      });
+    });
+    resources.forEach((r, idx) => {
+      blocks.push({
+        type: 'document',
+        title: r.title || `Study Notes ${idx + 1}`,
+        pdfUrl: r.path,
+        pdfFileName: r.title,
+        size: r.size,
+        order: blocks.length,
+      });
+    });
+    setCurriculumBlocks(blocks);
+  };
+
+  const changeQuestion = (i: number, patch: Partial<Question>) =>
+    setQuiz((prev) => prev.map((q, j) => (j === i ? { ...q, ...patch } : q)));
+
+  const visible = lessons.filter(
+    (l) =>
+      (!filterSubject || l.subject === filterSubject) &&
+      (!filterStatus || l.status === filterStatus) &&
+      [l.title, l.topic, l.subject].join(' ').toLowerCase().includes(search.trim().toLowerCase())
+  );
+
+  return (
+    <div className="learning-area space-y-8">
+      {/* Top Banner Header */}
+      <div className="rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-md p-6 shadow-xl flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              Admin Workspace
+            </span>
+            <span className="text-xs text-slate-400 font-medium">Courses & Lesson Studio</span>
+          </div>
+          <h2 className="text-2xl font-black text-white">Course & Lesson Manager</h2>
+          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            Create structured lessons, stream protected YouTube videos without external branding, and attach watermarked notes.
+          </p>
         </div>
-        <label className="block text-sm text-slate-300">Lesson title<input required className={control+' mt-1'} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/></label>
-        <label className="block text-sm text-slate-300">What students will learn<textarea required rows={3} className={control+' mt-1'} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></label>
-        <section className="space-y-3"><h4 className="font-bold text-white">Video lessons</h4>{videos.map((v,i)=><div key={i} className="grid sm:grid-cols-[1fr_2fr_auto] gap-2"><input aria-label={`Video ${i+1} title`} required placeholder="Video title" className={control} value={v.title} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,title:e.target.value}:x))}/><input aria-label={`Video ${i+1} URL`} required type="url" placeholder="https://www.youtube.com/watch?v=…" className={control} value={v.url} onChange={e=>setVideos(prev=>prev.map((x,j)=>j===i?{...x,url:e.target.value}:x))}/><button type="button" className="text-rose-300 text-sm" onClick={()=>setVideos(prev=>prev.filter((_,j)=>j!==i))}>Remove video</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={videos.length>=20} onClick={()=>setVideos(prev=>[...prev,{title:'',url:''}])}>+ Add video</button></section>
-        <section className="space-y-3"><h4 className="font-bold text-white">PDF notes</h4>{resources.map(r=><div key={r.id} className="flex gap-3 justify-between text-sm text-slate-300"><span>{r.title}</span><button type="button" className="text-rose-300" onClick={()=>setResources(prev=>prev.filter(x=>x.id!==r.id))}>Remove PDF</button></div>)}<label className="block text-sm text-slate-300">Add PDFs (up to 8 per save, 25 MiB each)<input key={fileKey} type="file" multiple accept="application/pdf,.pdf" className="block mt-2 w-full" onChange={e=>{const selected=Array.from(e.target.files||[]);if(selected.length>8||selected.some(f=>f.size>25*1024*1024)){setError('Choose up to 8 PDFs, each no larger than 25 MiB.');e.target.value='';setFiles([]);return;}setFiles(selected);setError('');}}/></label><p className="text-xs text-slate-400">Your storage account may have a lower file-size limit. Existing PDFs stay attached unless removed.</p></section>
-        <section className="space-y-4"><h4 className="font-bold text-white">Practice quiz ({quiz.length} questions)</h4>{quiz.map((q,i)=><div key={i} className="rounded-xl bg-slate-800 p-4 space-y-3"><label className="block text-sm text-slate-300">Question {i+1}<textarea required className={control+' mt-1'} value={q.questionText} onChange={e=>changeQuestion(i,{questionText:e.target.value})}/></label><div className="grid sm:grid-cols-2 gap-2">{q.options.map((o,j)=><label key={j} className="text-xs text-slate-400">Answer {j+1}<input required className={control+' mt-1'} value={o} onChange={e=>changeQuestion(i,{options:q.options.map((x,k)=>k===j?e.target.value:x)})}/></label>)}</div><div className="flex flex-wrap gap-3"><button type="button" disabled={q.options.length>=6} className="text-cyan-300 text-sm" onClick={()=>changeQuestion(i,{options:[...q.options,'']})}>+ Add answer</button><button type="button" disabled={q.options.length<=2} className="text-slate-300 text-sm" onClick={()=>changeQuestion(i,{options:q.options.slice(0,-1),correctOptionIndex:Math.min(q.correctOptionIndex,q.options.length-2)})}>Remove last answer</button></div><label className="block text-sm text-slate-300">Correct answer<select className={control+' mt-1'} value={q.correctOptionIndex} onChange={e=>changeQuestion(i,{correctOptionIndex:Number(e.target.value)})}>{q.options.map((_,j)=><option key={j} value={j}>Answer {j+1}</option>)}</select></label><label className="block text-sm text-slate-300">Explanation<textarea className={control+' mt-1'} value={q.explanation} onChange={e=>changeQuestion(i,{explanation:e.target.value})}/></label><button type="button" className="text-rose-300 text-sm" onClick={()=>setQuiz(prev=>prev.filter((_,j)=>j!==i))}>Remove question</button></div>)}<button type="button" className="text-cyan-300 text-sm" disabled={quiz.length>=100} onClick={()=>setQuiz(prev=>[...prev,{questionText:'',options:['',''],correctOptionIndex:0,explanation:''}])}>+ Add quiz question</button></section>
-        <fieldset className="space-y-2"><legend className="font-bold text-white mb-2">Related past papers</legend><label className="block text-sm text-slate-300">Search related papers<input className={control} type="search" value={paperSearch} onChange={e=>setPaperSearch(e.target.value)}/></label><label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={selectedPapersOnly} onChange={e=>setSelectedPapersOnly(e.target.checked)}/>Show selected papers ({related.length})</label><Pagination {...papersPage.pagination} label="Related papers"/>{papersPage.error&&<p role="alert">{papersPage.error} <button type="button" onClick={papersPage.reload}>Retry</button></p>}<div className="max-h-44 overflow-y-auto space-y-2">{papers.map(p=><label key={p.id} className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={related.includes(p.id)} onChange={e=>setRelated(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/>{p.title}</label>)}{papersPage.loading?<p role="status">Loading papers…</p>:!papers.length&&!papersPage.error&&<p className="text-sm text-slate-400">No matching papers.</p>}</div></fieldset>
-        <div className="flex flex-wrap gap-3"><button type="submit" className={button}>{busy?'Saving lesson…':form.status==='draft'?'Save draft':editing?'Save and publish changes':'Publish lesson'}</button>{editing&&<button type="button" className="text-slate-300" onClick={reset}>Cancel editing</button>}</div>
-      </fieldset>
-    </form>
-    <section className={panel}><h3 className="font-bold text-white text-lg">All lessons ({lessonsPage.pagination.total})</h3><div className="grid sm:grid-cols-3 gap-3"><input aria-label="Search lessons" type="search" className={control} placeholder="Search title or topic" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filter lessons by subject" className={control} value={filterSubject} onChange={e=>setFilterSubject(e.target.value)}><option value="">All subjects</option>{subjects.map(s=><option key={s}>{s}</option>)}</select><select aria-label="Filter lessons by visibility" className={control} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">All statuses</option><option value="draft">Draft</option><option value="published">Published</option></select></div><Pagination {...lessonsPage.pagination} label="Admin lessons"/>{lessonsPage.error&&<p role="alert" className="text-rose-300">{lessonsPage.error} <button onClick={load}>Retry</button></p>}{loading?<p className="text-slate-400">Loading lessons…</p>:visible.length?visible.map(l=><article key={l._id} className="rounded-xl bg-slate-800 p-4 flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs text-cyan-300">{l.subject} / {l.topic} · Lesson {l.lessonOrder} · {l.status}</p><h4 className="font-bold text-white mt-1">{l.title}</h4></div><div className="flex gap-4 text-sm"><button disabled={busy} type="button" className="text-cyan-300" onClick={()=>edit(l)}>Edit</button><button disabled={busy} type="button" className="text-slate-300" onClick={()=>{setPreview(l);document.getElementById('lesson-editor')?.parentElement?.scrollIntoView({behavior:'smooth'});}}>Preview</button><button disabled={busy} type="button" className="text-rose-300" onClick={()=>remove(l)}>Delete</button></div></article>):<p className="text-slate-400">No matching lessons. Create a lesson above.</p>}<button type="button" onClick={load} className="text-sm text-cyan-300">Refresh lessons</button></section>
-  </section>;
+
+        {editing ? (
+          <button
+            type="button"
+            onClick={reset}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition cursor-pointer"
+          >
+            Cancel Editing
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => document.getElementById('lesson-editor')?.scrollIntoView({ behavior: 'smooth' })}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 hover:brightness-110 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create New Lesson</span>
+          </button>
+        )}
+      </div>
+
+      {message && (
+        <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-sm flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span>{message}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-sm flex items-center gap-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {preview && (
+        <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/95 p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <h3 className="font-bold text-white text-lg">Student View Preview</h3>
+            <button
+              className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+              onClick={() => setPreview(null)}
+            >
+              Close Preview
+            </button>
+          </div>
+          <LessonView key={preview._id} lesson={preview} preview onProgress={() => {}} />
+        </div>
+      )}
+
+      {/* Main Studio Editor Card */}
+      <form id="lesson-editor" onSubmit={save} className="rounded-2xl border border-white/10 bg-[#161831]/80 backdrop-blur-md shadow-2xl overflow-hidden">
+        {/* Editor Title & Tab Selector */}
+        <div className="border-b border-white/10 bg-slate-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
+              {editing ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">{editing ? 'Edit Lesson' : 'Add New Lesson'}</h3>
+              <p className="text-xs text-slate-400">Fill in the details below to publish to students</p>
+            </div>
+          </div>
+
+          {/* Clean Step / Section Tabs - Overview, Curriculum Flow, and Live Classes */}
+          <div className="flex items-center bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveTab('info')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeTab === 'info'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>1. Overview</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('curriculum')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeTab === 'curriculum'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-300" />
+              <span>2. Curriculum Flow</span>
+              {curriculumBlocks.filter((b) => b.type !== 'live_class').length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-indigo-400/20 text-indigo-300 text-[11px] flex items-center justify-center font-bold">
+                  {curriculumBlocks.filter((b) => b.type !== 'live_class').length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('live_classes')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeTab === 'live_classes'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-rose-400" />
+              <span>3. Live Classes</span>
+              {curriculumBlocks.filter((b) => b.type === 'live_class').length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-rose-400/20 text-rose-300 text-[11px] flex items-center justify-center font-bold">
+                  {curriculumBlocks.filter((b) => b.type === 'live_class').length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Form Body */}
+        <fieldset disabled={busy} className="p-6 space-y-6">
+          {/* TAB 1: BASIC LESSON INFO & OVERVIEW */}
+          {activeTab === 'info' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Row 1: Subject, Topic, Medium */}
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Subject <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    className={control}
+                    value={form.subject}
+                    onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value, topic: '' }))}
+                  >
+                    {subjects.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Topic / Category (Optional)
+                  </label>
+                  <input
+                    list="lesson-topics"
+                    className={control}
+                    value={form.topic}
+                    placeholder="e.g. Mechanics (or leave empty)"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const match = topicChoices.find((l) => l.subject === form.subject && l.topic === value);
+                      setForm((f) => ({
+                        ...f,
+                        topic: value,
+                        ...(match ? { topicOrder: match.topicOrder } : {}),
+                      }));
+                    }}
+                  />
+                  <datalist id="lesson-topics">
+                    {[...new Set(topicChoices.filter((l) => l.subject === form.subject).map((l) => l.topic))].map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Language Medium
+                  </label>
+                  <select
+                    className={control}
+                    value={form.medium}
+                    onChange={(e) => setForm((f) => ({ ...f, medium: e.target.value }))}
+                  >
+                    {['English', 'Sinhala', 'Tamil'].map((s) => (
+                      <option key={s} value={s}>
+                        {s} Medium
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Subject related courses preview helper */}
+              {(() => {
+                const subjectCourses = lessons.filter((l) => l.subject === form.subject);
+                if (subjectCourses.length === 0) return null;
+                return (
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs">
+                    <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span className="text-cyan-300">
+                        Existing {form.subject} Courses ({subjectCourses.length}):
+                      </span>
+                      <span className="text-[10px] text-slate-400">Click to edit</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                      {subjectCourses.map((c) => (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => edit(c)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                        >
+                          <span>{c.title}</span>
+                          <span className="text-[9px] text-slate-400">({c.topic || 'General'})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Row 2: Course / Lesson Title */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Course / Lesson Title <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  required
+                  placeholder="e.g. Centripetal Force & Vertical Circles — Theory & Derivations"
+                  className={control}
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+
+              {/* Row 3: Dedicated Separate Lesson Description Section */}
+              <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Lesson Description & Study Guidance</span>
+                    <span className="text-rose-400">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">Visible to all students in Lesson Overview</span>
+                </div>
+                <textarea
+                  required
+                  rows={4}
+                  className={`${control} font-normal leading-relaxed`}
+                  placeholder="Write a clear overview of this lesson: key concepts covered, formulas, syllabus references, and study tips for A/L students..."
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </div>
+
+              {/* Course Cover Image (Cloudinary) */}
+              <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Course Cover Image (Cloudinary)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">Displayed on Course Catalog cards (16:9 ratio)</span>
+                </div>
+
+                {coverPreview ? (
+                  <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950 max-w-md group shadow-lg">
+                    <img
+                      src={coverPreview}
+                      alt="Course cover preview"
+                      className="w-full aspect-video object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                      <label className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Change</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setCoverFile(file);
+                              setCoverPreview(URL.createObjectURL(file));
+                              setRemoveCover(false);
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCoverFile(null);
+                          setCoverPreview('');
+                          setRemoveCover(true);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-slate-300 font-mono">
+                      {coverFile ? coverFile.name : 'Active Cloudinary Cover'}
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700/80 hover:border-indigo-500/80 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 transition cursor-pointer group">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 flex items-center justify-center transition">
+                      <ImageIcon className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-200 mt-2">Click to upload Course Cover Image</span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">JPEG, PNG, WEBP — Saved to Cloudinary</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setCoverFile(file);
+                          setCoverPreview(URL.createObjectURL(file));
+                          setRemoveCover(false);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Row 4: Estimated Study Time & Status */}
+              <div className="grid sm:grid-cols-2 gap-4 items-center">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Estimated Study Time (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={600}
+                    required
+                    className={control}
+                    value={form.estimatedMinutes}
+                    onChange={(e) => setForm((f) => ({ ...f, estimatedMinutes: Number(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Publishing Status
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, status: 'published' }))}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        form.status === 'published'
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      ✓ Published (Live)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, status: 'draft' }))}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        form.status === 'draft'
+                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      Draft (Hidden)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Course Pricing, Type & Access Validity */}
+              <div className="rounded-xl border border-indigo-500/30 bg-slate-900/60 p-4 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">Course Type & Access Settings</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: true,
+                          price: 0,
+                          billingType: 'one_time',
+                          monthlyFee: 0,
+                          courseType: 'free',
+                          isMonthlyProgram: false,
+                          parentCourseId: '',
+                          validityPeriod: 'lifetime',
+                          validityMonths: 0,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.courseType === 'free' || form.isFree || form.price === 0
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      ✓ Free Course
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          price: f.price || 1500,
+                          billingType: 'one_time',
+                          courseType: 'one_time',
+                          isMonthlyProgram: false,
+                          parentCourseId: '',
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.courseType === 'one_time' && !form.isFree && !form.isMonthlyProgram
+                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      💳 One-Time Paid Course
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          billingType: 'monthly',
+                          courseType: 'monthly',
+                          isMonthlyProgram: true,
+                          parentCourseId: '',
+                          monthlyFee: f.monthlyFee || f.price || 2500,
+                          price: f.price || 2500,
+                          validityPeriod: 'lifetime',
+                          validityMonths: 0,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.isMonthlyProgram
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      📁 Monthly Program (Master Category)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          isFree: false,
+                          billingType: 'monthly',
+                          courseType: 'monthly',
+                          isMonthlyProgram: false,
+                          monthlyFee: f.monthlyFee || f.price || 2500,
+                          price: f.price || 2500,
+                          validityPeriod: f.validityPeriod === 'lifetime' ? '1_month' : f.validityPeriod,
+                          validityMonths: f.validityMonths || 1,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        form.courseType === 'monthly' && !form.isMonthlyProgram
+                          ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      📅 Monthly Sub-Class (e.g. October Class)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Monthly Program (Master) Informational Notice */}
+                {form.isMonthlyProgram && (
+                  <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/40 text-xs text-purple-200 space-y-1">
+                    <div className="font-bold text-purple-300 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4" />
+                      <span>Parent Program / Master Course Category (e.g. "2027 A/L Physics Class")</span>
+                    </div>
+                    <p className="text-slate-300 leading-relaxed text-[11px]">
+                      This parent course will be displayed on the course catalog with its cover photo, description, and monthly fee.
+                      Inside, students will see the list of Monthly Classes (e.g. October, November) and enroll per month.
+                    </p>
+                    {editing && (
+                      <div className="pt-2 mt-2 border-t border-purple-500/20">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-300">
+                            Sub-courses under this program: {lessons.filter((l) => l.parentCourseId === editing._id).length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parentId = editing._id;
+                              const parentSubject = editing.subject;
+                              const parentFee = editing.monthlyFee || editing.price || 2500;
+                              reset();
+                              setForm((f) => ({
+                                ...f,
+                                subject: parentSubject,
+                                courseType: 'monthly',
+                                isMonthlyProgram: false,
+                                parentCourseId: parentId,
+                                title: `${editing.title} - `,
+                                price: parentFee,
+                                monthlyFee: parentFee,
+                                isFree: false,
+                                billingType: 'monthly',
+                                validityPeriod: '1_month',
+                                validityMonths: 1,
+                              }));
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add New Month Class to this Program
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-Class Parent Selector & Month Settings */}
+                {form.courseType === 'monthly' && !form.isMonthlyProgram && (
+                  <div className="grid sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
+                        Parent Monthly Program (Master Category)
+                      </label>
+                      <select
+                        className={control}
+                        value={form.parentCourseId}
+                        onChange={(e) => setForm((f) => ({ ...f, parentCourseId: e.target.value }))}
+                      >
+                        <option value="">-- Standalone Monthly Class (No Parent) --</option>
+                        {lessons
+                          .filter((l) => l.isMonthlyProgram)
+                          .map((prog) => (
+                            <option key={prog._id} value={prog._id}>
+                              📁 {prog.title} ({prog.subject})
+                            </option>
+                          ))}
+                      </select>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Select which master program (e.g. 2027 A/L Physics) this monthly class belongs to.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1.5">
+                        Target Month (e.g. October 2026)
+                      </label>
+                      <input
+                        className={control}
+                        placeholder="e.g. October 2026"
+                        value={form.targetMonth}
+                        onChange={(e) => setForm((f) => ({ ...f, targetMonth: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Students paying for this month will gain access specifically to this month's recordings and materials.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fee and Validity Expiry settings for paid courses */}
+                {!form.isFree && (
+                  <div className="grid sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 animate-in fade-in duration-150">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">
+                        {form.courseType === 'monthly' || form.billingType === 'monthly'
+                          ? 'Monthly Fee (LKR / mo)'
+                          : 'Course Fee (LKR)'}{' '}
+                        <span className="text-rose-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
+                        <input
+                          type="number"
+                          min={1}
+                          required={!form.isFree}
+                          placeholder="e.g. 2500"
+                          className={`${control} pl-10 font-bold`}
+                          value={form.billingType === 'monthly' ? (form.monthlyFee || form.price) : form.price}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value));
+                            setForm((f) => ({
+                              ...f,
+                              price: val,
+                              monthlyFee: f.billingType === 'monthly' ? val : f.monthlyFee,
+                              isFree: val === 0,
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Expiration Validity Period (1 month, 3 months, 6 months, 1 year, Lifetime) */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1.5">
+                        Access Expiration / Validity
+                      </label>
+                      <select
+                        className={control}
+                        value={form.validityPeriod}
+                        onChange={(e) => {
+                          const val = e.target.value as any;
+                          const months = val === '1_month' ? 1 : val === '3_months' ? 3 : val === '6_months' ? 6 : val === '1_year' ? 12 : 0;
+                          setForm((f) => ({ ...f, validityPeriod: val, validityMonths: months }));
+                        }}
+                      >
+                        <option value="1_month">1 Month (30 Days from approval)</option>
+                        <option value="3_months">3 Months (90 Days from approval)</option>
+                        <option value="6_months">6 Months (180 Days from approval)</option>
+                        <option value="1_year">1 Year (365 Days from approval)</option>
+                        <option value="lifetime">Lifetime Access (Never expires)</option>
+                      </select>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        When expired, the student must renew their enrollment to continue watching.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                        Bank Account & Transfer Instructions
+                      </label>
+                      <textarea
+                        rows={3}
+                        className={`${control} text-xs font-mono leading-relaxed`}
+                        placeholder="Bank: Commercial Bank | Account: 123456789 | Name: Mind Maze | Branch: Colombo"
+                        value={form.bankDetails}
+                        onChange={(e) => setForm((f) => ({ ...f, bankDetails: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Shown to students when uploading bank deposit receipts.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Collapsed Advanced Ordering & Stream Settings */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                >
+                  {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  <span>Advanced Settings (Streams, Ordering & Syllabus version)</span>
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800 grid sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Target Stream</label>
+                      <select
+                        className={control}
+                        value={form.stream}
+                        onChange={(e) => setForm((f) => ({ ...f, stream: e.target.value }))}
+                      >
+                        {['Both', 'Maths', 'Bio', 'Physical Science', 'Biological Science', 'Non-stream'].map((s) => (
+                          <option key={s} value={s}>
+                            {s === 'Both' ? 'Maths and Bio' : s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Syllabus</label>
+                      <select
+                        className={control}
+                        value={form.syllabus}
+                        onChange={(e) => setForm((f) => ({ ...f, syllabus: e.target.value }))}
+                      >
+                        <option value="current">Current syllabus</option>
+                        <option value="old">Old syllabus</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Topic Order</label>
+                        <input
+                          type="number"
+                          min={0}
+                          className={control}
+                          value={form.topicOrder}
+                          onChange={(e) => setForm((f) => ({ ...f, topicOrder: Number(e.target.value) }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Lesson Order</label>
+                        <input
+                          type="number"
+                          min={0}
+                          className={control}
+                          value={form.lessonOrder}
+                          onChange={(e) => setForm((f) => ({ ...f, lessonOrder: Number(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Related Past Papers section */}
+                    <div className="sm:col-span-3 border-t border-white/5 pt-3 space-y-2">
+                      <label className="block text-xs font-medium text-slate-400">
+                        Link Related Past Papers ({related.length} selected)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="search"
+                          placeholder="Search past papers..."
+                          className={control}
+                          value={paperSearch}
+                          onChange={(e) => setPaperSearch(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPapersOnly(!selectedPapersOnly)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                            selectedPapersOnly
+                              ? 'bg-purple-600 text-white border-purple-500'
+                              : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                          }`}
+                        >
+                          {selectedPapersOnly ? 'Selected only' : 'All papers'}
+                        </button>
+                      </div>
+
+                      <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl bg-slate-900 p-2 border border-slate-800">
+                        {papers.map((p: any) => (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-xs text-slate-300 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={related.includes(p.id)}
+                              onChange={(e) =>
+                                setRelated((prev) =>
+                                  e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                                )
+                              }
+                            />
+                            <span>{p.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('curriculum')}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
+                >
+                  <span>Continue to Curriculum Flow</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: COURSERA-STYLE CURRICULUM FLOW (VIDEOS, DOCS, GUIDES, QUIZZES) */}
+          {activeTab === 'curriculum' && (() => {
+            const sequentialBlocks = curriculumBlocks
+              .map((block, originalIndex) => ({ block, originalIndex }))
+              .filter((item) => item.block.type !== 'live_class');
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Header / Intro banner */}
+                <div className="rounded-xl bg-gradient-to-r from-indigo-950/60 to-purple-950/60 p-4 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-indigo-400" />
+                      <h4 className="font-bold text-white text-sm">
+                        Coursera-Style Curriculum Flow ({sequentialBlocks.length} Items)
+                      </h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        Sequential Timeline
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                      Sequence your course components downwards in the order students will follow:
+                      mix <strong>Video Lessons</strong>, <strong>Document Notes (PDFs)</strong>, <strong>Practice Quizzes</strong>, and <strong>Reading Guides</strong>.
+                    </p>
+                  </div>
+
+                  {sequentialBlocks.length === 0 && (videos.length > 0 || resources.length > 0 || form.description) && (
+                    <button
+                      type="button"
+                      onClick={importExistingIntoCurriculum}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>⚡ Import Existing Items to Timeline</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Add Toolbar */}
+                <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add Step:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => addCurriculumBlock('video')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer"
+                  >
+                    <Video className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>+ Video / YouTube Lesson</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => addCurriculumBlock('document')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>+ PDF Document / Notes</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => addCurriculumBlock('description')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>+ Guide / Description Section</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => addCurriculumBlock('quiz')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>+ Quiz & MCQs</span>
+                  </button>
+                </div>
+
+                {/* Empty State */}
+                {sequentialBlocks.length === 0 ? (
+                  <div className="text-center py-12 rounded-xl border border-dashed border-slate-700 bg-slate-900/40 space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto shadow-inner">
+                      <Layers className="w-7 h-7" />
+                    </div>
+                    <div className="max-w-md mx-auto">
+                      <p className="text-sm font-bold text-white">Curriculum Timeline is Empty</p>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Add YouTube lectures, PDF documents, study guides, and quizzes in the order students will follow downwards!
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumBlock('video')}
+                        className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-cyan-600/20"
+                      >
+                        <Video className="w-3.5 h-3.5" /> Add Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumBlock('document')}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> Add Document
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumBlock('description')}
+                        className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" /> Add Description
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumBlock('quiz')}
+                        className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-600/20"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" /> Add Quiz / MCQs
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {sequentialBlocks.map(({ block, originalIndex }, seqIdx) => {
+                      const idx = originalIndex;
+                      const isFirst = seqIdx === 0;
+                      const isLast = seqIdx === sequentialBlocks.length - 1;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-2xl border p-4.5 space-y-3.5 transition-all shadow-md ${
+                          block.type === 'video'
+                            ? 'bg-slate-900/90 border-cyan-500/30'
+                            : block.type === 'document'
+                            ? 'bg-slate-900/90 border-emerald-500/30'
+                            : block.type === 'quiz'
+                            ? 'bg-slate-900/90 border-amber-500/30 ring-1 ring-amber-500/10'
+                            : 'bg-slate-900/90 border-indigo-500/30'
+                        }`}
+                      >
+                        {/* Top Block Header: Sequence #, Type Pill, Reorder and Delete Buttons */}
+                        <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-black text-xs flex items-center justify-center">
+                              {seqIdx + 1}
+                            </span>
+
+                            {block.type === 'video' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                <Video className="w-3 h-3 text-cyan-400" />
+                                Video Lecture
+                              </span>
+                            )}
+                            {block.type === 'document' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <FileText className="w-3 h-3 text-emerald-400" />
+                                PDF Document / Handout
+                              </span>
+                            )}
+                            {block.type === 'description' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                <BookOpen className="w-3 h-3 text-indigo-400" />
+                                Reading Guide / Description
+                              </span>
+                            )}
+                            {block.type === 'quiz' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40">
+                                <HelpCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                Quiz / MCQs ({block.quizQuestions?.length || 0} Questions)
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Move Up / Down & Remove */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => moveSequentialBlock(seqIdx, 'up')}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white dark:border-transparent disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => moveSequentialBlock(seqIdx, 'down')}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white dark:border-transparent disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(idx)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer ml-1"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Form fields based on block type */}
+
+                        {block.type === 'video' && (
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Video Title <span className="text-cyan-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Part 1: Core Principles"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  YouTube URL <span className="text-cyan-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="https://www.youtube.com/watch?v=..."
+                                  value={block.url || ''}
+                                  onChange={(e) => updateBlock(idx, { url: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Video Notes / Description (Optional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="Key formulas, timestamps, or summary points..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+
+                            {/* Companion PDF Attachment for Side-by-Side Viewing */}
+                            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span>Attach Companion PDF Notes / Tute Sheet</span>
+                                </label>
+                                <span className="text-[11px] text-cyan-400/80">Opens side-by-side with video for students</span>
+                              </div>
+
+                              {(block.recordingPdfUrl || block.pdfUrl || block.pendingFile) ? (
+                                <div className="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-cyan-500/30 text-xs">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                                    <span className="font-semibold text-slate-200 truncate">
+                                      {block.pendingFile?.name || block.recordingPdfFileName || block.pdfFileName || 'Attached PDF Notes'}
+                                    </span>
+                                    {block.pendingFile && (
+                                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                                        Ready to upload
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateBlock(idx, { pendingFile: undefined, pdfUrl: '', pdfFileName: '', recordingPdfUrl: '', recordingPdfFileName: '' })}
+                                    className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer text-xs flex items-center gap-1"
+                                    title="Remove attached PDF"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Remove
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 rounded-lg bg-slate-900/50 hover:bg-slate-900 cursor-pointer transition">
+                                  <Upload className="w-4 h-4 text-cyan-400 shrink-0" />
+                                  <span className="text-xs text-slate-300">Click to attach PDF notes / tute sheet (Displays on right side of video)</span>
+                                  <input
+                                    type="file"
+                                    accept=".pdf,application/pdf"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        updateBlock(idx, {
+                                          pendingFile: file,
+                                          pdfFileName: file.name,
+                                          recordingPdfFileName: file.name,
+                                        });
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'document' && (
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Document Title <span className="text-emerald-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Lecture Notes & Worked Examples"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Attach PDF Document / Slide
+                                </label>
+                                <div className="space-y-2">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,application/pdf"
+                                    className="block w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-600/30 file:text-emerald-300 hover:file:bg-emerald-600/40 file:cursor-pointer cursor-pointer border border-slate-700 rounded-xl bg-slate-900/80 p-1"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        updateBlock(idx, {
+                                          pendingFile: file,
+                                          pdfFileName: file.name,
+                                          title:
+                                            block.title && block.title !== 'Lecture Notes (PDF)'
+                                              ? block.title
+                                              : file.name.replace(/\.[^/.]+$/, ''),
+                                          size: file.size,
+                                        });
+                                      }
+                                    }}
+                                  />
+                                  {block.pendingFile && (
+                                    <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-semibold bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                      <span className="truncate">Ready to upload: {block.pendingFile.name} ({(block.pendingFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                                    </div>
+                                  )}
+                                  {!block.pendingFile && block.pdfFileName && (
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                                      <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                      <span className="truncate">
+                                        Saved PDF: {block.pdfFileName}
+                                        {typeof block.size === 'number' && block.size > 0
+                                          ? ` (${(block.size / (1024 * 1024)).toFixed(2)} MB)`
+                                          : ''}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Optional: Pick from existing library if course already has files */}
+                            {resources.length > 0 && (
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1">
+                                  Or Link from Course PDF Library:
+                                </label>
+                                <select
+                                  className={control}
+                                  value={block.pdfUrl || ''}
+                                  onChange={(e) => {
+                                    const chosen = resources.find((r) => r.path === e.target.value);
+                                    updateBlock(idx, {
+                                      pdfUrl: e.target.value,
+                                      pdfFileName: chosen ? chosen.title : block.pdfFileName,
+                                      size: chosen ? chosen.size : block.size,
+                                    });
+                                  }}
+                                >
+                                  <option value="">-- Choose from existing course PDFs --</option>
+                                  {resources.map((r) => (
+                                    <option key={r.id} value={r.path}>
+                                      {r.title}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Document Notes / Instructions (Optional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="e.g. Please read pages 1-12 before attending the live session..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'description' && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Section Heading / Title <span className="text-indigo-400">*</span>
+                              </label>
+                              <input
+                                required
+                                className={control}
+                                placeholder="e.g. Module Overview & Essential Background"
+                                value={block.title || ''}
+                                onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Content / Study Guidance (Text) <span className="text-indigo-400">*</span>
+                              </label>
+                              <textarea
+                                required
+                                rows={4}
+                                className={control}
+                                placeholder="Write comprehensive guidelines, derivation steps, formula references, or instructions for students..."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {block.type === 'quiz' && (
+                          <div className="space-y-4">
+                            <div className="grid sm:grid-cols-3 gap-3">
+                              <div className="sm:col-span-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                  Quiz Title <span className="text-amber-600 dark:text-amber-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Practice Quiz & Knowledge Check"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div className="sm:col-span-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                  Passing Score (%) <span className="text-amber-600 dark:text-amber-400">*</span>
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    required
+                                    className={control}
+                                    placeholder="50"
+                                    value={block.passPercentage ?? 50}
+                                    onChange={(e) => updateBlock(idx, { passPercentage: Number(e.target.value) || 0 })}
+                                  />
+                                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                                </div>
+                              </div>
+
+                              <div className="sm:col-span-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                  Pass Guidance (Optional)
+                                </label>
+                                <input
+                                  className={control}
+                                  placeholder="e.g. Score required percentage to complete step."
+                                  value={block.description || ''}
+                                  onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Question Cards List */}
+                            <div className="space-y-3 pt-1">
+                              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                                  <CheckSquare className="w-3.5 h-3.5" />
+                                  <span>Questions ({block.quizQuestions?.length || 0})</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => addQuestionToBlock(idx)}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  <span>Add Question</span>
+                                </button>
+                              </div>
+
+                              {(!block.quizQuestions || block.quizQuestions.length === 0) ? (
+                                <div className="text-center py-6 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 text-xs text-amber-700 dark:text-amber-300">
+                                  No questions added yet. Click &quot;Add Question&quot; to create MCQs for this quiz block.
+                                </div>
+                              ) : (
+                                block.quizQuestions.map((q, qIdx) => (
+                                  <div
+                                    key={qIdx}
+                                    className="p-4 rounded-xl bg-slate-100/90 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 space-y-3 shadow-sm"
+                                  >
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[11px] font-black border border-amber-500/30">
+                                          {qIdx + 1}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-800 dark:text-white">Question {qIdx + 1}</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        <select
+                                          className="text-xs py-1 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-cyan-300 font-semibold focus:outline-none"
+                                          value={q.questionType || 'mcq'}
+                                          onChange={(e) => updateQuestionInBlock(idx, qIdx, { questionType: e.target.value as any })}
+                                        >
+                                          <option value="mcq">Multiple Choice (MCQ)</option>
+                                          <option value="text">Written Answer (Requires Admin Review)</option>
+                                        </select>
+
+                                        {block.quizQuestions && block.quizQuestions.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeQuestionFromBlock(idx, qIdx)}
+                                            className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold flex items-center gap-1 transition cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                            <span>Remove</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                        Question Text <span className="text-amber-600 dark:text-amber-400">*</span>
+                                      </label>
+                                      <textarea
+                                        required
+                                        rows={2}
+                                        className={control}
+                                        placeholder="e.g. The figure shows a micrometer (pitch 0.5 mm, 50 divisions). The reading is..."
+                                        value={q.questionText}
+                                        onChange={(e) =>
+                                          updateQuestionInBlock(idx, qIdx, { questionText: e.target.value })
+                                        }
+                                      />
+                                    </div>
+
+                                    {/* Question Diagram / Figure Uploader */}
+                                    <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-2">
+                                      <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                                          <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                                          <span>Question Diagram / Figure (Optional)</span>
+                                        </label>
+                                        <span className="text-[10px] text-slate-400">Attach diagrams, micrometer figures, circuits, etc.</span>
+                                      </div>
+
+                                      {q.imageUrl ? (
+                                        <div className="flex items-center gap-3">
+                                          <img
+                                            src={q.imageUrl}
+                                            alt="Question diagram"
+                                            className="max-h-24 max-w-xs rounded-lg border border-slate-700 object-contain bg-slate-950 p-1 shadow"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => updateQuestionInBlock(idx, qIdx, { imageUrl: '', imagePublicId: '' })}
+                                            className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3 h-3" /> Remove Diagram
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/webp"
+                                            id={`quiz-q-img-${idx}-${qIdx}`}
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                              const file = e.target.files?.[0];
+                                              if (!file) return;
+                                              try {
+                                                const res = await api.uploadQuizQuestionImage(file);
+                                                updateQuestionInBlock(idx, qIdx, { imageUrl: res.url, imagePublicId: res.publicId });
+                                              } catch (err: any) {
+                                                alert(err?.message || 'Could not upload question diagram.');
+                                              }
+                                            }}
+                                          />
+                                          <label
+                                            htmlFor={`quiz-q-img-${idx}-${qIdx}`}
+                                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition"
+                                          >
+                                            <Upload className="w-3.5 h-3.5" />
+                                            <span>Upload Diagram Image</span>
+                                          </label>
+                                          <span className="text-[10px] text-slate-500">PNG, JPG, or WebP</span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Question Type: Written Answer vs MCQ */}
+                                    {q.questionType === 'text' ? (
+                                      <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/20 text-xs text-amber-300/90 leading-relaxed flex items-start gap-2">
+                                        <HelpCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                                        <span>Students will type their written response. When submitted, you can review, score, and grade their answer in the Enrollments section to mark this step completed.</span>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {/* Options */}
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">
+                                              Options ({q.options.length})
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => addOptionToQuestion(idx, qIdx)}
+                                              disabled={q.options.length >= 6}
+                                              className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                                            >
+                                              <Plus className="w-3 h-3" /> Add Option
+                                            </button>
+                                          </div>
+
+                                          <div className="grid sm:grid-cols-2 gap-2">
+                                            {q.options.map((opt, optIdx) => (
+                                              <div key={optIdx} className="relative">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 w-5 text-center">
+                                                    {String.fromCharCode(65 + optIdx)}.
+                                                  </span>
+                                                  <input
+                                                    required
+                                                    className={control}
+                                                    placeholder={`Option ${optIdx + 1}`}
+                                                    value={opt}
+                                                    onChange={(e) => {
+                                                      const newOpts = [...q.options];
+                                                      newOpts[optIdx] = e.target.value;
+                                                      updateQuestionInBlock(idx, qIdx, { options: newOpts });
+                                                    }}
+                                                  />
+                                                  {q.options.length > 2 && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => removeOptionFromQuestion(idx, qIdx, optIdx)}
+                                                      className="p-1 rounded text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition cursor-pointer"
+                                                      title="Delete option"
+                                                    >
+                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Correct Option & Explanation */}
+                                        <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                                              Correct Answer <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                                            </label>
+                                            <select
+                                              className={control}
+                                              value={q.correctOptionIndex}
+                                              onChange={(e) =>
+                                                updateQuestionInBlock(idx, qIdx, {
+                                                  correctOptionIndex: Number(e.target.value),
+                                                })
+                                              }
+                                            >
+                                              {q.options.map((opt, optIdx) => (
+                                                <option key={optIdx} value={optIdx}>
+                                                  Option {String.fromCharCode(65 + optIdx)} {opt ? `(${opt.slice(0, 30)})` : ''}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-400 mb-1">
+                                              Explanation (Optional feedback)
+                                            </label>
+                                            <input
+                                              className={control}
+                                              placeholder="Explain why this option is correct..."
+                                              value={q.explanation || ''}
+                                              onChange={(e) =>
+                                                updateQuestionInBlock(idx, qIdx, { explanation: e.target.value })
+                                              }
+                                            />
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Quick Add at bottom */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('live_class')}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Radio className="w-3.5 h-3.5 animate-pulse" /> + Live Class
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('video')}
+                      className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Video className="w-3.5 h-3.5" /> + Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('document')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> + Document
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('description')}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> + Description
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addCurriculumBlock('quiz')}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" /> + Quiz & MCQs
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between pt-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('info')}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                >
+                  ← Back to Overview
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('live_classes')}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition cursor-pointer"
+                  >
+                    <Radio className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Next: Live Classes →</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                  >
+                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+          {/* TAB 3: DEDICATED LIVE CLASSES (SCHEDULED SESSIONS) */}
+          {activeTab === 'live_classes' && (() => {
+            const liveItems = curriculumBlocks
+              .map((block, originalIndex) => ({ block, originalIndex }))
+              .filter((item) => item.block.type === 'live_class');
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Live Classes Header / Banner */}
+                <div className="rounded-xl bg-gradient-to-r from-rose-950/60 to-red-950/60 p-4 border border-rose-500/30 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-rose-400 animate-pulse" />
+                      <h4 className="font-bold text-white text-sm">
+                        Scheduled Live Classes ({liveItems.length})
+                      </h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        Separate Section
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                      Schedule upcoming Zoom, Google Meet, or Teams live sessions. Live classes appear in the student sidebar and are not locked into the sequential learning progression.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => addCurriculumBlock('live_class')}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/30 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Schedule New Live Class</span>
+                  </button>
+                </div>
+
+                {/* Empty State */}
+                {liveItems.length === 0 ? (
+                  <div className="text-center py-12 rounded-xl border border-dashed border-slate-700 bg-slate-900/40 space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-rose-600/15 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto shadow-inner">
+                      <Radio className="w-7 h-7" />
+                    </div>
+                    <div className="max-w-md mx-auto">
+                      <h5 className="text-sm font-bold text-white mb-1">No Live Classes Scheduled</h5>
+                      <p className="text-xs text-slate-400 mb-4">
+                        You haven't scheduled any live sessions for this lesson yet. Students can still access all sequential curriculum items (videos, documents, quizzes).
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumBlock('live_class')}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-rose-600/20"
+                      >
+                        <Plus className="w-4 h-4" /> Schedule First Live Class
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {liveItems.map(({ block, originalIndex }, liveIdx) => {
+                      const idx = originalIndex;
+                      return (
+                        <div
+                          key={idx}
+                          className="rounded-2xl border p-4.5 space-y-3.5 transition-all shadow-md bg-slate-900/90 border-rose-500/30 ring-1 ring-rose-500/10"
+                        >
+                          {/* Top Header */}
+                          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/5 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black text-xs flex items-center justify-center">
+                                {liveIdx + 1}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <Radio className="w-3 h-3 text-rose-400 animate-pulse" />
+                                Live Class Session
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(idx)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                              title="Delete Live Class"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Live Class Form */}
+                          <div className="space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Live Class Title <span className="text-rose-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  className={control}
+                                  placeholder="e.g. Live Discussion & Revision Session"
+                                  value={block.title || ''}
+                                  onChange={(e) => updateBlock(idx, { title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Platform / Meeting App
+                                </label>
+                                <select
+                                  className={control}
+                                  value={block.meetingPlatform || 'Zoom'}
+                                  onChange={(e) => updateBlock(idx, { meetingPlatform: e.target.value })}
+                                >
+                                  <option value="Zoom">Zoom</option>
+                                  <option value="Google Meet">Google Meet</option>
+                                  <option value="Microsoft Teams">Microsoft Teams</option>
+                                  <option value="YouTube Live">YouTube Live</option>
+                                  <option value="Other">Other Platform</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                  Live Meeting URL (Link) <span className="text-rose-400">*</span>
+                                </label>
+                                <input
+                                  required
+                                  type="url"
+                                  className={control}
+                                  placeholder="https://zoom.us/j/... or https://meet.google.com/..."
+                                  value={block.liveLink || ''}
+                                  onChange={(e) => updateBlock(idx, { liveLink: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                                  <span>Scheduled Date & Time</span>
+                                  <span className="text-[10px] text-amber-400 font-medium">Auto-deletes 5h after this time</span>
+                                </label>
+                                <input
+                                  type="datetime-local"
+                                  className={control}
+                                  value={block.scheduledTime ? (block.scheduledTime.length >= 16 ? block.scheduledTime.slice(0, 16) : block.scheduledTime) : ''}
+                                  onChange={(e) => updateBlock(idx, { scheduledTime: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                Instructions / Notes for Students
+                              </label>
+                              <textarea
+                                rows={2}
+                                className={control}
+                                placeholder="e.g. Have your tutorial sheet ready. Mic must be muted upon entry."
+                                value={block.description || ''}
+                                onChange={(e) => updateBlock(idx, { description: e.target.value })}
+                              />
+                            </div>
+
+                            {/* Friendly Note: Recordings are added as video lessons */}
+                            <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800 flex items-start gap-2.5 text-xs text-slate-300">
+                              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                              <p>
+                                <strong className="text-white">Need to upload a recording after the class?</strong> Add it as a normal video lecture in{' '}
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab('curriculum')}
+                                  className="text-indigo-400 font-semibold underline hover:text-indigo-300 cursor-pointer"
+                                >
+                                  2. Curriculum Flow
+                                </button>
+                                .
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Navigation */}
+                <div className="flex items-center justify-between pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('curriculum')}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    ← Back to Curriculum Flow
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                  >
+                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* PERSISTENT BOTTOM ACTION BAR */}
+          <div className="border-t border-white/10 pt-5 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400">Status:</span>
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                  form.status === 'published'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}
+              >
+                {form.status === 'published' ? '● Ready to Publish' : '○ Save as Draft'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {editing && (
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={busy}
+                onClick={(e) => {
+                  setForm((f) => ({ ...f, status: 'draft' }));
+                  setTimeout(() => {
+                    const submitBtn = document.getElementById('save-lesson-btn');
+                    submitBtn?.click();
+                  }, 50);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+              >
+                Save as Draft
+              </button>
+
+              <button
+                id="save-lesson-btn"
+                type="submit"
+                disabled={busy}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {busy ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Saving Lesson...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{editing ? 'Update & Publish Lesson' : 'Publish Lesson'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </fieldset>
+      </form>
+
+      {/* LESSON DIRECTORY TABLE / LIST */}
+      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-5">
+        <div className="flex items-center justify-between flex-wrap gap-4 border-b border-white/5 pb-4">
+          <div>
+            <h3 className="font-bold text-white text-lg">Existing Lessons ({lessonsPage.pagination.total})</h3>
+            <p className="text-xs text-slate-400">Browse, edit or preview previously created lessons.</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={load}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        {/* Filter bar */}
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="search"
+              className={`${control} pl-9`}
+              placeholder="Search by title, topic..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className={control}
+            value={filterSubject}
+            onChange={(e) => setFilterSubject(e.target.value)}
+          >
+            <option value="">All Subjects</option>
+            {subjects.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className={control}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">All Statuses</option>
+            <option value="published">Published Only</option>
+            <option value="draft">Drafts Only</option>
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12 text-slate-400 text-sm">Loading lessons...</div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 text-sm">
+            No matching lessons found. Create a lesson above.
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {visible.map((l) => (
+              <div
+                key={l._id}
+                className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 dark:bg-slate-950/70 dark:border-slate-800/80 transition flex items-center justify-between flex-wrap gap-4"
+                style={{
+                  backgroundColor: 'var(--lesson-card-bg, rgba(2, 6, 23, 0.7))',
+                  borderColor: 'var(--lesson-border, rgba(51, 65, 85, 0.8))',
+                }}
+              >
+                <div className="space-y-1 max-w-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-cyan-500 dark:text-cyan-300">{l.subject}</span>
+                    <span className="text-slate-400 dark:text-slate-600">•</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{l.topic}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        l.status === 'published'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20'
+                      }`}
+                    >
+                      {l.status}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                        l.isFree || !l.price
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
+                          : l.billingType === 'monthly'
+                          ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30'
+                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
+                      }`}
+                    >
+                      {l.isFree || !l.price
+                        ? 'FREE'
+                        : l.billingType === 'monthly'
+                        ? `Rs. ${(l.monthlyFee || l.price || 0).toLocaleString()} / mo`
+                        : `Rs. ${(l.price || 0).toLocaleString()}`}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">{l.title}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{l.description}</p>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 font-medium">
+                    <span>🎬 {l.videoCount || 0} Videos</span>
+                    <span>•</span>
+                    <span>📄 {l.resourceCount || 0} PDFs</span>
+                    <span>•</span>
+                    <span>⏱️ {l.estimatedMinutes || 15} mins</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => edit(l)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-bold border border-indigo-200 dark:border-indigo-500/30 transition cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreview(l);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:text-white text-xs font-bold border border-slate-300 dark:border-slate-700 transition cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Preview</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(l)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold border border-rose-200 dark:border-rose-500/20 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Pagination {...lessonsPage.pagination} label="Lessons" />
+      </div>
+    </div>
+  );
 };

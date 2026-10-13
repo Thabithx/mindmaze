@@ -28,6 +28,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { ComingSoonModal } from '../ComingSoonModal';
+import { getAuthToken, getStoredUser } from '../../services/api';
 
 interface PastPaperLibraryScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -537,6 +538,12 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 <span>Marking Scheme:</span>
                 <span className="text-emerald-400 font-semibold">{downloadModalPaper.markingSchemeUrl?'Available separately':'Not uploaded'}</span>
               </div>
+              {getStoredUser()?.indexNumber && (
+                <div className="flex justify-between pt-1 border-t border-white/10 text-cyan-300 font-medium">
+                  <span>Watermark:</span>
+                  <span>{getStoredUser().name} ({getStoredUser().indexNumber})</span>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -544,7 +551,10 @@ export const PastPaperLibraryScreen: React.FC<PastPaperLibraryScreenProps> = ({
                 onClick={async () => {
                   try {
                     if (!downloadModalPaper.pdfUrl) throw new Error('This paper has no PDF. Please ask the administrator to upload it again.');
-                    const response = await fetch(downloadModalPaper.pdfUrl);
+                    const token = getAuthToken();
+                    const response = await fetch(downloadModalPaper.pdfUrl, {
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    });
                     if (!response.ok) {
                       const error = await response.json().catch(() => ({}));
                       throw new Error(error.message || 'Could not download this PDF (status ' + response.status + '). Please try again.');
