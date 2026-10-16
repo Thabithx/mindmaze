@@ -219,6 +219,11 @@ router.put('/users/:id/role', protect, adminOnly, async (req: AuthRequest, res: 
       return;
     }
 
+    if (user.role === 'admin' || user.role === 'content_manager') {
+      res.status(403).json({ message: 'Cannot modify the role of an administrator or content manager.' });
+      return;
+    }
+
     user.role = role;
     await user.save();
     res.json({ message: `User role updated to ${role}`, user });
@@ -236,6 +241,11 @@ router.put('/users/:id/status', protect, adminOnly, async (req: AuthRequest, res
       return;
     }
 
+    if (user.role === 'admin' || user.role === 'content_manager') {
+      res.status(403).json({ message: 'Cannot change the status of an administrator or content manager.' });
+      return;
+    }
+
     user.isActive = isActive;
     await user.save();
     res.json({ message: `User status set to ${isActive ? 'Active' : 'Blocked'}`, user });
@@ -250,6 +260,11 @@ router.delete('/users/:id', protect, adminOnly, async (req: AuthRequest, res: Re
     const user = await User.findById(userId);
     if (!user) {
       res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    if (user.role === 'admin' || user.role === 'content_manager') {
+      res.status(403).json({ message: 'Administrators cannot delete other administrator or content manager accounts.' });
       return;
     }
 

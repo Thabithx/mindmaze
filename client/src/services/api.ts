@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
+export const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://mindmaze-30xp.onrender.com/api');
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('mind_maze_token');
@@ -85,6 +85,36 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
 export const practiceImageUrl=(path:string)=>/^https?:\/\//.test(path)?path:API_BASE+path;
 export const paperImageUrl=(paperId:string,imageId:string)=>API_BASE+'/past-papers/'+encodeURIComponent(paperId)+'/question-images/'+encodeURIComponent(imageId);
 
+export const adminEnrollmentSlipUrl = (enrollmentId: string, download = false): string => {
+  const token = getAuthToken();
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE}/enrollments/admin/${encodeURIComponent(enrollmentId)}/slip?${download ? 'download=1' : 'inline=1'}${tokenParam}`;
+};
+
+export const adminSubmissionDownloadUrl = (submissionId: string): string => {
+  const token = getAuthToken();
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE}/enrollments/admin/submissions/${encodeURIComponent(submissionId)}/download${tokenParam}`;
+};
+
+export const getAttributedFileName = (baseTitle: string, defaultExt = '.pdf'): string => {
+  const user = getStoredUser();
+  const cleanTitle = (baseTitle || 'document').trim().replace(/[^a-zA-Z0-9_\-\.\s]/g, '_');
+  const hasExt = /\.[a-zA-Z0-9]+$/.test(cleanTitle);
+  const fullTitle = hasExt ? cleanTitle : `${cleanTitle}${defaultExt}`;
+
+  if (!user || (!user.name && !user.indexNumber)) {
+    return fullTitle;
+  }
+
+  const prefix = [user.indexNumber, user.name]
+    .filter(Boolean)
+    .map((s: string) => String(s).trim().replace(/[^a-zA-Z0-9_-]/g, '_'))
+    .join('_');
+
+  return prefix ? `${prefix}_${fullTitle}` : fullTitle;
+};
+
 // API Methods
 export const api = {
   presentPaper: (p:any) => {
@@ -145,14 +175,24 @@ export const api = {
   savePushSubscription: (subscription: any) => apiFetch('/auth/push-subscription', { method: 'POST', body: JSON.stringify({ subscription }) }),
 
   // Courses
-  courseResourceUrl: (path: string) => {
+  courseResourceUrl: (path: string, options?: { inline?: boolean; download?: boolean }) => {
     if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const token = getAuthToken();
-    const base = API_BASE + path;
-    if (!token) return base;
-    const sep = path.includes('?') ? '&' : '?';
-    return `${base}${sep}token=${encodeURIComponent(token)}`;
+    let finalPath = path;
+    const isRemote = finalPath.startsWith('http://') || finalPath.startsWith('https://');
+    if (!isRemote) {
+      const sep = finalPath.includes('?') ? '&' : '?';
+      if (options?.inline) {
+        finalPath = `${finalPath}${sep}inline=1`;
+      } else if (options?.download) {
+        finalPath = `${finalPath}${sep}download=1`;
+      }
+      const token = getAuthToken();
+      const base = API_BASE + (finalPath.startsWith('/') ? finalPath : '/' + finalPath);
+      if (!token) return base;
+      const sepToken = base.includes('?') ? '&' : '?';
+      return `${base}${sepToken}token=${encodeURIComponent(token)}`;
+    }
+    return finalPath;
   },
   getAdminCourses: (params:Record<string,string>={}) => apiFetch('/courses/admin/list?'+new URLSearchParams(params)),
   updateCourse: (id: string, body: FormData) => apiFetch('/courses/' + id, {method:'PUT',body}),
@@ -162,6 +202,27 @@ export const api = {
     apiFetch('/courses/' + id + '/quiz', {
       method: 'POST',
       body: JSON.stringify({ answers, revision, blockKey }),
+    }),
+  courseBlockDownloadUrl: (courseId: string, blockId: string, options?: { preview?: boolean }) => {
+    const token = getAuthToken();
+    const query = new URLSearchParams();
+    if (token) query.append('token', token);
+    if (options?.preview) query.append('preview', 'true');
+    const qs = query.toString();
+    return `${API_BASE}/courses/${encodeURIComponent(courseId)}/blocks/${encodeURIComponent(blockId)}/download${qs ? '?' + qs : ''}`;
+  },
+  courseBlockResultSheetDownloadUrl: (courseId: string, blockId: string, options?: { preview?: boolean }) => {
+    const token = getAuthToken();
+    const query = new URLSearchParams();
+    if (token) query.append('token', token);
+    if (options?.preview) query.append('preview', 'true');
+    const qs = query.toString();
+    return `${API_BASE}/courses/${encodeURIComponent(courseId)}/blocks/${encodeURIComponent(blockId)}/result-sheet/download${qs ? '?' + qs : ''}`;
+  },
+  submitCoursePaper: (courseId: string, blockId: string, formData: FormData) =>
+    apiFetch(`/courses/${courseId}/blocks/${blockId}/paper-submit`, {
+      method: 'POST',
+      body: formData,
     }),
   uploadQuizQuestionImage: (file: File) => {
     const formData = new FormData();
@@ -247,6 +308,17 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  reviewPaperSubmission: (
+    progressId: string,
+    submissionId: string,
+    body: FormData | any
+  ) => {
+    const isFormData = body instanceof FormData;
+    return apiFetch(`/enrollments/admin/progress/${progressId}/papers/${submissionId}/review`, {
+      method: 'PUT',
+      body: isFormData ? body : JSON.stringify(body),
+    });
+  },
   getStudentDetailedProgress: (userId: string) =>
     apiFetch(`/enrollments/admin/student/${userId}/progress`),
 };

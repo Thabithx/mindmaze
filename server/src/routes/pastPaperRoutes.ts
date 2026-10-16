@@ -1,7 +1,7 @@
 import {readPagination,pageInfo,paperListFilter,PaginationError} from '../services/pagination.js';
 import PaperAsset from '../models/PaperAsset.js';
 import { removeAsset } from '../services/paperAssets.js';
-import { deliverRemotePdf } from '../services/pdfDelivery.js';
+import { deliverRemotePdf, buildAttributedFilename } from '../services/pdfDelivery.js';
 import { watermarkPdf } from '../services/pdfWatermark.js';
 import { extractDownloadWatermark } from '../services/downloadAuth.js';
 import {Router} from 'express';
@@ -78,7 +78,8 @@ router.get('/:id/download',async(req,res)=>{
       const localPath = path.join(directory(), path.basename(p.fileKey));
       const rawBuffer = await readFile(localPath);
       const finalBuffer = await watermarkPdf(rawBuffer, watermark);
-      res.attachment(p.fileName || 'paper.pdf');
+      const downloadName = buildAttributedFilename(p.fileName || 'paper.pdf', watermark);
+      res.attachment(downloadName);
       res.type('application/pdf');
       res.setHeader('Content-Length', finalBuffer.length);
       res.send(finalBuffer);

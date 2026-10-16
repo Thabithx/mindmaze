@@ -11,6 +11,21 @@ const JWT_SECRET = process.env.JWT_SECRET || 'mind_maze_jwt_secret_key_2026_al_a
  * Checks both Authorization header ('Bearer <token>') and query parameter ('?token=<token>').
  */
 export async function extractDownloadWatermark(req: Request): Promise<WatermarkDetails | null> {
+  // 0. If user was already attached by middleware
+  if ((req as any).user) {
+    const user = (req as any).user;
+    if (!user.indexNumber && typeof user.save === 'function') {
+      try {
+        user.indexNumber = await ensureUserIndexNumber(user);
+      } catch {}
+    }
+    return {
+      name: user.name || 'MindMaze Student',
+      indexNumber: user.indexNumber || 'MM-STUDENT',
+      date: new Date().toISOString().split('T')[0],
+    };
+  }
+
   let token: string | undefined;
 
   // 1. Header authorization

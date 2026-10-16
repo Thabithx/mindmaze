@@ -1,11 +1,31 @@
+import path from 'node:path';
 import { Response } from 'express';
 import { watermarkPdf, WatermarkDetails } from './pdfWatermark.js';
+
+export function buildAttributedFilename(
+  fileName: string,
+  watermark?: WatermarkDetails | null
+): string {
+  const cleanOriginal = (fileName || 'document.pdf').trim();
+  const ext = path.extname(cleanOriginal) || '.pdf';
+  const baseName = path.basename(cleanOriginal, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  if (watermark?.indexNumber || watermark?.name) {
+    const studentPart = [watermark.indexNumber, watermark.name]
+      .filter(Boolean)
+      .map((part) => String(part).trim().replace(/[^a-zA-Z0-9_-]/g, '_'))
+      .join('_');
+    return `${studentPart}_${baseName}${ext}`;
+  }
+  return `${baseName}${ext}`;
+}
 
 export async function deliverRemotePdf(
   url: string,
   fileName: string,
   res: Response,
-  watermark?: WatermarkDetails | null
+  watermark?: WatermarkDetails | null,
+  inline?: boolean
 ) {
   let remote: globalThis.Response;
   try {
@@ -37,7 +57,12 @@ export async function deliverRemotePdf(
     // Apply student dynamic watermark
     const finalBuffer = await watermarkPdf(rawBuffer, watermark);
 
-    res.attachment(fileName || 'document.pdf');
+    const safeFileName = buildAttributedFilename(fileName || 'document.pdf', watermark);
+    if (inline) {
+      res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
+    } else {
+      res.attachment(safeFileName);
+    }
     res.type('application/pdf');
     res.setHeader('Content-Length', finalBuffer.length);
     res.send(finalBuffer);

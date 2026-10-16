@@ -2,7 +2,7 @@ import {readPagination,pageInfo,literalSearch,queryText,PaginationError} from '.
 import {Router, RequestHandler} from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
-import {savePdf, removePdf, downloadPdf, saveImage, removeImage} from '../services/pdfStorage.js';
+import {savePdf, removePdf, downloadPdf, saveImage, removeImage, saveSubmissionFile} from '../services/pdfStorage.js';
 import Course from '../models/Course.js';
 import CourseProgress from '../models/CourseProgress.js';
 import PastPaper from '../models/PastPaper.js';
@@ -11,12 +11,14 @@ import {publishedFilter, validateLesson, gradeLesson} from '../services/courseLe
 import {extractDownloadWatermark} from '../services/downloadAuth.js';
 
 const router=Router();
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:25}}).fields([
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:30}}).fields([
   {name:'pdfFiles',maxCount:25},
   {name:'pdfFile',maxCount:5},
+  {name:'resultSheetFiles',maxCount:25},
   {name:'thumbnail',maxCount:1},
   {name:'coverImage',maxCount:1}
 ]);
+const singleSubmissionUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1}}).single('submissionFile');
 const summary=(c:any)=>({_id:String(c._id),title:c.title,description:c.description,subject:c.subject,stream:c.stream,topic:c.topic||'General',topicOrder:c.topicOrder??1,lessonOrder:c.lessonOrder??1,estimatedMinutes:c.estimatedMinutes||15,medium:c.medium||'English',syllabus:c.syllabus||'current',status:c.status||'published',revision:c.revision||0,courseType:c.courseType||(c.isFree?'free':(c.billingType==='monthly'?'monthly':'one_time')),isMonthlyProgram:Boolean(c.isMonthlyProgram),parentCourseId:c.parentCourseId?String(c.parentCourseId):undefined,targetMonth:c.targetMonth||'',validityPeriod:c.validityPeriod||'lifetime',validityMonths:c.validityMonths??0,price:c.price??0,isFree:c.isFree??(c.price===0),billingType:c.billingType||'one_time',monthlyFee:c.monthlyFee||0,bankDetails:c.bankDetails||'',thumbnailUrl:c.thumbnailUrl||'',videoCount:(c.videos?.length||0)+(c.videoUrl?1:0),resourceCount:(c.resources?.length||0)+(c.pdfUrl||c.pdfPublicId?1:0),quizCount:c.quizCount??c.quiz?.length??0,subCourseCount:c.subCourseCount||0});
 function formatSecureVideo(title: string, url: string, admin: boolean, description?: string) {
   let isYouTube = false;
@@ -125,6 +127,24 @@ const present=(c:any,admin=false)=>{
           options: q.options || [],
           ...(admin ? { correctOptionIndex: q.correctOptionIndex, explanation: q.explanation } : {}),
         }));
+      } else if (b.type === 'paper') {
+        const hasPaperFile = Boolean(b.paperUrl || b.pdfUrl || b.paperPublicId || b.pdfPublicId);
+        formatted.paperUrl = b.paperUrl || b.pdfUrl || (hasPaperFile ? `/courses/${c._id}/blocks/${b._id}/download` : '');
+        formatted.paperFileName = b.paperFileName || b.pdfFileName || 'Question Paper.pdf';
+        formatted.pdfUrl = formatted.paperUrl;
+        formatted.pdfFileName = formatted.paperFileName;
+        if (hasPaperFile) {
+          formatted.pdfPath = `/courses/${c._id}/blocks/${b._id}/download`;
+          formatted.paperPath = `/courses/${c._id}/blocks/${b._id}/download`;
+        }
+        const hasResultFile = Boolean(b.resultSheetUrl || b.resultSheetPublicId);
+        formatted.resultSheetUrl = b.resultSheetUrl || (hasResultFile ? `/courses/${c._id}/blocks/${b._id}/result-sheet/download` : '');
+        formatted.resultSheetFileName = b.resultSheetFileName || 'Result Sheet.pdf';
+        if (hasResultFile) {
+          formatted.resultSheetPath = `/courses/${c._id}/blocks/${b._id}/result-sheet/download`;
+        }
+        formatted.totalMarks = b.totalMarks || 100;
+        formatted.deadline = b.deadline || '';
       }
       return formatted;
     }),
@@ -164,17 +184,38 @@ router.post('/admin/quiz-image', protect, contentManagerOnly, imageOnlyUpload, a
 router.param('id',(req,res,next,id)=>{if(!mongoose.isValidObjectId(id)){res.status(400).json({message:'Invalid lesson.'});return;}next();});
 
 // Register named routes before /:id. Public queries always exclude drafts.
-router.get('/admin/topics',protect,contentManagerOnly,async(_req,res)=>{try{
-  const topics=await Course.aggregate([{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
+router.get('/admin/topics',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const topics=await Course.aggregate([{$match:{createdBy:req.user!._id}},{$group:{_id:{subject:'$subject',topic:'$topic'},topicOrder:{$min:'$topicOrder'}}},{$project:{_id:0,subject:'$_id.subject',topic:'$_id.topic',topicOrder:1}},{$sort:{subject:1,topicOrder:1,topic:1}}]);
   res.json({topics});
 }catch(e){fail(res,e);}});
-router.get('/admin/list',protect,contentManagerOnly,async(req,res)=>{try{
-  const requested=readPagination(req.query),filter:any={};
+router.get('/admin/list',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const requested=readPagination(req.query),filter:any={createdBy:req.user!._id};
   for(const key of ['subject','status'])if(queryText(req.query[key]))filter[key]=queryText(req.query[key]);
-  const search=literalSearch(req.query.q);if(search)filter.$or=['title','topic','subject'].map(key=>({[key]:search}));
+  if(req.query.parentCourseId) {
+    filter.parentCourseId = req.query.parentCourseId;
+  } else if (req.query.mainOnly === 'true') {
+    filter.$or = [{ parentCourseId: { $exists: false } }, { parentCourseId: null }];
+  }
+  const search=literalSearch(req.query.q);
+  if(search) {
+    const searchOr = ['title','topic','subject'].map(key=>({[key]:search}));
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+      delete filter.$or;
+    } else {
+      filter.$or = searchOr;
+    }
+  }
   const pagination=pageInfo(await Course.countDocuments(filter),requested);
-  const courses=await Course.find(filter).sort({subject:1,topicOrder:1,lessonOrder:1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
-  res.json({courses:courses.map(c=>present(c,true)),pagination});
+  const courses=await Course.find(filter).sort({createdAt:-1,_id:1}).skip((pagination.page-1)*pagination.pageSize).limit(pagination.pageSize).lean();
+  const withCounts = await Promise.all(courses.map(async (c) => {
+    const subCount = await Course.countDocuments({ parentCourseId: c._id });
+    return {
+      ...present(c, true),
+      subCourseCount: subCount,
+    };
+  }));
+  res.json({courses:withCounts,pagination});
 }catch(e){if(e instanceof PaginationError)res.status(400).json({message:e.message});else fail(res,e);}});
 router.get('/progress',protect,async(req:AuthRequest,res)=>{try{res.json({progress:await CourseProgress.find({user:req.user!._id}).lean()});}catch(e){fail(res,e);}});
 router.get('/',async(req,res)=>{try{
@@ -210,29 +251,145 @@ router.get('/',async(req,res)=>{try{
   res.json({courses:courses.map(summary)});
 }catch(e){fail(res,e);}});
 
-router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(c,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
-router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);await downloadPdf(resource,res,watermark);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}const watermark=await extractDownloadWatermark(req);const isInline=req.query.inline==='1'||req.query.inline==='true';await downloadPdf(c,res,watermark,isInline);}catch(e){if(!res.headersSent)fail(res,e);}});
+router.get('/:id/resources/:resourceId/download',async(req,res)=>{try{const c=await Course.findOne({_id:req.params.id,...publishedFilter});const resource=c?.resources.find((r:any)=>String(r._id)===req.params.resourceId);if(!resource){res.status(404).json({message:'Resource not found.'});return;}const watermark=await extractDownloadWatermark(req);const isInline=req.query.inline==='1'||req.query.inline==='true';await downloadPdf(resource,res,watermark,isInline);}catch(e){if(!res.headersSent)fail(res,e);}});
 router.get('/:id/blocks/:blockId/download',async(req,res)=>{
   try{
     const c=await Course.findOne({_id:req.params.id,...publishedFilter});
     if(!c){res.status(404).json({message:'Lesson not found.'});return;}
-    const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId);
-    if(!block || (block.type !== 'document' && !block.pdfUrl && !block.recordingPdfUrl)){
-      res.status(404).json({message:'Document not found.'});
+    const block=c?.curriculumBlocks?.find((b:any)=>String(b._id)===req.params.blockId) ||
+                (Number.isInteger(Number(req.params.blockId)) ? c?.curriculumBlocks?.[Number(req.params.blockId)] : undefined);
+    if(!block || (block.type !== 'document' && block.type !== 'paper' && !block.pdfUrl && !block.recordingPdfUrl && !block.paperUrl && !block.paperPublicId && !block.pdfPublicId)){
+      res.status(404).json({message:'Document or paper not found.'});
       return;
     }
     const watermark=await extractDownloadWatermark(req);
-    let target: any = block;
-    if (block.pdfUrl && block.pdfUrl.includes('/resources/')) {
-      const match = block.pdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
+    const effectivePdfUrl = block.paperUrl || block.pdfUrl || block.recordingPdfUrl || '';
+    const effectiveFileName = block.paperFileName || block.pdfFileName || block.recordingPdfFileName || 'document.pdf';
+    const effectivePublicId = block.paperPublicId || block.pdfPublicId || block.recordingPdfPublicId || '';
+    const effectiveProvider = block.paperProvider || block.pdfProvider || (effectivePdfUrl.includes('res.cloudinary.com') ? 'cloudinary' : 'local');
+    let target: any = {
+      ...(typeof (block as any)?.toObject === 'function' ? (block as any).toObject() : block),
+      pdfUrl: effectivePdfUrl,
+      pdfFileName: effectiveFileName,
+      pdfProvider: effectiveProvider,
+      pdfPublicId: effectivePublicId,
+    };
+    if (effectivePdfUrl && effectivePdfUrl.includes('/resources/')) {
+      const match = effectivePdfUrl.match(/\/resources\/([a-f\d]{24})\/download/i);
       if (match && match[1]) {
         const linked = c.resources?.find((r: any) => String(r._id) === match[1]);
         if (linked) target = linked;
       }
     }
-    await downloadPdf(target,res,watermark);
+    const isInline=req.query.inline==='1'||req.query.inline==='true';
+    await downloadPdf(target,res,watermark,isInline);
   }catch(e){if(!res.headersSent)fail(res,e);}
 });
+
+router.get('/:id/blocks/:blockId/result-sheet/download', async (req: any, res: any) => {
+  try {
+    const c = await Course.findOne({ _id: req.params.id, ...publishedFilter });
+    if (!c) { res.status(404).json({ message: 'Lesson not found.' }); return; }
+    const blocks: any[] = (c.curriculumBlocks as any[]) || [];
+    const block = blocks.find((b: any) => String(b._id) === req.params.blockId) ||
+                  (/^\d+$/.test(req.params.blockId) ? blocks[parseInt(req.params.blockId, 10)] : undefined);
+    if (!block || !block.resultSheetUrl) {
+      res.status(404).json({ message: 'Result sheet not found or not published yet.' });
+      return;
+    }
+    const watermark = await extractDownloadWatermark(req);
+    const target = {
+      pdfUrl: block.resultSheetUrl,
+      pdfFileName: block.resultSheetFileName || 'result-sheet.pdf',
+      pdfProvider: block.resultSheetProvider || 'cloudinary',
+      pdfPublicId: block.resultSheetPublicId || '',
+    };
+    const isInline = req.query.inline === '1' || req.query.inline === 'true';
+    await downloadPdf(target, res, watermark, isInline);
+  } catch (e) { if (!res.headersSent) fail(res, e); }
+});
+
+router.post(
+  '/:id/blocks/:blockId/paper-submit',
+  protect,
+  (req: any, res: any, next: any) => {
+    singleSubmissionUpload(req, res, (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || 'File upload error.' });
+      next();
+    });
+  },
+  async (req: any, res: any) => {
+    try {
+      const c = await Course.findOne({ _id: req.params.id, ...publishedFilter });
+      if (!c) { res.status(404).json({ message: 'Course not found.' }); return; }
+      const blocks: any[] = (c.curriculumBlocks as any[]) || [];
+      const block = blocks.find((b: any) => String(b._id) === req.params.blockId) ||
+                    (/^\d+$/.test(req.params.blockId) ? blocks[parseInt(req.params.blockId, 10)] : undefined);
+      if (!block) { res.status(404).json({ message: 'Paper section not found.' }); return; }
+
+      let fileData: any = null;
+      if (req.file) {
+        fileData = await saveSubmissionFile(req.file);
+      }
+
+      const studentNotes = typeof req.body.studentNotes === 'string' ? req.body.studentNotes.trim() : '';
+      const blockKey = String(block._id || req.params.blockId);
+      const blockTitle = block.title || req.body.blockTitle || 'Paper';
+
+      let progress = await CourseProgress.findOne({ user: req.user!._id, course: c._id });
+      if (!progress) {
+        progress = new CourseProgress({ user: req.user!._id, course: c._id });
+      }
+
+      const existingSubIndex = (progress.paperSubmissions || []).findIndex((s: any) => s.blockKey === blockKey);
+      let submissionRecord: any;
+
+      if (existingSubIndex >= 0) {
+        submissionRecord = progress.paperSubmissions[existingSubIndex];
+        submissionRecord.submittedAt = new Date();
+        submissionRecord.status = 'pending_review';
+        submissionRecord.studentNotes = studentNotes;
+        if (fileData) {
+          submissionRecord.submissionUrl = fileData.fileUrl;
+          submissionRecord.submissionFileName = fileData.fileName;
+          submissionRecord.submissionPublicId = fileData.publicId;
+          submissionRecord.submissionProvider = fileData.provider;
+        }
+      } else {
+        submissionRecord = {
+          blockKey,
+          blockTitle,
+          submittedAt: new Date(),
+          status: 'pending_review',
+          submissionUrl: fileData?.fileUrl || '',
+          submissionFileName: fileData?.fileName || '',
+          submissionPublicId: fileData?.publicId || '',
+          submissionProvider: fileData?.provider || 'cloudinary',
+          studentNotes,
+          maxMarks: block.totalMarks || 100,
+        };
+        progress.paperSubmissions.push(submissionRecord);
+      }
+
+      // Do not mark step as completed until teacher grades and reviews the paper
+      const completedBlocks = new Set(progress.completedBlocks || []);
+      completedBlocks.delete(blockKey);
+      progress.completedBlocks = Array.from(completedBlocks);
+
+      await progress.save();
+
+      res.json({
+        success: true,
+        message: 'Your paper has been submitted successfully for teacher review!',
+        submission: submissionRecord,
+        progress,
+      });
+    } catch (e: any) {
+      if (!res.headersSent) fail(res, e);
+    }
+  }
+);
 router.get('/:id',async(req,res)=>{try{
   const c=await Course.findOne({_id:req.params.id,...publishedFilter});if(!c){res.status(404).json({message:'Lesson not found.'});return;}
   if(cleanupExpiredLiveClasses(c)){
@@ -371,12 +528,23 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
   try{
     const existing=updating?await Course.findById(req.params.id):null;
     if(updating&&!existing){res.status(404).json({message:'Lesson not found.'});return;}
+    if(existing && existing.createdBy && String(existing.createdBy) !== String(req.user!._id)){
+      res.status(403).json({message:'You can only edit courses created by you.'});
+      return;
+    }
     let details:any,keep:string[];
     try{
       details=validateLesson(req.body);
       keep=req.body.keepResourceIds?JSON.parse(req.body.keepResourceIds):existing?['legacy',...existing.resources.map((r:any)=>String(r._id))]:[];
       if(!Array.isArray(keep)||keep.some(id=>typeof id!=='string'))throw Error('Invalid resource selection.');
     }catch(e:any){res.status(400).json({message:e.message});return;}
+    if(details.parentCourseId) {
+      const parentCourse = await Course.findById(details.parentCourseId);
+      if(!parentCourse || (parentCourse.createdBy && String(parentCourse.createdBy) !== String(req.user!._id))){
+        res.status(403).json({message:'You can only add monthly courses inside a main course created by you.'});
+        return;
+      }
+    }
     if(existing&&Number(req.body.revision)!==(existing.revision||0)){res.status(409).json({message:'This lesson was edited elsewhere. Reload it before saving.'});return;}
     const groups=req.files as Record<string,Express.Multer.File[]>|undefined;
     const files=[...(groups?.pdfFiles||[]),...(groups?.pdfFile||[])];
@@ -406,15 +574,32 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
     if (Array.isArray(details.curriculumBlocks) && saved.length > 0) {
       let fIdx = 0;
       for (const b of details.curriculumBlocks) {
-        if ((b.type === 'document' || b.type === 'video') && (!b.pdfUrl || b.hasNewUpload) && fIdx < saved.length) {
+        if ((b.type === 'document' || b.type === 'video' || b.type === 'paper') && b.hasNewUpload && fIdx < saved.length) {
           const s = saved[fIdx++];
           b.pdfUrl = s.pdfUrl;
           b.pdfPublicId = s.pdfPublicId;
-          b.pdfFileName = s.pdfFileName || b.title || 'Document';
+          b.pdfFileName = s.pdfFileName || b.title || (b.type === 'paper' ? 'Question Paper.pdf' : 'Document');
           b.recordingPdfUrl = s.pdfUrl;
           b.recordingPdfFileName = s.pdfFileName || b.title || 'Document';
+          b.paperUrl = s.pdfUrl;
+          b.paperFileName = s.pdfFileName || b.title || 'Question Paper.pdf';
+          b.paperPublicId = s.pdfPublicId;
+          b.paperProvider = s.pdfProvider || 'raw';
           b.pdfProvider = s.pdfProvider || 'raw';
           b.size = s.size;
+        }
+      }
+    }
+    const resultFiles = (groups?.resultSheetFiles || []) as Express.Multer.File[];
+    if (resultFiles.length > 0 && Array.isArray(details.curriculumBlocks)) {
+      let rfIdx = 0;
+      for (const b of details.curriculumBlocks) {
+        if (b.type === 'paper' && b.hasNewResultSheet && rfIdx < resultFiles.length) {
+          const rSaved = await savePdf(resultFiles[rfIdx++]);
+          b.resultSheetUrl = rSaved.pdfUrl;
+          b.resultSheetFileName = rSaved.pdfFileName || 'Result Sheet.pdf';
+          b.resultSheetPublicId = rSaved.pdfPublicId;
+          b.resultSheetProvider = rSaved.pdfProvider || 'raw';
         }
       }
     }
@@ -457,11 +642,25 @@ const saveLesson=(updating:boolean):RequestHandler=>async(req:AuthRequest,res)=>
 };
 router.post('/',protect,contentManagerOnly,parseUpload,saveLesson(false));
 router.put('/:id',protect,contentManagerOnly,parseUpload,saveLesson(true));
-router.delete('/:id',protect,contentManagerOnly,async(req,res)=>{try{
-  const c=await Course.findByIdAndDelete(req.params.id);if(!c){res.status(404).json({message:'Lesson not found.'});return;}
+router.delete('/:id',protect,contentManagerOnly,async(req:AuthRequest,res)=>{try{
+  const c=await Course.findById(req.params.id);
+  if(!c){res.status(404).json({message:'Course not found.'});return;}
+  if(c.createdBy && String(c.createdBy) !== String(req.user!._id)){
+    res.status(403).json({message:'You can only delete courses created by you.'});
+    return;
+  }
+  const subCount = await Course.countDocuments({ parentCourseId: req.params.id });
+  if (subCount > 0) {
+    res.status(400).json({
+      message: `Cannot delete this main course because it contains ${subCount} monthly course(s). Please delete all monthly courses inside it first.`
+    });
+    return;
+  }
+  await Course.findByIdAndDelete(req.params.id);
   if(c.thumbnailPublicId) await removeImage(c.thumbnailPublicId).catch(()=>{});
   await Promise.all([c,...c.resources].map(r=>removePdf(r).catch(()=>{})));
-  await CourseProgress.deleteMany({course:c._id});res.json({message:'Lesson removed.'});
+  await CourseProgress.deleteMany({course:c._id});
+  res.json({message:'Course removed successfully.'});
 }catch(e){fail(res,e);}});
 
 // Background worker: automatically delete live classes 5 hours after scheduled time

@@ -44,7 +44,7 @@ export async function watermarkPdf(
           size: diagonalFontSize,
           font: fontBold,
           color: rgb(0.5, 0.5, 0.55),
-          opacity: 0.16,
+          opacity: 0.22,
           rotate: degrees(30),
         });
       }

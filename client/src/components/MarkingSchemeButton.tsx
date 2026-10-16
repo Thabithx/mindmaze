@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getAuthToken } from '../services/api';
+import { getAuthToken, getAttributedFileName } from '../services/api';
 
 export function MarkingSchemeButton({ paper }: { paper: any }) {
   const [busy, setBusy] = useState(false);
@@ -27,7 +27,7 @@ export function MarkingSchemeButton({ paper }: { paper: any }) {
             const url = URL.createObjectURL(await r.blob());
             const link = document.createElement('a');
             link.href = url;
-            link.download = paper.title + ' - Marking Scheme.pdf';
+            link.download = getAttributedFileName(`${paper.title} - Marking Scheme`, '.pdf');
             document.body.appendChild(link);
             link.click();
             link.remove();

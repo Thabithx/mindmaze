@@ -20,7 +20,7 @@ export interface CurriculumQuizQuestion {
 
 export interface CurriculumBlock {
   _id?: string;
-  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz';
+  type: 'video' | 'live_class' | 'document' | 'description' | 'quiz' | 'paper';
   title?: string;
   description?: string;
   // Video block
@@ -41,12 +41,23 @@ export interface CurriculumBlock {
   // Document block
   pdfUrl?: string;
   pdfFileName?: string;
+  pdfPath?: string;
   size?: number;
   path?: string;
   pendingFile?: File;
   // Quiz block
   quizQuestions?: CurriculumQuizQuestion[];
   passPercentage?: number;
+  // Paper / Assignment block
+  paperUrl?: string;
+  paperFileName?: string;
+  paperPath?: string;
+  resultSheetUrl?: string;
+  resultSheetFileName?: string;
+  resultSheetPath?: string;
+  totalMarks?: number;
+  deadline?: string;
+  pendingResultSheet?: File;
   // Ordering
   order: number;
 }
@@ -69,6 +80,7 @@ export interface Lesson {
   isMonthlyProgram?: boolean;
   parentCourseId?: string;
   targetMonth?: string;
+  enforceSequentialProgression?: boolean;
   validityPeriod?: '1_month' | '3_months' | '6_months' | '1_year' | 'lifetime';
   validityMonths?: number;
   price?: number;
@@ -120,6 +132,26 @@ export interface QuizSubmissionRecord {
   answers: QuizSubmissionAnswer[];
 }
 
+export interface PaperSubmissionRecord {
+  _id?: string;
+  blockKey: string;
+  blockTitle: string;
+  submittedAt: string;
+  status: 'pending_review' | 'reviewed';
+  submissionUrl?: string;
+  submissionFileName?: string;
+  studentNotes?: string;
+  marks?: number | null;
+  maxMarks?: number;
+  grade?: string;
+  adminFeedback?: string;
+  reviewedBy?: any;
+  reviewedAt?: string;
+  resultSheetUrl?: string;
+  resultSheetFileName?: string;
+  resultSheetPath?: string;
+}
+
 export interface CourseEnrollmentRecord {
   _id: string;
   user: any;
@@ -151,6 +183,7 @@ export interface CourseEnrollmentRecord {
     quizTotal: number;
     lastOpenedAt: string;
     quizSubmissions?: QuizSubmissionRecord[];
+    paperSubmissions?: PaperSubmissionRecord[];
   } | null;
 }
 
@@ -164,6 +197,7 @@ export interface Progress {
   quizTotal: number;
   needsRevision: boolean;
   quizSubmissions?: QuizSubmissionRecord[];
+  paperSubmissions?: PaperSubmissionRecord[];
 }
 
 export const subjects = ['Physics', 'Chemistry', 'Biology', 'Combined Maths', 'ICT'];

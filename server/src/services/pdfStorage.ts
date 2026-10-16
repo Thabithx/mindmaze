@@ -1,4 +1,4 @@
-import { deliverRemotePdf } from './pdfDelivery.js';
+import { deliverRemotePdf, buildAttributedFilename } from './pdfDelivery.js';
 import { watermarkPdf, WatermarkDetails } from './pdfWatermark.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
@@ -69,6 +69,44 @@ export async function saveImage(file: Express.Multer.File) {
   return { url: `/uploads/${key}`, publicId: key };
 }
 
+export async function saveSubmissionFile(file: Express.Multer.File) {
+  const isImage = file.mimetype?.startsWith('image/');
+  const ext = path.extname(file.originalname) || (isImage ? '.jpg' : '.pdf');
+  const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const publicId = `sub_${randomUUID()}_${safeBase}${ext}`;
+
+  if (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.UPLOAD_STORAGE !== 'local'
+  ) {
+    const resourceType = isImage ? 'image' : 'raw';
+    const result: any = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: resourceType, folder: 'mind_maze_submissions', public_id: publicId },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      stream.end(file.buffer);
+    });
+    return {
+      fileUrl: result.secure_url,
+      fileName: file.originalname,
+      publicId: result.public_id,
+      provider: resourceType,
+    };
+  }
+
+  await mkdir(directory(), { recursive: true });
+  await writeFile(path.join(directory(), publicId), file.buffer);
+  return {
+    fileUrl: '',
+    fileName: file.originalname,
+    publicId,
+    provider: 'local',
+  };
+}
+
 export async function removeImage(publicId?: string) {
   if (!publicId) return;
   try {
@@ -86,21 +124,31 @@ export async function removePdf(course: any) {
   else await cloudinary.uploader.destroy(course.pdfPublicId, { resource_type: course.pdfProvider || (course.pdfUrl?.includes('/image/') ? 'image' : 'raw') });
 }
 
-export async function downloadPdf(course: any, res: Response, watermark?: WatermarkDetails | null) {
+export async function downloadPdf(
+  course: any,
+  res: Response,
+  watermark?: WatermarkDetails | null,
+  inline?: boolean
+) {
   if (course.pdfProvider === 'local') {
     const localFilePath = path.join(directory(), path.basename(course.pdfPublicId));
     try {
       const rawBuffer = await readFile(localFilePath);
       const finalBuffer = await watermarkPdf(rawBuffer, watermark);
 
-      res.attachment(course.pdfFileName || 'notes.pdf');
+      const downloadName = buildAttributedFilename(course.pdfFileName || 'notes.pdf', watermark);
+      if (inline) {
+        res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+      } else {
+        res.attachment(downloadName);
+      }
       res.type('application/pdf');
       res.setHeader('Content-Length', finalBuffer.length);
       res.send(finalBuffer);
       return;
     } catch (err: any) {
       if (course.pdfUrl && (course.pdfUrl.startsWith('http://') || course.pdfUrl.startsWith('https://'))) {
-        await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark);
+        await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark, inline);
         return;
       }
       if (!res.headersSent) {
@@ -114,5 +162,5 @@ export async function downloadPdf(course: any, res: Response, watermark?: Waterm
     res.status(404).json({ message: 'This course has no PDF.' });
     return;
   }
-  await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark);
+  await deliverRemotePdf(course.pdfUrl, course.pdfFileName, res, watermark, inline);
 }

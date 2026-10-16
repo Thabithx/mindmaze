@@ -14,6 +14,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && typeof req.query.token === 'string' && req.query.token.trim()) {
+    token = req.query.token.trim();
   }
 
   if (!token) {

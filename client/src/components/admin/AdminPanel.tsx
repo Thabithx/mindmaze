@@ -782,37 +782,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             {!(u.accountVerified||u.telegramVerified)&&u.isActive!==false&&<button type="button" className="px-3 py-1.5 rounded-xl border border-emerald-400/40 text-emerald-300 text-xs" onClick={()=>{setVerificationTarget(u);setVerificationMethod('call');setVerificationError('');}}>Verify manually</button>}
-                            <select aria-label={'Role for '+u.name} value={u.role||'student'} disabled={roleUpdating!==null} onChange={e=>handleToggleRole(u._id,e.target.value)} className="rounded-xl bg-slate-900 border border-white/20 px-3 py-2 text-xs text-white disabled:opacity-50"><option value="student">Student</option><option value="content_manager">Content Manager</option><option value="admin">Admin</option></select>
+                            <select aria-label={'Role for '+u.name} value={u.role||'student'} disabled={roleUpdating!==null||u.role==='admin'||u.role==='content_manager'} onChange={e=>handleToggleRole(u._id,e.target.value)} className="rounded-xl bg-slate-900 border border-white/20 px-3 py-2 text-xs text-white disabled:opacity-50"><option value="student">Student</option><option value="content_manager">Content Manager</option><option value="admin">Admin</option></select>
 
-                            <button
-                              onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
-                              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer min-w-[84px] ${
-                                u.isActive !== false
-                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              }`}
-                            >
-                              {u.isActive !== false ? (
-                                <>
-                                  <UserX className="w-3.5 h-3.5" />
-                                  <span>Block</span>
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="w-3.5 h-3.5" />
-                                  <span>Activate</span>
-                                </>
-                              )}
-                            </button>
+                            {u.role === 'admin' || u.role === 'content_manager' ? (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs font-semibold" title="Administrator account protected">
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>Protected</span>
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleToggleStatus(u._id, u.isActive !== false)}
+                                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer min-w-[84px] ${
+                                    u.isActive !== false
+                                      ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                      : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  }`}
+                                >
+                                  {u.isActive !== false ? (
+                                    <>
+                                      <UserX className="w-3.5 h-3.5" />
+                                      <span>Block</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="w-3.5 h-3.5" />
+                                      <span>Activate</span>
+                                    </>
+                                  )}
+                                </button>
 
-                            <button
-                              onClick={() => handleDeleteUser(u._id, u.name)}
-                              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer"
-                              title="Delete Account & Data"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Delete</span>
-                            </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u._id, u.name)}
+                                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer"
+                                  title="Delete Account & Data"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -45,8 +45,18 @@ export function validateLesson(body: any) {
         pdfProvider: typeof b.pdfProvider === 'string' && b.pdfProvider ? b.pdfProvider : 'cloudinary',
         pdfUrl: typeof b.pdfUrl === 'string' ? b.pdfUrl.trim() : '',
         pdfPublicId: typeof b.pdfPublicId === 'string' ? b.pdfPublicId.trim() : '',
-        pdfFileName: typeof b.pdfFileName === 'string' ? b.pdfFileName.trim() : '',
         size: numericSize,
+        // Paper / Assignment fields
+        paperUrl: typeof b.paperUrl === 'string' ? b.paperUrl.trim() : (typeof b.pdfUrl === 'string' ? b.pdfUrl.trim() : ''),
+        paperFileName: typeof b.paperFileName === 'string' ? b.paperFileName.trim() : (typeof b.pdfFileName === 'string' ? b.pdfFileName.trim() : ''),
+        paperPublicId: typeof b.paperPublicId === 'string' ? b.paperPublicId.trim() : (typeof b.pdfPublicId === 'string' ? b.pdfPublicId.trim() : ''),
+        paperProvider: typeof b.paperProvider === 'string' ? b.paperProvider : 'cloudinary',
+        resultSheetUrl: typeof b.resultSheetUrl === 'string' ? b.resultSheetUrl.trim() : '',
+        resultSheetFileName: typeof b.resultSheetFileName === 'string' ? b.resultSheetFileName.trim() : '',
+        resultSheetPublicId: typeof b.resultSheetPublicId === 'string' ? b.resultSheetPublicId.trim() : '',
+        resultSheetProvider: typeof b.resultSheetProvider === 'string' ? b.resultSheetProvider : 'cloudinary',
+        totalMarks: Number(b.totalMarks) > 0 ? Number(b.totalMarks) : 100,
+        deadline: typeof b.deadline === 'string' ? b.deadline.trim() : '',
         order: Number(b.order) >= 0 ? Number(b.order) : idx,
       };
       if (b.hasNewUpload) sanitized.hasNewUpload = true;
@@ -98,8 +108,11 @@ export function validateLesson(body: any) {
   const parentCourseId = text('parentCourseId') || undefined;
   const bankDetails = text('bankDetails');
   const thumbnailUrl = text('thumbnailUrl');
+  const enforceSequentialProgression = body['enforceSequentialProgression'] === undefined
+    ? true
+    : (body['enforceSequentialProgression'] === true || body['enforceSequentialProgression'] === 'true');
   return {title, description, subject, stream, topic, medium, syllabus, status,
-    price, isFree, billingType, monthlyFee, courseType, isMonthlyProgram, parentCourseId, targetMonth, validityPeriod, validityMonths, bankDetails, thumbnailUrl,
+    price, isFree, billingType, monthlyFee, courseType, isMonthlyProgram, parentCourseId, targetMonth, enforceSequentialProgression, validityPeriod, validityMonths, bankDetails, thumbnailUrl,
     topicOrder: numeric('topicOrder',1,0,1000), lessonOrder: numeric('lessonOrder',1,0,1000), estimatedMinutes: numeric('estimatedMinutes',15,1,600),
     quiz, videos, curriculumBlocks, relatedPaperIds, videoUrl: ''};
 }

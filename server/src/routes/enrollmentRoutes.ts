@@ -9,6 +9,7 @@ import CourseProgress from '../models/CourseProgress.js';
 import User from '../models/User.js';
 import cloudinary from '../config/cloudinary.js';
 import { protect, contentManagerOnly, AuthRequest } from '../middleware/authMiddleware.js';
+import { savePdf } from '../services/pdfStorage.js';
 
 const router = Router();
 const upload = multer({
@@ -23,7 +24,10 @@ async function uploadSlipToCloudinary(file: Express.Multer.File): Promise<{ url:
     file.originalname.toLowerCase().endsWith('.pdf') ||
     (file.buffer && file.buffer.length >= 5 && file.buffer.subarray(0, 1024).includes(Buffer.from('%PDF-')));
 
-  const rawPublicId = `slip_${randomUUID()}_${path.parse(file.originalname).name}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const rawExt = path.extname(file.originalname).toLowerCase();
+  const ext = rawExt || (isPdf ? '.pdf' : '.jpg');
+  const baseName = path.parse(file.originalname).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const rawPublicId = `slip_${randomUUID()}_${baseName}${ext}`;
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -241,14 +245,20 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
       filter.status = status;
     }
 
+    // Only show enrollments for courses created by this admin
+    const adminCourseIds = await Course.find({ createdBy: req.user!._id }).distinct('_id');
+
     if (typeof courseId === 'string' && mongoose.isValidObjectId(courseId)) {
-      filter.course = courseId;
+      const isMine = adminCourseIds.some((id: any) => String(id) === String(courseId));
+      filter.course = isMine ? courseId : { $in: [] };
+    } else {
+      filter.course = { $in: adminCourseIds };
     }
 
     // Fetch enrollments
     const enrollments = await CourseEnrollment.find(filter)
       .populate('user', 'name email indexNumber mobileNumber whatsappNumber phoneNumber phone role stream')
-      .populate('course', 'title subject stream topic price isFree status')
+      .populate('course', 'title subject stream topic price isFree status thumbnailUrl courseType monthlyFee billingType targetMonth parentCourseId isMonthlyProgram')
       .populate('reviewedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
@@ -281,6 +291,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
               quizTotal: progress.quizTotal,
               lastOpenedAt: progress.lastOpenedAt,
               quizSubmissions: progress.quizSubmissions || [],
+              paperSubmissions: progress.paperSubmissions || [],
             }
           : null,
       };
@@ -304,8 +315,14 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
       });
     }
 
-    // Calculate aggregated statistics
-    const allEnrollmentsForStats = await CourseEnrollment.find().lean();
+    // Fetch courses created by this admin for the Course Cards Overview
+    const myCourses = await Course.find(
+      { createdBy: req.user!._id },
+      'title subject stream topic price isFree status thumbnailUrl courseType monthlyFee billingType targetMonth parentCourseId isMonthlyProgram createdAt'
+    ).sort({ createdAt: -1 }).lean();
+
+    // Calculate aggregated statistics scoped to this admin's courses
+    const allEnrollmentsForStats = await CourseEnrollment.find({ course: { $in: adminCourseIds } }).lean();
     const stats = {
       total: allEnrollmentsForStats.length,
       pending: allEnrollmentsForStats.filter((e) => e.status === 'pending').length,
@@ -318,6 +335,7 @@ router.get('/admin/all', protect, contentManagerOnly, async (req: AuthRequest, r
 
     res.json({
       enrollments: finalEnrollments,
+      courses: myCourses,
       stats,
     });
   } catch (err: any) {
@@ -360,9 +378,18 @@ router.put('/admin/:id/status', protect, contentManagerOnly, async (req: AuthReq
       update.amountPaid = amountPaid;
     }
 
+    const currentEnr = await CourseEnrollment.findById(id).populate('course');
+    if (!currentEnr) {
+      res.status(404).json({ message: 'Enrollment record not found.' });
+      return;
+    }
+    const courseObj: any = currentEnr.course;
+    if (courseObj && courseObj.createdBy && String(courseObj.createdBy) !== String(req.user!._id)) {
+      res.status(403).json({ message: 'You can only manage enrollments for courses created by you.' });
+      return;
+    }
+
     if (status === 'approved') {
-      const currentEnr = await CourseEnrollment.findById(id).populate('course');
-      const courseObj: any = currentEnr?.course;
       const validity = courseObj?.validityMonths ?? (courseObj?.validityPeriod === '1_month' ? 1 : courseObj?.validityPeriod === '3_months' ? 3 : courseObj?.validityPeriod === '6_months' ? 6 : courseObj?.validityPeriod === '1_year' ? 12 : 0);
       update.expiresAt = computeExpiresAt(validity);
       update.enrolledAt = new Date();
@@ -403,9 +430,15 @@ router.delete('/admin/:id', protect, contentManagerOnly, async (req: AuthRequest
       return;
     }
 
-    const enrollment = await CourseEnrollment.findById(id);
+    const enrollment = await CourseEnrollment.findById(id).populate('course');
     if (!enrollment) {
       res.status(404).json({ message: 'Enrollment not found.' });
+      return;
+    }
+
+    const courseObj: any = enrollment.course;
+    if (courseObj && courseObj.createdBy && String(courseObj.createdBy) !== String(req.user!._id)) {
+      res.status(403).json({ message: 'You can only delete enrollments for courses created by you.' });
       return;
     }
 
@@ -442,9 +475,14 @@ router.put(
         return;
       }
 
-      const progress = await CourseProgress.findById(progressId);
+      const progress = await CourseProgress.findById(progressId).populate('course', 'createdBy');
       if (!progress) {
         res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to review this submission.' });
         return;
       }
 
@@ -506,6 +544,127 @@ router.put(
   }
 );
 
+// 7b. Admin: Review & Grade a student's paper submission (Marks, Grade, Feedback & Result Sheet)
+router.put(
+  '/admin/progress/:progressId/papers/:submissionId/review',
+  protect,
+  contentManagerOnly,
+  upload.single('resultSheetFile'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { progressId, submissionId } = req.params;
+      const { marks, maxMarks, grade, adminFeedback, status } = req.body;
+
+      if (!mongoose.isValidObjectId(progressId) || !mongoose.isValidObjectId(submissionId)) {
+        res.status(400).json({ message: 'Invalid progress or submission ID.' });
+        return;
+      }
+
+      const progress = await CourseProgress.findById(progressId).populate('course', 'createdBy');
+      if (!progress) {
+        res.status(404).json({ message: 'Progress record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to review this submission.' });
+        return;
+      }
+
+      const submission: any = (progress.paperSubmissions as any)?.id(submissionId);
+      if (!submission) {
+        res.status(404).json({ message: 'Paper submission not found.' });
+        return;
+      }
+
+      if (marks !== undefined && marks !== '') {
+        submission.marks = Number(marks);
+      }
+      if (maxMarks !== undefined && maxMarks !== '') {
+        submission.maxMarks = Number(maxMarks) || 100;
+      }
+      if (typeof grade === 'string') submission.grade = grade.trim();
+      if (typeof adminFeedback === 'string') submission.adminFeedback = adminFeedback.trim();
+      submission.status = (status === 'pending_review' || status === 'pending') ? 'pending_review' : 'reviewed';
+      submission.reviewedBy = req.user!._id;
+      submission.reviewedAt = new Date();
+
+      // If admin attached a Result Sheet file specifically for this paper
+      if (req.file) {
+        try {
+          const rsSaved = await savePdf(req.file);
+          submission.resultSheetUrl = rsSaved.pdfUrl;
+          submission.resultSheetFileName = rsSaved.pdfFileName || 'Result Sheet.pdf';
+          submission.resultSheetPublicId = rsSaved.pdfPublicId;
+          submission.resultSheetProvider = rsSaved.pdfProvider || 'cloudinary';
+        } catch (uploadErr: any) {
+          console.error('[Result Sheet Upload Error]:', uploadErr);
+        }
+      }
+
+      // Mark completed in completedBlocks only when reviewed
+      const completedBlocks = new Set<string>(progress.completedBlocks || []);
+      if (submission.status === 'reviewed' && submission.blockKey) {
+        completedBlocks.add(submission.blockKey);
+      } else if (submission.status === 'pending_review' && submission.blockKey) {
+        completedBlocks.delete(submission.blockKey);
+      }
+      progress.completedBlocks = Array.from(completedBlocks);
+
+      await progress.save();
+
+      res.json({
+        success: true,
+        message: 'Paper submission reviewed and graded successfully.',
+        submission,
+        progress,
+      });
+    } catch (err: any) {
+      console.error('[Paper Review Error]:', err);
+      res.status(500).json({ message: err?.message || 'Could not update paper review.' });
+    }
+  }
+);
+
+// 7c. Admin: Download or view a student's submitted paper file
+router.get(
+  '/admin/submissions/:submissionId/download',
+  protect,
+  contentManagerOnly,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { submissionId } = req.params;
+      if (!mongoose.isValidObjectId(submissionId)) {
+        res.status(400).json({ message: 'Invalid submission ID.' });
+        return;
+      }
+
+      const progress = await CourseProgress.findOne({ 'paperSubmissions._id': submissionId })
+        .populate('user', 'name indexNumber')
+        .populate('course', 'createdBy');
+      if (!progress) {
+        res.status(404).json({ message: 'Submission record not found.' });
+        return;
+      }
+
+      if ((progress.course as any)?.createdBy && String((progress.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not have permission to download this submission.' });
+        return;
+      }
+
+      const submission: any = (progress.paperSubmissions as any)?.id(submissionId);
+      if (!submission || !submission.submissionUrl) {
+        res.status(404).json({ message: 'Student submission file not found.' });
+        return;
+      }
+
+      res.redirect(submission.submissionUrl);
+    } catch (err: any) {
+      res.status(500).json({ message: 'Failed to access submission.' });
+    }
+  }
+);
+
 // 8. Admin: Get comprehensive learning progress & enrolled courses for a specific student
 router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async (req: AuthRequest, res: Response) => {
   try {
@@ -521,15 +680,18 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
       return;
     }
 
-    // Fetch all course enrollments for this student
-    const enrollments = await CourseEnrollment.find({ user: userId })
+    // Fetch only courses created by this admin
+    const adminCourseIds = await Course.find({ createdBy: req.user!._id }).distinct('_id');
+
+    // Fetch course enrollments for this student scoped to this admin's courses
+    const enrollments = await CourseEnrollment.find({ user: userId, course: { $in: adminCourseIds } })
       .populate('course', 'title subject stream topic price isFree status curriculumBlocks videoCount estimatedMinutes')
       .populate('reviewedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Fetch all course progress records for this student
-    const progressRecords = await CourseProgress.find({ user: userId }).lean();
+    // Fetch course progress records for this student scoped to this admin's courses
+    const progressRecords = await CourseProgress.find({ user: userId, course: { $in: adminCourseIds } }).lean();
     const progressMap = new Map<string, any>();
     for (const p of progressRecords) {
       progressMap.set(String(p.course), p);
@@ -621,6 +783,7 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
         },
         documents: docsProgress,
         quizSubmissions,
+        paperSubmissions: prog?.paperSubmissions || [],
       };
     });
 
@@ -644,5 +807,150 @@ router.get('/admin/student/:userId/progress', protect, contentManagerOnly, async
     res.status(500).json({ message: err?.message || 'Could not fetch student progress.' });
   }
 });
+
+// Helper to deliver bank deposit slip buffer with detected MIME type and attributed filename
+async function handleDeliverSlip(enrollment: any, req: AuthRequest, res: Response) {
+  if (!enrollment || !enrollment.slipUrl) {
+    res.status(404).json({ message: 'No bank deposit slip found for this enrollment.' });
+    return;
+  }
+
+  let remote: globalThis.Response;
+  try {
+    remote = await fetch(enrollment.slipUrl, { signal: AbortSignal.timeout(30000) });
+  } catch {
+    res.status(504).json({ message: 'The cloud storage provider did not respond. Please try again shortly.' });
+    return;
+  }
+
+  if (!remote.ok) {
+    res.status(502).json({ message: 'Could not retrieve bank slip from cloud storage.' });
+    return;
+  }
+
+  const arrayBuffer = await remote.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Detect MIME type and extension using magic bytes
+  let mimeType = 'application/octet-stream';
+  let ext = '.bin';
+
+  if (buffer.length >= 5 && buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'))) {
+    mimeType = 'application/pdf';
+    ext = '.pdf';
+  } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    mimeType = 'image/jpeg';
+    ext = '.jpg';
+  } else if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) {
+    mimeType = 'image/png';
+    ext = '.png';
+  } else if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString() === 'RIFF' &&
+    buffer.subarray(8, 12).toString() === 'WEBP'
+  ) {
+    mimeType = 'image/webp';
+    ext = '.webp';
+  } else if (enrollment.slipFileName) {
+    const parsed = path.extname(enrollment.slipFileName).toLowerCase();
+    if (parsed === '.pdf') {
+      mimeType = 'application/pdf';
+      ext = '.pdf';
+    } else if (parsed === '.jpg' || parsed === '.jpeg') {
+      mimeType = 'image/jpeg';
+      ext = '.jpg';
+    } else if (parsed === '.png') {
+      mimeType = 'image/png';
+      ext = '.png';
+    }
+  }
+
+  const user: any = enrollment.user || {};
+  const studentIndex = user.indexNumber || 'NO_INDEX';
+  const studentName = (user.name || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeFilename = `${studentIndex}_${studentName}_BankDepositSlip${ext}`;
+
+  const isDownload = req.query.download === '1' || req.query.download === 'true';
+
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader(
+    'Content-Disposition',
+    `${isDownload ? 'attachment' : 'inline'}; filename="${safeFilename}"`
+  );
+  res.setHeader('Content-Length', buffer.length);
+  res.send(buffer);
+}
+
+// 12. View / Download Bank Deposit Slip for Admin (content manager or admin)
+router.get(
+  '/admin/:id/slip',
+  protect,
+  contentManagerOnly,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        res.status(400).json({ message: 'Invalid enrollment ID.' });
+        return;
+      }
+
+      const enrollment = await CourseEnrollment.findById(id)
+        .populate('user', 'name indexNumber email')
+        .populate('course', 'createdBy');
+      if (!enrollment) {
+        res.status(404).json({ message: 'Enrollment not found.' });
+        return;
+      }
+      if ((enrollment.course as any)?.createdBy && String((enrollment.course as any).createdBy) !== String(req.user!._id)) {
+        res.status(403).json({ message: 'Forbidden. You do not own this course.' });
+        return;
+      }
+      await handleDeliverSlip(enrollment, req, res);
+    } catch (err: any) {
+      console.error('[Admin Slip Delivery Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to deliver bank deposit slip.' });
+      }
+    }
+  }
+);
+
+// 13. View / Download Bank Deposit Slip for Student (or Admin)
+router.get(
+  '/:id/slip',
+  protect,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        res.status(400).json({ message: 'Invalid enrollment ID.' });
+        return;
+      }
+
+      const enrollment = await CourseEnrollment.findById(id).populate('user', 'name indexNumber email');
+      if (!enrollment) {
+        res.status(404).json({ message: 'Enrollment not found.' });
+        return;
+      }
+
+      const isManager = ['admin', 'content_manager'].includes(req.user!.role);
+      const isOwner = String(enrollment.user?._id || enrollment.user) === String(req.user!._id);
+      if (!isManager && !isOwner) {
+        res.status(403).json({ message: 'Access denied.' });
+        return;
+      }
+
+      await handleDeliverSlip(enrollment, req, res);
+    } catch (err: any) {
+      console.error('[Slip Delivery Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to deliver bank deposit slip.' });
+      }
+    }
+  }
+);
 
 export default router;

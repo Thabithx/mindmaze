@@ -7,7 +7,7 @@ import PastPaper from '../models/PastPaper.js';
 import PaperAsset from '../models/PaperAsset.js';
 import {protect,contentManagerOnly} from '../middleware/authMiddleware.js';
 import {saveAsset,removeAsset,assetDirectory} from '../services/paperAssets.js';
-import {deliverRemotePdf} from '../services/pdfDelivery.js';
+import {deliverRemotePdf, buildAttributedFilename} from '../services/pdfDelivery.js';
 import {extractDownloadWatermark} from '../services/downloadAuth.js';
 import {watermarkPdf} from '../services/pdfWatermark.js';
 const router=Router();
@@ -33,7 +33,8 @@ router.get('/:id/marking-scheme',async(req,res)=>{try{
     const localPath=path.join(assetDirectory(),path.basename(asset.fileKey!));
     const rawBuffer=await readFile(localPath);
     const finalBuffer=await watermarkPdf(rawBuffer,watermark);
-    res.attachment(asset.fileName!||'marking-scheme.pdf');
+    const downloadName = buildAttributedFilename(asset.fileName || 'marking-scheme.pdf', watermark);
+    res.attachment(downloadName);
     res.type('application/pdf');
     res.setHeader('Content-Length',finalBuffer.length);
     res.send(finalBuffer);
